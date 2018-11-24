@@ -1,0 +1,230 @@
+#+TITLE: Lee
+[[https://travis-ci.org/spawnfest/Lee.svg?branch=master]]
+
+* User stories
+
+- As a power user I want to configure tools without looking into their
+  code. I want a useful error message instead of a BEAM dump when I
+  make an error in the config. I want documentation about all
+  configurable parameters, their purpose and type.
+
+- As a designer I want to focus on the business logic instead of
+  dealing with the boring configuration-related stuff.
+
+There are a few approaches to this conflict:
+
+[[file:doc/images/explanation.png]]
+
+* Explanation
+
+/Lee/ helps creating type-safe, self-documenting configuration for
+Erlang applications. It is basically a data modeling DSL, vaguely
+inspired by [[https://tools.ietf.org/html/rfc7950][YANG]], however scaled down /a lot/.
+
+Software configuration is a solved problem. The solution is to gather
+all the information about the user-facing commands and parameters in
+one place called /data model/ and generate all kinds of code and
+documentation from it, instead of spending a lot of time trying to
+keep everything in sync and inevitably failing in the end.
+
+Unfortunately the existing data modeling solutions are extremely heavy
+and nasty to deal with. One doesn't want to mess with YANG compilers
+and proprietary libraries for a mere small tool, and it's
+understandable. /Lee/ attempts to implement a /reasonably useful/ data
+modeling DSL, some bare-bones libraries for CLI and config file
+parsing, together with the model validation routines in under 3000 LOC
+or so.
+
+* Basic examples
+
+** Type reflection
+
+/Lee/ provides a /base model/ containing definitions necessary for
+veryfying plain Erlang terms. Let's use it to verify some basic types:
+
+#+BEGIN_SRC erlang
+-include("lee_types.hrl").
+
+main() ->
+  Model = lee:base_model(),
+  ok = lee:validate_term(Model, boolean(), true),
+  ok = lee:validate_term(Model, boolean(), false),
+  {error, "Expected true | false, got 42"} =
+    lee:validate_term(Model, boolean(), 42),
+  ok = lee:validate_term(Model, string(), "Hi!"),
+  {error, "Expected list(0..1114111), got [100, -1]"} =
+    lee:validate_term(Model, string(), [100, -1]).
+#+END_SRC
+
+Now let's play with some custom types. =lee:type_refl/2= quasifunction
+invokes a parse transform generating a /type reflection/ from a
+dialyzer type spec. It takes two arguments: first one is the namespace
+for the generated types, and the second one is a list of local type
+definitions that should be included in the model.
+
+#+BEGIN_SRC erlang
+-include("lee_types.hrl").
+
+-type stupid_list(A) :: {cons, A, stupid_list(A)}
+                      | nil
+                      .
+
+-type foo(A) :: stupid_list(A)
+              | list(A)
+              .
+
+main() ->
+  %% Generate a model containing bar/1 type:
+  Model0 = lee:type_refl([my, model], [foo/1]),
+  %% Merge it with the Lee base model:
+  {ok, Model} = lee_model:merge( lee:base_model()
+                               , Model0
+                               ),
+  ok = lee:validate_term(Model, foo(atom()), [foo, bar]),
+  ok = lee:validate_term(Model, foo(atom()), {cons, foo, {cons, bar, nil}}).
+#+END_SRC
+
+Note: you don't need to include all the types in the list, Lee will
+figure out the dependencies.
+
+Note: opaque types can't be reflected (obviously).
+
+Note: =lee:type_refl= generates a local function with the same name as
+the type. You will get a compilation error if you try to reflect a
+type =foo/0= and there is already a function =foo/0=.
+
+** Model validation
+
+Validating terms against typespecs in the runtime is cool and all, but
+it's still a chore. It can be avoided be defining a custom data model
+describing configuration parameters and their types. Let's create one:
+
+#+BEGIN_SRC erlang
+-include("lee_types.hrl").
+
+main(Config) ->
+    %% Define a custom data model:
+    MyModel = #{ foo => {[value]
+                        , #{ mandatory => true
+                           , type => boolean()
+                           , oneliner => "This value controls fooing"
+                           , doc => "Blah blah blah"
+                           }}
+               , bar => {[value]
+                        , #{ type => integer()
+                           , oneliner => "This value controls baring"
+                           , doc => "Blah blah blah"
+                           , default => 42
+                           }}
+               },
+    %% [value] is a `metatype' which specifies that [foo] and [bar] can be
+    %% retrieved from a config. There may be multiple metatypes; their
+    %% attributes are row-polymorphic
+
+    %% Merge our model with a few standard ones:
+    {ok, Model} = lee_model:merge([ %% Define erlang native types:
+                                    lee:base_model()
+                                    %% Define some basic metatypes, like `value'
+                                  , lee:base_metamodel()
+                                    %% Specify that the config is stored as a simple map:
+                                  , lee_map_getter:model()
+                                  , MyModel
+                                  ]),
+    %% Now we can verify `Config' against the model:
+    case lee:validate(Model, Config) of
+      {ok, _Warnings} ->
+          %% And finally we can read values from the config
+          %% And they _do have_ the specified types!
+          {ok, Foo} = lee:get(Model, Config, [foo]),
+          {ok, Bar} = lee:get(Model, Config, [bar]),
+          ok;
+      {error, Errors, _Warnings} ->
+          io:format("Invalid config: ~p~n", [Errors]),
+          halt(1)
+     end.
+#+END_SRC
+
+** Creating the config
+
+And of course reading the config is model-driven too. Extend the model
+with a few new metatypes:
+
+#+BEGIN_SRC erlang
+    MyModel = #{ foo => {[value, environment_variable, cli_param]
+                        , #{ mandatory => true
+                           , type => string()
+                           , oneliner => "This value controls fooing"
+                           , doc => "Blah blah blah"
+                           , env => "FOO"
+                           , cli_param => "foo"
+                           , cli_short => "f"
+                           }}
+               , bar => {[value, cli_param]
+                        , #{ type => integer()
+                           , oneliner => "This value controls baring"
+                           , doc => "Blah blah blah"
+                           , default => 42
+                           , cli_param => "bar"
+                           , cli_short => "b"
+                           }}
+               }
+#+END_SRC
+
+And merge it with some new metamodels:
+
+#+BEGIN_SRC erlang
+    {ok, Model} = lee_model:merge([ lee:base_model()
+                                  , lee:base_metamodel()
+                                  , lee_cli:metamodel()
+                                  , lee_env:metamodel()
+                                  , lee_map_getter:model()
+                                  , MyModel
+                                  ])
+#+END_SRC
+
+Reading the config is done like this:
+
+#+BEGIN_SRC erlang
+main(CliAttrs) ->
+   ...
+   Config0 = lee_env:read(Model),
+   Config1 = lee_cli:read(Model, CliAttrs),
+   %% Let's suppose CLI arguments should override environment variables:
+   Config = maps:merge(Config0, Config1),
+   ...
+#+END_SRC
+
+And it's all that it takes.
+
+** TODO Documentation
+
+Note that the model already contains the docstrings which can be
+easily transformed to manpages and what not. TBD
+
+* Demo application
+
+[[file:src/demo.erl]] contains a simple application that reads some
+environment variables and CLI options, then uses this data to open a
+file containing erlang terms, which then get validated against a
+model.
+
+It's completely useless and just demonstrates that /Lee/ library
+(somewhat) works.
+
+Build by running make (assuming rebar3 is present in the path).
+
+Try:
+
+#+BEGIN_SRC bash
+_build/default/bin/demo --file priv/demo-correct-1.eterm
+FILE="priv/demo-correct-2.eterm" _build/default/bin/demo
+FILE="priv/demo-correct-2.eterm" _build/default/bin/demo --file priv/demo-incorrect-2.eterm
+#+END_SRC
+
+* TODO Metamodels
+Metamodels validate user models. TBD
+
+* Name?
+
+This library is named after Tsung-Dao Lee, a physicist who predicted
+P-symmetry violation together with Chen-Ning Yang.

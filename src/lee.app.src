@@ -1,0 +1,15 @@
+{application, lee,
+ [{description, "Simple data modelling DSL"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {applications,
+   [kernel,
+    stdlib
+   ]},
+  {env,[]},
+  {modules, []},
+
+  {maintainers, []},
+  {licenses, ["public domain"]},
+  {links, []}
+ ]}.

@@ -1,0 +1,6 @@
+{list,
+  [foo, bar, baz]}.
+
+{deps, [ {map_sets, {git, "0.1.1", 1}}
+       , {getopt,   "1.0.1"} %% TODO: Get rid of it
+       ]}.
