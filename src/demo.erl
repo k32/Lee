@@ -2,6 +2,8 @@
 
 -export([main/1]).
 
+-include("lee_types.hrl").
+
 -type stupid_list(A) :: {cons, A, stupid_list(A)}
                       | nil
                       .
@@ -17,8 +19,6 @@
 -type maybe_stupid_list(A) :: list(A)
                             | stupid_list(A)
                             .
-
--include("lee_types.hrl").
 
 %% Configuration model, it validates CLI parameters and environment
 %% variables:
@@ -43,8 +43,6 @@ model1() ->
                            }}
                },
     {ok, Model} = lee_model:merge([ lee:base_model()
-                                  , lee:base_metamodel()
-                                  , lee_map_getter:model()
                                   , lee_cli:metamodel()
                                   , lee_env:metamodel()
                                   , MyModel
@@ -69,8 +67,6 @@ model2() ->
                               }}
                  },
     {ok, Model} = lee_model:merge([ lee:base_model()
-                                  , lee:base_metamodel()
-                                  , lee_map_getter:model()
                                   , lee_consult:metamodel()
                                   , lee:type_refl([my_types], [ maybe_stupid_list/1
                                                               , dep_spec/0

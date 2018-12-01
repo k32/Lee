@@ -19,7 +19,7 @@
         , reflected_types :: #{local_tref() => {Namespace :: lee:key(), AST :: ast()}}
         , custom_verif    :: #{local_tref() => ast()}
         , line            :: integer() | undefined
-        , namespace       :: lee:key()
+        , namespace       :: lee:key() | undefined
         }).
 
 %% Macro convention: uppercase macros are for matching, lower-case
@@ -80,7 +80,8 @@
             )).
 
 -define(typeref(Namespace, Name, Arity, Attrs, Params),
-        ?tuple([ mk_lee_key(Line, Namespace, Name, Arity)
+        ?tuple([ ?atom(type)
+               , mk_lee_key(Line, Namespace, Name, Arity)
                , Attrs
                , mk_literal_list(Line, Params)
                ])).
@@ -171,7 +172,7 @@ mk_lee_type(Type, State0) ->
     State1#s{reflected_types = M0 #{Type => Val}}.
 
 -spec mk_type_alias(atom(), integer(), local_tref(), ast()) ->
-                           #{local_tref() => ast()}.
+                           ast().
 mk_type_alias(Module, Line, {Name, Arity}, AST) ->
     Variables = mk_literal_list( Line
                                , fun(I) -> ?INT(Line, I) end

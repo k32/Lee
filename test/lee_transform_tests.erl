@@ -2,6 +2,8 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+-include_lib("lee/include/lee.hrl").
+
 -include_lib("lee/include/lee_types.hrl").
 
 -define(typedef(TN, Type, TypeVars),
@@ -61,7 +63,7 @@ type_refl_test() ->
                                       , remote_types/0
                                       , stupid_list/1
                                       ]),
-    ?assertMatch( {[foo, bar, {foo_atom, 0}], #{}, []}
+    ?assertMatch( #type{id = [foo, bar, {foo_atom, 0}]}
                 , foo_atom()
                 ),
     ?assertEqual( ?typedef(foo_atom, foo, [])
@@ -97,7 +99,7 @@ type_refl_test() ->
     ?assertEqual( ?typedef(remote_types, list(boolean()), [])
                 , catch lee_model:get([foo, bar, {remote_types, 0}], Model)
                 ),
-    ?assertMatch( {[foo, bar, {stupid_list, 1}], _, [xxxx]}
+    ?assertMatch( #type{id = [foo, bar, {stupid_list, 1}], parameters = [xxxx]}
                 , stupid_list(xxxx)
                 ),
     ?assertEqual( ?typedef( stupid_list

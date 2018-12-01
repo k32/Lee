@@ -1,5 +1,5 @@
 #+TITLE: Lee
-[[https://travis-ci.org/spawnfest/Lee.svg?branch=master]]
+[[https://travis-ci.org/k32/Lee.svg?branch=master]]
 
 * User stories
 
