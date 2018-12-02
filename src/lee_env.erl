@@ -1,36 +1,42 @@
 -module(lee_env).
 
-%% Sketchiness level > 9000, for demonstration only
-
 -export([ metamodel/0
         , read/1
+        , read_to/2
         ]).
+
+-include("lee_internal.hrl").
 
 -spec metamodel() -> lee:model_fragment().
 metamodel() ->
-    %% TODO: There's no metamodel validation yet...
-    #{}.
+    #{ metatype => #{ environment_variable =>
+                          {[metatype]
+                          , #{}
+                          }}
+     }.
 
--spec read(lee:model_fragment()) -> term().
-read(Model) ->
+-spec read(lee:model()) -> [{lee:key(), term()}].
+read(#model{model = Model}) ->
     Idx = lee_model:mk_metatype_index(Model),
-    CliArgs = map_sets:to_list(maps:get(environment_variable, Idx, #{})),
-    {_, #{ empty := Empty
-         , put   := Put
-         }, _} = lee_model:get([lee, storage], Model),
+    EnvVars = map_sets:to_list(maps:get(environment_variable, Idx, #{})),
     lists:foldl( fun(Var, Acc) ->
-                         read_val(Model, Put, Var, Acc)
+                         read_val(Model, Var, Acc)
                  end
-               , Empty(Model)
-               , CliArgs
+               , []
+               , EnvVars
                ).
 
-read_val(Model, Put, Var, Acc) ->
+-spec read_to(lee:model(), lee:data()) -> lee:data().
+read_to(Model, Data) ->
+    Patch = read(Model),
+    lee_storage:put(Model, Data, Patch).
+
+read_val(Model, Var, Acc) ->
     {_, Attrs, _} = lee_model:get(Var, Model),
     EnvVar = maps:get(env, Attrs),
     case os:getenv(EnvVar) of
         false ->
             Acc;
         Str ->
-            Put(Model, Acc, Var, Str)
+            [{Var, Str} | Acc]
     end.

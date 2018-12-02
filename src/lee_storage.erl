@@ -2,7 +2,11 @@
 
 -include("lee_internal.hrl").
 
--export([new/2]).
+-export([ new/2
+        , get/3
+        , put/3
+        , list/3
+        ]).
 
 -export_type([ storage/0
              ]).
@@ -13,10 +17,10 @@
     storage().
 
 -callback get(lee:model(), storage(), lee:key()) ->
-    term().
+    {ok, term()} | undefined.
 
--callback put(lee:model(), storage(), [{lee:key(), term()}]) ->
-    storage().
+-callback put(lee:model(), A, [{lee:key(), term()}]) -> A
+    when A :: storage().
 
 -callback list(lee:model(), storage(), lee:key()) ->
     [lee:key()].
@@ -26,3 +30,20 @@ new(Module, Options) ->
     #data{ backend = Module
          , data    = Module:create(Options)
          }.
+
+-spec get(lee:model(), #data{}, lee:key()) ->
+                 {ok, term()} | undefined.
+get(Model, #data{backend = Backend, data = Data}, Key) ->
+    Backend:get(Model, Data, Key).
+
+-spec put(lee:model(), lee:data(), [{lee:key(), term()}]) ->
+                 lee:data().
+put(Model, #data{backend = Backend, data = Data}, Patch) ->
+    #data{ backend = Backend
+         , data = Backend:put(Model, Data, Patch)
+         }.
+
+-spec list(lee:model(), lee:data(), lee:key()) ->
+                 [lee:list()].
+list(Model, #data{backend = Module, data = Data}, Key) ->
+    Module:list(Model, Data, Key).
