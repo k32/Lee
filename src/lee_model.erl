@@ -3,6 +3,7 @@
 %% API exports
 -export([ merge/1
         , merge/2
+        , create/2
         , desugar/1
         , traverse/3
         , map/2
@@ -15,6 +16,8 @@
 %% Types
 %%====================================================================
 
+-include("lee_internal.hrl").
+
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
@@ -23,35 +26,69 @@
 %% API functions
 %%====================================================================
 
+%% @doc Merge multiple model fragments with the metamodel
+-spec create([lee:model_fragment()], [lee:model_fragment()]) ->
+                    {ok, #model{}} | {error, [term()]}.
+create(MetaModels, Models) ->
+    case [merge(MetaModels), merge(Models)] of
+        [{ok, MMs}, {ok, Ms}] ->
+            {ok, #model{ metamodel = desugar(MMs)
+                       , model     = desugar(Ms)
+                       }};
+        T ->
+            {error, [Err || {error, Err} <- T]}
+    end.
+
 %% @doc Merge multiple model fragments while checking for clashing
 %% names
--spec merge([lee:model_fragment()]) ->
-                   {ok, lee:model_fragment()}
-                 | {error, string()}
-                 .
+-spec merge([A]) -> {ok, A}
+                  | {error, term()}
+      when A :: lee:model_fragment() | lee:model().
+merge(L = [#model{metamodel = MM0}|_]) ->
+    case merge([M || #model{model = M} <- L]) of
+        {ok, M} ->
+            #model{ metamodel = MM0
+                  , model     = M
+                  };
+        Err ->
+            Err
+    end;
 merge(FragList) ->
     try
         {ok, lists:foldl( fun(MF, Acc) ->
-                                  merge([], Acc, desugar(MF))
+                                  merge([], Acc, MF)
                           end
                         , #{}
                         , FragList
                         )}
     catch Err = {clashing_keys, _} ->
-            Err
+            {error, Err}
     end.
 
-%% @doc Merge two model fragments while checking for clashing names
--spec merge(lee:model_fragment(), lee:model_fragment()) ->
-                   {ok, lee:model_fragment()}
-                 | {clashing_keys, [lee:node_id()]}
-                 .
+%% @doc Merge two models or model fragments while checking for
+%% clashing names
+-spec merge(A, A) -> {ok, A}
+                   | {error, term()}
+      when A :: lee:model_fragment() | lee:model().
+merge( #model{metamodel = MM1, model = M1}
+     , #model{metamodel = MM2, model = M2}
+     ) ->
+    case {MM1 =:= MM2, merge(M1, M2)} of
+        {true, {ok, M}} ->
+            #model{ metamodel = MM1
+                  , model     = M
+                  };
+        {false, _} ->
+            {error, different_metamodels};
+        {_, Err} ->
+            Err
+    end;
 merge(M1, M2) ->
     try
-        {ok, merge([], desugar(M1), desugar(M2))}
+        {ok, merge([], M1, M2)}
     catch
         Err = {clashing_keys, _} ->
-            Err
+            {error, Err}
     end.
 
 %% @doc Get a MOC from the model, assumes that the key is present and
@@ -213,7 +250,7 @@ merge_test() ->
                        , #{foo => #{baz => ?moc}}
                        )
                 ),
-    ?assertMatch( {clashing_keys, [[foo]]}
+    ?assertMatch( {error, {clashing_keys, [[foo]]}}
                 , merge( #{foo => ?moc}
                        , #{foo => ?moc, bar => ?moc}
                        )

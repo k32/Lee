@@ -29,7 +29,7 @@
 %% Types
 %%====================================================================
 
--type data() :: #data{}.
+-type data() :: {data, _, _}.
 
 -type model_fragment() :: #{node_id() => moc() | model_fragment()}.
 
@@ -113,21 +113,33 @@ base_model() ->
 %% metaclasses
 -spec base_metamodel() -> lee:model_fragment().
 base_metamodel() ->
-    namespace([lee, meta]
-             , #{ value =>
-                      {[metatype]
-                      , #{meta_validate => fun validate_value/4}
-                      }
-                , command =>
-                      {[metatype]
-                      , #{meta_validate => fun validate_command/4}
-                      }
-                , valid_file =>
-                      {[metatype]
-                      , #{meta_validate => fun validate_valid_file/4}
-                      }
-                }
-             ).
+    Model = namespace([metatype]
+                     , #{ value =>
+                              {[metatype]
+                              , #{validate_mo => fun validate_value/4}
+                              }
+                        , command =>
+                              {[metatype]
+                              , #{validate_mo => fun validate_command/4}
+                              }
+                        , valid_file =>
+                              {[metatype]
+                              , #{validate_mo => fun validate_valid_file/4}
+                              }
+                        , type =>
+                              {[metatype]
+                              , #{}
+                              }
+                        , typedef =>
+                              {[metatype]
+                              , #{}
+                              }
+                        }
+                     ),
+    {ok, Val} = lee_model:merge( Model
+                               , base_model()
+                               ),
+    Val.
 
 %% @doc A model validating metamodels
 -spec metametamodel() -> lee:model_fragment().
@@ -166,14 +178,14 @@ validate_term(Model, Type = #type{id = TypeName, parameters = Params}, Term) ->
     end.
 
 %% Get a `value' from the config:
--spec get(lee:model_fragment(), #data{}, lee:key()) ->
+-spec get(lee:model(), data(), lee:key()) ->
                  {ok, term()} | undefined.
-get(Model, #data{backend = Module, data = Data}, Key) ->
-    case Module:get(Model, Data, Key) of
+get(Model, Data, Key) ->
+    case lee_storage:get(Model, Data, Key) of
         {ok, Val} ->
             {ok, Val};
         undefined ->
-            {MetaTypes, Attrs, _} = lee_model:get(Key, Model),
+            {MetaTypes, Attrs, _} = lee_model:get(Key, Model#model.model),
             case Attrs of
                 #{default := Val} ->
                     {ok, Val};
@@ -183,12 +195,12 @@ get(Model, #data{backend = Module, data = Data}, Key) ->
     end.
 
 %% Validate the config against a model
--spec validate(lee:model_fragment(), term()) ->
+-spec validate(lee:model(), term()) ->
                             {ok, Warnings :: [string()]}
                           | {error, Errors :: [string()], Warnings :: [string()]}
                           .
 validate(Model, Config) ->
-    ModelIdx = lee_model:mk_metatype_index(Model),
+    ModelIdx = lee_model:mk_metatype_index(Model#model.model),
     {Errors, Warnings} =
         lists:foldl( fun({MT, MOCS}, {E0, W0}) ->
                              {E1, W1} = validate_mt_instances(Model, Config, MT, MOCS),
@@ -209,28 +221,27 @@ validate(Model, Config) ->
 %%====================================================================
 
 validate_mt_instances(Model, Config, MetaTypeId, MOCS) ->
-    try lee_model:get([lee, meta, MetaTypeId], Model) of
-        MT = {[metatype], Attrs, _} ->
-            Validate = maps:get(meta_validate, Attrs),
-            GlobalValidate = maps:get(meta_global_validate, Attrs, fixme),
-            lists:foldl( fun(MOCId, {E0, W0}) ->
-                                 {E1, W1} = validate_moc_instances( Model
-                                                                  , Config
-                                                                  , Validate
-                                                                  , MOCId
-                                                                  ),
-                                 {E1 ++ E0, W1 ++ W0}
-                         end
-                       , {[], []}
-                       , map_sets:to_list(MOCS)
-                       )
-    catch _:_ ->
-            %% TODO Ugly :(
-            {[], []}
-    end.
+    #model{metamodel = Meta} = Model,
+    {[metatype], Attrs, _} = lee_model:get([metatype, MetaTypeId], Meta),
+    Validate = maps:get( validate_mo
+                       , Attrs
+                       , fun(_,_,_,_) -> ok end
+                       ),
+    GlobalValidate = maps:get(meta_global_validate, Attrs, fixme),
+    lists:foldl( fun(MOCId, {E0, W0}) ->
+                         {E1, W1} = validate_moc_instances( Model
+                                                          , Config
+                                                          , Validate
+                                                          , MOCId
+                                                          ),
+                         {E1 ++ E0, W1 ++ W0}
+                 end
+               , {[], []}
+               , map_sets:to_list(MOCS)
+               ).
 
-validate_moc_instances(Model, Config, Validate, MOCId) ->
-    MOC = lee_model:get(MOCId, Model),
+validate_moc_instances(Model = #model{model = MF}, Config, Validate, MOCId) ->
+    MOC = lee_model:get(MOCId, MF),
     case Validate(Model, Config, MOCId, MOC) of
         ok ->
             {[], []};
@@ -243,7 +254,7 @@ validate_value(Model, Data, MOId, {_, Attrs, _}) ->
     Mandatory = maps:get(mandatory, Attrs, false),
     case {get(Model, Data, MOId), Mandatory} of
         {{ok, Term}, _} ->
-            validate_term(Model, Type, Term);
+            validate_term(Model#model.model, Type, Term);
         {undefined, false} ->
             ok;
         {undefined, true} ->
@@ -327,10 +338,9 @@ validate_test() ->
                        , #{type => lee_types:integer()}
                        }
               },
-    {ok, Model} = lee_model:merge([ lee:base_model()
-                                  , lee:base_metamodel()
-                                  , Model0
-                                  ]),
+    {ok, Model} = lee_model:create( [lee:base_metamodel()]
+                                  , [lee:base_model(), Model0]
+                                  ),
     ?valid(#{[foo] => true}),
     ?valid(#{[foo] => true, [bar] => 1}),
     ?valid(#{[foo] => false, [bar] => -12}),
@@ -348,10 +358,9 @@ get_test() ->
                        , #{type => lee_types:integer(), default => 42}
                        }
               },
-    {ok, Model} = lee_model:merge([ lee:base_model()
-                                  , lee:base_metamodel()
-                                  , Model0
-                                  ]),
+    {ok, Model} = lee_model:create( [lee:base_metamodel()]
+                                  , [lee:base_model(), Model0]
+                                  ),
     Config = #data{ backend = lee_map_storage
                   , data = #{ [foo] => true }
                   },

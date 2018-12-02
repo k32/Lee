@@ -56,11 +56,11 @@ main() ->
     lee:validate_term(Model, string(), [100, -1]).
 #+END_SRC
 
-Now let's play with some custom types. =lee:type_refl/2= quasifunction
-invokes a parse transform generating a /type reflection/ from a
-dialyzer type spec. It takes two arguments: first one is the namespace
-for the generated types, and the second one is a list of local type
-definitions that should be included in the model.
+Now let's play with some custom types. =lee:type_refl/2=
+pseudofunction invokes a parse transform generating a /type
+reflection/ from a dialyzer type spec. It takes two arguments: first
+one is the namespace for the generated types, and the second one is a
+list of local type definitions that should be included in the model.
 
 #+BEGIN_SRC erlang
 -include("lee_types.hrl").
@@ -103,7 +103,7 @@ describing configuration parameters and their types. Let's create one:
 -include("lee_types.hrl").
 
 main(Config) ->
-    %% Define a custom data model:
+    %% Define a custom data model fragment:
     MyModel = #{ foo => {[value]
                         , #{ mandatory => true
                            , type => boolean()
@@ -119,17 +119,17 @@ main(Config) ->
                },
     %% [value] is a `metatype' which specifies that [foo] and [bar] can be
     %% retrieved from a config. There may be multiple metatypes; their
-    %% attributes are row-polymorphic
+    %% attributes are row-polymorphic. Metatypes belong to the _metamodel_.
 
-    %% Merge our model with a few standard ones:
-    {ok, Model} = lee_model:merge([ %% Define erlang native types:
-                                    lee:base_model()
-                                    %% Define some basic metatypes, like `value'
-                                  , lee:base_metamodel()
-                                    %% Specify that the config is stored as a simple map:
-                                  , lee_map_getter:model()
-                                  , MyModel
-                                  ]),
+    %% Let's use Lee's base metamodel. It contains definitions of value
+    %% metaclass and a few others
+    MetamodelFragments = [lee:base_metamodel()],
+
+    %% Add base Erlang types to our custom model fragment:
+    ModelFragments = [lee:base_model(), MyModel],
+
+    %% Merge model and metamodel fragments, creating a model
+    {ok, Model} = lee_model:create(MetamodelFragments, ModelFragments),
     %% Now we can verify `Config' against the model:
     case lee:validate(Model, Config) of
       {ok, _Warnings} ->
@@ -173,13 +173,13 @@ with a few new metatypes:
 And merge it with some new metamodels:
 
 #+BEGIN_SRC erlang
-    {ok, Model} = lee_model:merge([ lee:base_model()
-                                  , lee:base_metamodel()
-                                  , lee_cli:metamodel()
-                                  , lee_env:metamodel()
-                                  , lee_map_getter:model()
-                                  , MyModel
-                                  ])
+    MetamodelFragments = [lee:base_metamodel(), lee_cli:metamodel(), lee_env:metamodel()],
+
+    %% Add base Erlang types to our custom model fragment:
+    ModelFragments = [lee:base_model(), MyModel],
+
+    %% Merge model and metamodel fragments, creating a model
+    {ok, Model} = lee_model:create(MetamodelFragments, ModelFragments),
 #+END_SRC
 
 Reading the config is done like this:
@@ -187,10 +187,9 @@ Reading the config is done like this:
 #+BEGIN_SRC erlang
 main(CliAttrs) ->
    ...
-   Config0 = lee_env:read(Model),
-   Config1 = lee_cli:read(Model, CliAttrs),
-   %% Let's suppose CLI arguments should override environment variables:
-   Config = maps:merge(Config0, Config1),
+   Config0 = lee_storage:new(lee_map_storage, {}),
+   Config1 = lee_env:read_to(Model, Config0),
+   Config = lee_cli:read_to(Model, CliAttrs, Config1),
    ...
 #+END_SRC
 

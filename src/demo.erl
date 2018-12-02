@@ -42,11 +42,14 @@ model1() ->
                            , cli_short => $b
                            }}
                },
-    {ok, Model} = lee_model:merge([ lee:base_model()
-                                  , lee_cli:metamodel()
-                                  , lee_env:metamodel()
-                                  , MyModel
-                                  ]),
+    {ok, Model} = lee_model:create( [ lee:base_metamodel()
+                                    , lee_cli:metamodel()
+                                    , lee_env:metamodel()
+                                    ]
+                                  , [ lee:base_model()
+                                    , MyModel
+                                    ]
+                                  ),
     Model.
 
 %% Term model, it validates files:
@@ -66,28 +69,32 @@ model2() ->
                               , default => []
                               }}
                  },
-    {ok, Model} = lee_model:merge([ lee:base_model()
-                                  , lee_consult:metamodel()
-                                  , lee:type_refl([my_types], [ maybe_stupid_list/1
-                                                              , dep_spec/0
-                                                              ])
-                                  , TermModel
-                                  ]),
+    {ok, Model} = lee_model:create( [ lee:base_metamodel()
+                                    , lee_consult:metamodel()
+                                    ]
+                                  , [ lee:base_model()
+                                    , lee:type_refl([demo], [dep_spec/0, maybe_stupid_list/1])
+                                    , TermModel
+                                    ]
+                                  ),
     Model.
-
 
 main(Args) ->
     CfgModel = model1(),
     TermModel = model2(),
-    Config = maps:merge( lee_env:read(CfgModel)
-                       , lee_cli:read(CfgModel, Args)
-                       ),
+    Config0 = lee_env:read_to( CfgModel
+                             , lee_storage:new(lee_map_storage, {})
+                             ),
+    Config = lee_cli:read_to(CfgModel, Args, Config0),
     case lee:validate(CfgModel, Config) of
         {ok, _} ->
             {ok, File} = lee:get(CfgModel, Config, [file]),
             {ok, Bar} = lee:get(CfgModel, Config, [bar]),
             io:format("file: ~p~n" "bar: ~p~n", [File, Bar]),
-            Terms = lee_consult:read(TermModel, File),
+            Terms = lee_consult:read_to( TermModel
+                                       , File
+                                       , lee_storage:new(lee_map_storage, {})
+                                       ),
             case lee:validate(TermModel, Terms) of
                 {ok, _} ->
                     {ok, List} = lee:get(TermModel, Terms, [list]),

@@ -1,35 +1,46 @@
 -module(lee_cli).
 
-%% Sketchiness level: > 9000. For demonstration only
-
 -export([ metamodel/0
         , read/2
+        , read_to/3
         ]).
+
+-include("lee_internal.hrl").
 
 -spec metamodel() -> lee:model_fragment().
 metamodel() ->
-    %% TODO: There's no metamodel validation yet...
-    #{}.
+    #{metatype => #{ cli_param =>
+                         {[metatype]
+                         , #{validate_mo => fun(_,_,_,_) -> ok end}
+                         }
+                   }}.
 
--spec read(lee:model_fragment(), [string()]) -> term().
+-spec read(lee:model(), [string()]) -> [{lee:key(), term()}].
 read(Model, Args) ->
-    Idx = lee_model:mk_metatype_index(Model),
+    Idx = lee_model:mk_metatype_index(Model#model.model),
     Params = map_sets:to_list(maps:get(cli_param, Idx, #{})),
-    Spec = [mk_getopt_spec(Model, I) || I <- Params],
+    Spec = [mk_getopt_spec(Model#model.model, I) || I <- Params],
     %% This is oboviously wrong:
     case getopt:parse(Spec, Args) of
         {ok, {Terms, _}} -> ok;
         _ -> Terms = []
     end,
-    {_, #{ empty := Empty
-         , put   := Put
-         }, _} = lee_model:get([lee, storage], Model),
     lists:foldl( fun(Var, Acc) ->
-                         write_val(Model, Terms, Put, Var, Acc)
+                         case proplists:lookup(Var, Terms) of
+                             none ->
+                                 Acc;
+                             {_, Val} ->
+                                 [{Var, Val}|Acc]
+                         end
                  end
-               , Empty(Model)
+               , []
                , Params
                ).
+
+-spec read_to(lee:model(), [string()], lee:data()) -> lee:data().
+read_to(Model, Args, Data) ->
+    Patch = read(Model, Args),
+    lee_storage:put(Model, Data, Patch).
 
 mk_getopt_spec(Model, Var) ->
     {_, Attrs, _} = lee_model:get(Var, Model),
@@ -47,12 +58,4 @@ transform_type(Type) ->
             integer;
         String ->
             string
-    end.
-
-write_val(Model, Terms, Put, Var, Acc) ->
-    case proplists:lookup(Var, Terms) of
-        none ->
-            Acc;
-        {_, Val} ->
-            Put(Model, Acc, Var, Val)
     end.
