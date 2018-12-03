@@ -10,6 +10,7 @@
         , validate/2
         , validate_value/4
         , validate_command/4
+        , from_string/3
         ]).
 
 -export_type([ node_id/0
@@ -216,6 +217,16 @@ validate(Model, Config) ->
             {error, Errors, Warnings}
     end.
 
+-spec from_string(lee:model_fragment(), lee:type(), string()) ->
+                         {ok, term()} | {error, string()}.
+from_string(Model, Type = #type{id = TId}, String) ->
+    {_, Attrs, _} = lee_model:get(TId, Model),
+    Fun = maps:get( read
+                  , Attrs
+                  , fun(_, _, S) -> lee_lib:parse_erl_term(S) end
+                  ),
+    Fun(Model, Type, String).
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -368,5 +379,15 @@ get_test() ->
     ?assertMatch({ok, 42}, lee:get(Model, Config, [bar])),
     ok.
 
+from_string_test() ->
+    M = base_model(),
+    ?assertMatch({ok, true},  from_string(M, lee_types:boolean(), "true")),
+    ?assertMatch({ok, false}, from_string(M, lee_types:boolean(), "false")),
+    ?assertMatch({ok, 1}, from_string(M, lee_types:boolean(), "1")),
+    ?assertMatch({ok, 1.1}, from_string(M, lee_types:boolean(), "1.1")),
+    ?assertMatch({ok, {foo, "bar", []}}, from_string(M, lee_types:boolean(), "{foo, \"bar\", []}")),
+    ?assertMatch({error, _}, from_string(M, lee_types:boolean(), "")),
+    ?assertMatch({error, _}, from_string(M, lee_types:boolean(), ",")),
+    ok.
 
 -endif.
