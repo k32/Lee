@@ -23,6 +23,7 @@
              , cooked_module/0
              , properties/0
              , data/0
+             , patch/0
              ]).
 
 -include("lee_internal.hrl").
@@ -188,9 +189,7 @@ get(Model, Data, Key) ->
             Val;
         undefined ->
             MKey = lee_model:get_model_key(Key),
-            #mnode{ metatypes = MetaTypes
-                  , metaparams = Attrs
-                  } = lee_model:get(MKey, Model),
+            #mnode{metaparams = Attrs} = lee_model:get(MKey, Model),
             case Attrs of
                 #{default := Val} ->
                     Val;
@@ -231,13 +230,12 @@ validate(MetaTypes, Model, Data) ->
 
 -spec from_string(lee:module(), lee:type(), string()) ->
                          {ok, term()} | {error, string()}.
-from_string(Model, Type = #type{id = TId}, String) ->
-    #mnode{metaparams = Attrs} = lee_model:get(TId, Model),
-    Fun = maps:get( read
-                  , Attrs
-                  , fun(_, _, S) -> lee_lib:parse_erl_term(S) end
-                  ),
-    Fun(Model, Type, String).
+from_string(_Model, Type, String) ->
+    try
+        {ok, lee_lib:string_to_term(Type, String)}
+    catch
+        Err -> Err
+    end.
 
 %%====================================================================
 %% Internal functions
