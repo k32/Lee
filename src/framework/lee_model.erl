@@ -157,16 +157,11 @@ split_key(K) ->
 
 -spec full_split_key(lee:key()) -> [lee:key()].
 full_split_key(Key) ->
-    Fun = fun(?children) -> false;
-             (?lcl(_))   -> false;
-             (_)         -> true
-          end,
-    case lists:splitwith(Fun, Key) of
-        {A, []} ->
-            [A];
-        {A, [B | C]} ->
-            [A ++ [B] | full_split_key(C)]
-    end.
+    Pred = fun(?children) -> false;
+              (?lcl(_))   -> false;
+              (_)         -> true
+           end,
+    lee_lib:splitl(Pred, Key).
 
 %% @doc Get an index of mnodes belonging to metatypes
 -spec get_metatype_index(lee:metatype(), lee:model()) ->

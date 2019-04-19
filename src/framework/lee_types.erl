@@ -21,6 +21,7 @@
         , validate_float/3
 
         , atom/0  % Import~
+        , atom_from_string/3
         , validate_atom/3
 
         , binary/0  % Import~
@@ -106,7 +107,7 @@ union([A, B|T]) ->
                , T
                ).
 
--spec validate_union( lee:module()
+-spec validate_union( lee:model()
                     , lee:type()
                     , term()
                     ) -> lee:validate_result().
@@ -129,7 +130,7 @@ validate_union(Model, #type{parameters = [A, B]}, Term) ->
             end
     end.
 
--spec print_union(lee:module(), lee:type()) ->
+-spec print_union(lee:model(), lee:type()) ->
                          iolist().
 print_union(Model, #type{parameters = [A, B]}) ->
     [print_type_(Model, A), " | ", print_type_(Model, B)].
@@ -142,7 +143,7 @@ boolean() ->
 integer() ->
     range(neg_infinity, infinity).
 
--spec validate_integer( lee:module()
+-spec validate_integer( lee:model()
                       , lee:type()
                       , term()
                       ) -> lee:validate_result().
@@ -158,7 +159,7 @@ validate_integer(Model, Self = #type{refinement = #{range := {A, B}}}, Term) ->
             {error, [Err], []}
     end.
 
--spec print_integer(lee:module(), lee:type()) ->
+-spec print_integer(lee:model(), lee:type()) ->
                          iolist().
 print_integer(_Model, #type{refinement = #{range := Range}}) ->
     case Range of
@@ -196,7 +197,7 @@ string() ->
 float() ->
     ?te([]).
 
--spec validate_float( lee:module()
+-spec validate_float( lee:model()
                     , lee:type()
                     , term()
                     ) -> lee:validate_result().
@@ -211,7 +212,7 @@ validate_float(_, _, Term) ->
 atom() ->
     ?te([]).
 
--spec validate_atom( lee:module()
+-spec validate_atom( lee:model()
                    , lee:type()
                    , term()
                    ) -> lee:validate_result().
@@ -222,11 +223,18 @@ validate_atom(_, _, Term) ->
             {error, [format("Expected atom(), got ~p", [Term])], []}
     end.
 
+-spec atom_from_string( lee:model()
+                      , lee:key()
+                      , string()
+                      ) -> lee:validate_result().
+atom_from_string(_, _, Str) ->
+    {ok, list_to_atom(Str)}.
+
 -spec binary() -> lee:type().
 binary() ->
     ?te([]).
 
--spec validate_binary( lee:module()
+-spec validate_binary( lee:model()
                      , lee:type()
                      , term()
                      ) -> lee:validate_result().
@@ -241,7 +249,7 @@ validate_binary(_, _, Term) ->
 tuple() ->
     ?te([]).
 
--spec validate_any_tuple( lee:module()
+-spec validate_any_tuple( lee:model()
                         , lee:type()
                         , term()
                         ) -> lee:validate_result().
@@ -256,7 +264,7 @@ validate_any_tuple(_, _, Term) ->
 tuple(Params) ->
     ?te(Params).
 
--spec validate_tuple( lee:module()
+-spec validate_tuple( lee:model()
                     , lee:type()
                     , term()
                     ) -> lee:validate_result().
@@ -285,7 +293,7 @@ validate_tuple(Model, Self = #type{parameters = Params}, Term) ->
                            )], []}
     end.
 
--spec print_tuple(lee:module(), lee:type()) ->
+-spec print_tuple(lee:model(), lee:type()) ->
                              iolist().
 print_tuple(Model, #type{parameters = Params}) ->
     PS = [print_type_(Model, I) || I <- Params],
@@ -299,7 +307,7 @@ term() ->
 any() ->
     term().
 
--spec validate_term( lee:module()
+-spec validate_term( lee:model()
                    , lee:type()
                    , term()
                    ) -> lee:validate_result().
@@ -319,7 +327,7 @@ list(Type) ->
 nonempty_list(Type) ->
     ?te(list, 1, #{non_empty => true}, [Type]).
 
--spec validate_list( lee:module()
+-spec validate_list( lee:model()
                    , lee:type()
                    , term()
                    ) -> lee:validate_result().
@@ -350,7 +358,7 @@ validate_list( Model
                            )], []}
     end.
 
--spec print_list(lee:module(), lee:type()) ->
+-spec print_list(lee:model(), lee:type()) ->
                              iolist().
 print_list(Model, #type{ refinement = #{non_empty := NonEmpty}
                        , parameters = [Par]
@@ -367,7 +375,7 @@ print_list(Model, #type{ refinement = #{non_empty := NonEmpty}
 map(K, V) ->
     ?te([K, V]).
 
--spec validate_map( lee:module()
+-spec validate_map( lee:model()
                   , lee:type()
                   , term()
                   ) -> lee:validate_result().
@@ -414,7 +422,7 @@ exact_map(Spec) ->
        , []
        ).
 
--spec validate_exact_map( lee:module()
+-spec validate_exact_map( lee:model()
                         , lee:type()
                         , term()
                         ) -> lee:validate_result().
@@ -468,7 +476,7 @@ validate_exact_map( Model
                            )], []}
     end.
 
--spec print_exact_map(lee:module(), lee:type()) ->
+-spec print_exact_map(lee:model(), lee:type()) ->
                              iolist().
 print_exact_map(Model, #type{refinement = #{exact_map_spec := Spec}}) ->
     %% FIXME: Wrong!
@@ -484,7 +492,7 @@ print_exact_map(Model, #type{refinement = #{exact_map_spec := Spec}}) ->
 number() ->
     union(integer(), float()).
 
--spec print_type_(lee:module(), lee:type()) -> iolist().
+-spec print_type_(lee:model(), lee:type()) -> iolist().
 print_type_(_, {var, Var}) ->
     io_lib:format("_~w", [Var]);
 print_type_(_, Atom) when is_atom(Atom) ->
@@ -514,7 +522,7 @@ print_type_(Model, Type) ->
             []
     end.
 
--spec print_type(lee:module(), lee:type()) -> string().
+-spec print_type(lee:model(), lee:type()) -> string().
 print_type(Model, Type) ->
     lists:flatten(print_type_(Model, Type)).
 

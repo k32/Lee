@@ -9,7 +9,7 @@
         ]).
 
 -ifdef(TEST).
--export([tokenize/1, separate_args/1]).
+-export([tokenize/2]).
 -endif.
 
 -include("lee.hrl").
@@ -26,6 +26,7 @@
 -type token() :: {long, string(), string()}
                | {short, char(), string()}
                | {positional, string()}
+               | {command, string()}
                | separator
                .
 
@@ -46,19 +47,21 @@ metamodel() ->
                 | {error, Error :: string()}.
 read(Model, Args0) ->
     Scopes = mk_index(Model),
-    Args = separate_args(Args0),
-    case [tokenize(I) || I <- Args] of
+    Tokens = tokenize($@, Args0),
+    case split_commands(Tokens) of
+        [[{command, _} | _] | _] = Commands ->
+            Global = [];
+        [Global | Commands] ->
+            ok;
         [] ->
             Global = [],
-            Commands = [];
-        [Global|Commands] ->
-            ok
+            Commands = []
     end,
     try
-        Globals = parse_args(maps:get(global, Scopes), Global),
+        Globals = parse_args(Model, maps:get(global, Scopes), Global),
         Acc0 = lee_lib:make_nested_patch(Model, [], Globals),
-        Patch = lists:foldl( fun(Tokens, Acc) ->
-                                     parse_command(Model, Scopes, Tokens) ++ Acc
+        Patch = lists:foldl( fun(Tokns, Acc) ->
+                                     parse_command(Model, Scopes, Tokns) ++ Acc
                              end
                            , Acc0
                            , Commands),
@@ -73,43 +76,37 @@ read(Model, Args0) ->
                    | {error, string()}.
 read_to(Model, Args, Data) ->
     case read(Model, Args) of
-        {ok, Patch} ->
+         {ok, Patch} ->
             {ok, lee_storage:patch(Data, Patch)};
         Err ->
             Err
     end.
 
--spec tokenize([string()]) -> [token()].
-tokenize(L) ->
-    Tokens = [I||I <- tokenize_(L), I /= []],
+-spec tokenize(char(), [string()]) -> [token()].
+tokenize(Sigil, L) ->
+    Tokens = [I || I <- tokenize_(Sigil, L), I /= []],
     group_tokens(Tokens).
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
 
--spec separate_args([string()]) -> [[string()]].
-separate_args(Args) ->
-    Pred = fun(Arg) -> lists:last(Arg) =/= $, end,
-    case lists:splitwith(Pred, Args) of
-        {[], []} ->
-            [];
-        {A1, []} ->
-            [A1];
-        {A1, [","|Rest]} ->
-            [A1 | separate_args(Rest)];
-        {A10, [L|Rest]} ->
-            A1 = A10 ++ [lists:droplast(L)],
-            [A1|separate_args(Rest)]
-    end.
+-spec split_commands([token()]) -> [[token()]].
+split_commands(Tokens) ->
+    Pred = fun({command, _}) -> false;
+              (_)            -> true
+           end,
+    lee_lib:splitr(Pred, Tokens).
 
-tokenize_([]) ->
+tokenize_(_, []) ->
     [];
-tokenize_(["--"|Rest]) ->
+tokenize_(_, ["--"|Rest]) ->
     [separator | [{positional, I} || I <- Rest]];
-tokenize_(["--" ++ Long|Rest]) ->
-    [{long, Long, "true"} | tokenize_(Rest)];
-tokenize_(["-" ++ [S1|Shorts] | Rest]) ->
+tokenize_(Sigil, [[Sigil|Command] | Rest]) ->
+    [{command, Command} | tokenize_(Sigil, Rest)];
+tokenize_(Sigil, ["--" ++ Long|Rest]) ->
+    [{long, Long, "true"} | tokenize_(Sigil, Rest)];
+tokenize_(Sigil, ["-" ++ [S1|Shorts] | Rest]) ->
     {Flags, Arg0} = lists:splitwith( fun(A) -> A < $0 orelse A > $9 end
                                    , Shorts
                                    ),
@@ -117,9 +114,9 @@ tokenize_(["-" ++ [S1|Shorts] | Rest]) ->
               [] -> [];
               _  -> [{positional, Arg0}]
           end,
-    [{short, [I], "true"} || I <- [S1|Flags]] ++ Arg ++ tokenize_(Rest);
-tokenize_([A|Rest]) ->
-    [{positional, A}|tokenize_(Rest)].
+    [{short, [I], "true"} || I <- [S1|Flags]] ++ Arg ++ tokenize_(Sigil, Rest);
+tokenize_(Sigil, [A|Rest]) ->
+    [{positional, A}|tokenize_(Sigil, Rest)].
 
 group_tokens([]) ->
     [];
@@ -132,22 +129,20 @@ group_tokens([{long, L, _}, {positional, A} | Rest]) ->
 group_tokens([A|Rest]) ->
     [A|group_tokens(Rest)].
 
-parse_command(Model, Scopes, [{positional, Cmd} | Rest]) ->
+parse_command(Model, Scopes, [{command, Cmd} | Rest]) ->
     case maps:get(Cmd, Scopes, undefined) of
         SC = #sc{parent = Parent} ->
-            Patch = parse_args(SC, Rest),
+            Patch = parse_args(Model, SC, Rest),
             lee_lib:make_nested_patch(Model, Parent, Patch);
         undefined ->
             ErrorMsg = lee_lib:format("Unknown command ~s", [Cmd]),
             throw(ErrorMsg)
-    end;
-parse_command(_Model, _Scopes, [_Wrong|_]) ->
-    ErrorMsg = lee_lib:format("Expected a command after ,", []),
-    throw(ErrorMsg).
+    end.
 
-parse_args(_Scope, []) ->
+parse_args(_Model, _Scope, []) ->
     #{};
-parse_args( #sc{ name = Name
+parse_args( Model
+          , #sc{ name = Name
                , long = Long
                , short = Short
                } = Scope
@@ -164,14 +159,16 @@ parse_args( #sc{ name = Name
                                      ),
             throw(ErrorMsg);
         {Key, Type} ->
-            maps:merge( #{Key => lee_lib:string_to_term(Type, Val)}
-                      , parse_args(Scope, Rest)
+            {ok, Term} = lee:from_string(Model, Type, Val),
+            maps:merge( #{Key => Term}
+                      , parse_args(Model, Scope, Rest)
                       )
     end;
-parse_args( #sc{ name = Name
+parse_args( Model
+          , #sc{ name = Name
                , positional = Pos0
                } = Scope0
-          , [{positional, Val}|Rest]
+          , Positionals = [{positional, Val} | Rest]
           ) ->
     case Pos0 of
         [] ->
@@ -179,12 +176,20 @@ parse_args( #sc{ name = Name
                                      , [Val, Name]
                                      ),
             throw(ErrorMsg);
-        [{rest, Key, Type}] ->
-            error(not_implemented); %% TODO
+        [{rest, Key, Type0}] ->
+            %% Type0 MUST be a list, now extracting its argument
+            #type{ parameters = [Type] } = Type0,
+            Terms = lists:map( fun({positional, Str}) ->
+                                       {ok, Term} = lee:from_string(Model, Type, Str),
+                                       Term
+                               end
+                             , Positionals),
+            #{Key => Terms};
         [{Position, Key, Type} | PRest] ->
             Scope = Scope0#sc{positional = PRest},
-            maps:merge( #{Key => lee_lib:string_to_term(Type, Val)}
-                      , parse_args(Scope, Rest)
+            {ok, Term} = lee:from_string(Model, Type, Val),
+            maps:merge( #{Key => Term}
+                      , parse_args(Model, Scope, Rest)
                       )
     end.
 
