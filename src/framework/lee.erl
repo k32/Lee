@@ -80,7 +80,6 @@
                          , #{ validate => fun lee_types:Validate/3
                             , typename => ??Name
                             } Rest
-                         , #{}
                          }).
 
 -define(typedef(Name, Arity, Validate),
@@ -90,6 +89,8 @@
         ?typedef(Name, 0, Validate)).
 
 -define(print(Fun), #{print => fun lee_types:Fun/2}).
+
+-define(read(Fun), #{from_string => fun lee_types:Fun/3}).
 
 %%====================================================================
 %% API functions
@@ -114,7 +115,7 @@ base_model() ->
                 , ?typedef(term,          validate_term                               )
                 , ?typedef(integer,    0, validate_integer,   ?print(print_integer)   )
                 , ?typedef(float,         validate_float                              )
-                , ?typedef(atom,          validate_atom                               )
+                , ?typedef(atom,       0, validate_atom,      ?read(atom_from_string) )
                 , ?typedef(binary,        validate_binary                             )
                 , ?typedef(tuple,         validate_any_tuple                          )
                 , ?typedef(tuple,      1, validate_tuple,     ?print(print_tuple)     )
@@ -228,13 +229,21 @@ validate(MetaTypes, Model, Data) ->
             {error, Errors, Warnings}
     end.
 
--spec from_string(lee:module(), lee:type(), string()) ->
+-spec from_string(lee:model(), lee:type(), string()) ->
                          {ok, term()} | {error, string()}.
-from_string(_Model, Type, String) ->
-    try
-        {ok, lee_lib:string_to_term(Type, String)}
-    catch
-        Err -> Err
+from_string(Model, Type = #type{id = TId}, String) ->
+    %% TODO: Hack
+    StringT = lee_types:string(),
+    case Type of
+        StringT ->
+            {ok, String};
+        _ ->
+            #mnode{metaparams = Attrs} = lee_model:get(TId, Model),
+            Fun = maps:get( from_string
+                          , Attrs
+                          , fun(_, _, S) -> lee_lib:string_to_term(S) end
+                          ),
+            Fun(Model, Type, String)
     end.
 
 %%====================================================================

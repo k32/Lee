@@ -58,7 +58,7 @@ read(Model, Args0) ->
             Commands = []
     end,
     try
-        Globals = parse_args(maps:get(global, Scopes), Global),
+        Globals = parse_args(Model, maps:get(global, Scopes), Global),
         Acc0 = lee_lib:make_nested_patch(Model, [], Globals),
         Patch = lists:foldl( fun(Tokns, Acc) ->
                                      parse_command(Model, Scopes, Tokns) ++ Acc
@@ -132,16 +132,17 @@ group_tokens([A|Rest]) ->
 parse_command(Model, Scopes, [{command, Cmd} | Rest]) ->
     case maps:get(Cmd, Scopes, undefined) of
         SC = #sc{parent = Parent} ->
-            Patch = parse_args(SC, Rest),
+            Patch = parse_args(Model, SC, Rest),
             lee_lib:make_nested_patch(Model, Parent, Patch);
         undefined ->
             ErrorMsg = lee_lib:format("Unknown command ~s", [Cmd]),
             throw(ErrorMsg)
     end.
 
-parse_args(_Scope, []) ->
+parse_args(_Model, _Scope, []) ->
     #{};
-parse_args( #sc{ name = Name
+parse_args( Model
+          , #sc{ name = Name
                , long = Long
                , short = Short
                } = Scope
@@ -158,14 +159,16 @@ parse_args( #sc{ name = Name
                                      ),
             throw(ErrorMsg);
         {Key, Type} ->
-            maps:merge( #{Key => lee_lib:string_to_term(Type, Val)}
-                      , parse_args(Scope, Rest)
+            {ok, Term} = lee:from_string(Model, Type, Val),
+            maps:merge( #{Key => Term}
+                      , parse_args(Model, Scope, Rest)
                       )
     end;
-parse_args( #sc{ name = Name
+parse_args( Model
+          , #sc{ name = Name
                , positional = Pos0
                } = Scope0
-          , [{positional, Val}|Rest]
+          , Positionals = [{positional, Val} | Rest]
           ) ->
     case Pos0 of
         [] ->
@@ -173,12 +176,20 @@ parse_args( #sc{ name = Name
                                      , [Val, Name]
                                      ),
             throw(ErrorMsg);
-        [{rest, Key, Type}] ->
-            error(not_implemented); %% TODO
+        [{rest, Key, Type0}] ->
+            %% Type0 MUST be a list, now extracting its argument
+            #type{ parameters = [Type] } = Type0,
+            Terms = lists:map( fun({positional, Str}) ->
+                                       {ok, Term} = lee:from_string(Model, Type, Str),
+                                       Term
+                               end
+                             , Positionals),
+            #{Key => Terms};
         [{Position, Key, Type} | PRest] ->
             Scope = Scope0#sc{positional = PRest},
-            maps:merge( #{Key => lee_lib:string_to_term(Type, Val)}
-                      , parse_args(Scope, Rest)
+            {ok, Term} = lee:from_string(Model, Type, Val),
+            maps:merge( #{Key => Term}
+                      , parse_args(Model, Scope, Rest)
                       )
     end.
 

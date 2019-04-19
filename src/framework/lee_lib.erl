@@ -3,7 +3,6 @@
 -include("lee.hrl").
 
 -export([ string_to_term/1
-        , string_to_term/2
         , format/2
         , make_nested_patch/3
         , splitl/2
@@ -22,18 +21,6 @@ string_to_term(String) ->
             end;
         _ ->
             {error, "Not an erlang term"} %% TODO: Give user some clues
-    end.
-
-string_to_term(Type, String) ->
-    StringT = lee_types:string(),
-    case Type of
-        StringT ->
-            String;
-        _ ->
-            case string_to_term(String) of
-                {ok, Term} -> Term;
-                Error -> throw(Error)
-            end
     end.
 
 -spec format(string(), [term()]) -> string().

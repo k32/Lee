@@ -209,6 +209,24 @@ children_test() ->
                 , lee_storage:get([action_2, ?lcl(["foo"]), posn_2], Data)
                 ).
 
+rest1_test() ->
+    {ok, Data} = read_cli("@action_3 foo quux 1"),
+    ?assertMatch( {ok, [foo, quux, '1']}
+                , lee_storage:get([action_3, ?lcl([]), posn_n], Data)
+                ).
+
+rest2_test() ->
+    {ok, Data} = read_cli("@action_4 1 2 foo bar"),
+    ?assertMatch( {ok, "1"}
+                , lee_storage:get([action_4, ?lcl(["1"]), posn_1], Data)
+                ),
+    ?assertMatch( {ok, "2"}
+                , lee_storage:get([action_4, ?lcl(["1"]), posn_2], Data)
+                ),
+    ?assertMatch( {ok, [foo, bar]}
+                , lee_storage:get([action_4, ?lcl(["1"]), posn_n], Data)
+                ).
+
 default_key_test() ->
     {ok, Data} = read_cli("@action_1 -s 42"),
     ?assertMatch( [[action_1, ?lcl([42, "default"])]]
