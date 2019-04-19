@@ -44,11 +44,21 @@ make_nested_patch(_Model, [], Children) ->
     [{set, K, V} || {K, V} <- maps:to_list(Children)];
 make_nested_patch(Model, Parent, Children) ->
     #mnode{metaparams = #{?key_elements := KeyElems}} = lee_model:get(Parent, Model),
-    MakeChildKey = fun(K, Acc) ->
-                           case Children of
-                               #{K := Val} -> [Val|Acc];
-                               _           -> error({missing_key_element, K, Children})
-                           end
-                   end,
-    ChildKey = lists:foldl(MakeChildKey, [], KeyElems),
+    MakeChildKey =
+        fun(K) ->
+                case Children of
+                    #{K := Val} ->
+                        Val;
+                    _ ->
+                        InstKey = Parent ++ [?children | K],
+                        MNode = lee_model:get(InstKey, Model),
+                        case MNode#mnode.metaparams of
+                            #{default := Default} ->
+                                Default;
+                            _ ->
+                                throw({missing_key_element, K, Children})
+                        end
+                end
+        end,
+    ChildKey = lists:map(MakeChildKey, KeyElems),
     [{set, Parent ++ [?lcl(ChildKey)|K], V} || {K, V} <- maps:to_list(Children)].

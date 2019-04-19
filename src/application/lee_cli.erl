@@ -26,6 +26,7 @@
 -type token() :: {long, string(), string()}
                | {short, char(), string()}
                | {positional, string()}
+               | {command, string()}
                | separator
                .
 
@@ -73,7 +74,7 @@ read(Model, Args0) ->
                    | {error, string()}.
 read_to(Model, Args, Data) ->
     case read(Model, Args) of
-        {ok, Patch} ->
+         {ok, Patch} ->
             {ok, lee_storage:patch(Data, Patch)};
         Err ->
             Err

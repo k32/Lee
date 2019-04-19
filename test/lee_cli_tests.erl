@@ -9,6 +9,7 @@ test_cli_params() ->
            {[value, cli_param]
            , #{ cli_operand => "long"
               , type => lee_types:string()
+              , default => "default"
               }
            }
      , short => {[value, cli_param]
@@ -205,21 +206,32 @@ global_flags_test() ->
 children_test() ->
     {ok, Data} = read_cli(", action_1 -fgs1 --long foo, action_2 foo bar"),
     %% List children
-    ?assertMatch( [[action_1, ?lcl(["foo", 1])]]
+    ?assertMatch( [[action_1, ?lcl([1, "foo"])]]
                 , lee_storage:list([action_1, ?children], Data)
                 ),
     ?assertMatch( [[action_2, ?lcl(["foo"])]]
                 , lee_storage:list([action_2, ?children], Data)
                 ),
     ?assertMatch( {ok, true}
-                , lee_storage:get([action_1, ?lcl(["foo", 1]), flag1], Data)
+                , lee_storage:get([action_1, ?lcl([1, "foo"]), flag1], Data)
                 ),
     ?assertMatch( {ok, "foo"}
-                , lee_storage:get([action_1, ?lcl(["foo", 1]), long], Data)
+                , lee_storage:get([action_1, ?lcl([1, "foo"]), long], Data)
                 ),
     ?assertMatch( {ok, "foo"}
                 , lee_storage:get([action_2, ?lcl(["foo"]), posn_1], Data)
                 ),
     ?assertMatch( {ok, "bar"}
                 , lee_storage:get([action_2, ?lcl(["foo"]), posn_2], Data)
+                ).
+
+default_key_test() ->
+    {ok, Data} = read_cli(", action_1 -s 42"),
+    ?assertMatch( [[action_1, ?lcl([42, "default"])]]
+                , lee_storage:list([action_1, ?children], Data)
+                ).
+
+no_key_test() ->
+    ?assertMatch( {error, _}
+                , read_cli(", action_1")
                 ).
