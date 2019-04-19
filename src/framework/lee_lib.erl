@@ -6,6 +6,8 @@
         , string_to_term/2
         , format/2
         , make_nested_patch/3
+        , splitl/2
+        , splitr/2
         ]).
 
 string_to_term(String) ->
@@ -62,3 +64,39 @@ make_nested_patch(Model, Parent, Children) ->
         end,
     ChildKey = lists:map(MakeChildKey, KeyElems),
     [{set, Parent ++ [?lcl(ChildKey)|K], V} || {K, V} <- maps:to_list(Children)].
+
+-spec splitl(fun((A) -> boolean()), [A]) -> [[A]].
+splitl(_, []) ->
+    [];
+splitl(Pred, L) ->
+    case lists:splitwith(Pred, L) of
+        {[], [B | C]} ->
+            [[B] | splitl(Pred, C)];
+        {A, []} ->
+            [A];
+        {A, [B | C]} ->
+            [A ++ [B] | splitl(Pred, C)]
+    end.
+
+-spec splitr(fun((A) -> boolean()), [A]) -> [[A]].
+splitr(_, []) ->
+    [];
+splitr(Pred, L) ->
+    case lists:splitwith(Pred, L) of
+        {[], [B|C]} ->
+            splitr(Pred, B, C);
+        {A, []} ->
+            [A];
+        {A, [B|C]} ->
+            [A|splitr(Pred, B, C)]
+    end.
+
+splitr(_, H, []) ->
+    [[H]];
+splitr(Pred, H, L) ->
+    case lists:splitwith(Pred, L) of
+        {A, []} ->
+            [[H|A]];
+        {A, [B|C]} ->
+            [[H|A] | splitr(Pred, B, C)]
+    end.

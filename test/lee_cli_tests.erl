@@ -99,32 +99,13 @@ test_model() ->
 
 -define(tok(String, Pattern),
         ?assertEqual( Pattern
-                    , lee_cli:tokenize(string:tokens(String, " "))
+                    , lee_cli:tokenize($@, string:tokens(String, " "))
                     )).
-
-split_commands_test() ->
-    ?assertMatch( [["--long", "foo"]]
-                , lee_cli:separate_args(["--long", "foo"])
-                ),
-    ?assertMatch( [["-f", "1"]]
-                , lee_cli:separate_args(["-f", "1"])
-                ),
-    ?assertMatch( [["-f", "1"]]
-                , lee_cli:separate_args(["-f", "1,"])
-                ),
-    ?assertMatch( [["-f", "1"]]
-                , lee_cli:separate_args(["-f", "1", ","])
-                ),
-    ?assertMatch( [["-f", "1"], ["-f", "1"]]
-                , lee_cli:separate_args(["-f", "1,", "-f", "1"])
-                ),
-    ?assertMatch( [["-f", "1"], ["-f", "1"]]
-                , lee_cli:separate_args(["-f", "1", ",", "-f", "1"])
-                ).
 
 tokenize_test() ->
     ?tok("--foo", [{long, "foo", "true"}]),
-    %?tok("-sj42", [{short, $s, "true"}, {short, $j, "42"}]),
+    ?tok("-sj42", [{short, "s", "true"}, {short, "j", "42"}]),
+    ?tok("@foo", [{command, "foo"}]),
     ?tok( "--foo bar --bar foo"
         , [ {long, "foo", "bar"}
           , {long, "bar", "foo"}
@@ -151,7 +132,7 @@ tokenize_test() ->
           , {positional, "foo"}
           ]),
     ?tok("-s0 -c9", [{short, "s", "0"}, {short, "c", "9"}]),
-    ?tok( "kill -9 -fml0 --foo bar -j 11 -"
+    ?tok( "kill -9 -fml0 --foo bar -j 11 - @cmd foo -- @bar"
         , [ {positional, "kill"}
           , {short, "9", "true"}
           , {short, "f", "true"}
@@ -160,6 +141,9 @@ tokenize_test() ->
           , {long, "foo", "bar"}
           , {short, "j", "11"}
           , {positional, "-"}
+          , {command, "cmd"}
+          , {positional, "foo"}
+          , {positional, "@bar"}
           ]).
 
 read_cli(String) ->
@@ -204,7 +188,7 @@ global_flags_test() ->
                 ).
 
 children_test() ->
-    {ok, Data} = read_cli(", action_1 -fgs1 --long foo, action_2 foo bar"),
+    {ok, Data} = read_cli("@action_1 -fgs1 --long foo @action_2 foo bar"),
     %% List children
     ?assertMatch( [[action_1, ?lcl([1, "foo"])]]
                 , lee_storage:list([action_1, ?children], Data)
@@ -226,12 +210,12 @@ children_test() ->
                 ).
 
 default_key_test() ->
-    {ok, Data} = read_cli(", action_1 -s 42"),
+    {ok, Data} = read_cli("@action_1 -s 42"),
     ?assertMatch( [[action_1, ?lcl([42, "default"])]]
                 , lee_storage:list([action_1, ?children], Data)
                 ).
 
 no_key_test() ->
     ?assertMatch( {error, _}
-                , read_cli(", action_1")
+                , read_cli("@action_1")
                 ).
