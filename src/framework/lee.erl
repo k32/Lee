@@ -171,12 +171,11 @@ validate_term(Model, Type = #type{id = TypeName, parameters = Params}, Term) ->
           } = lee_model:get(TypeName, Model),
     case {ordsets:is_element(type, Meta), ordsets:is_element(typedef, Meta)} of
         {true, false} ->
-            #{validate := Fun} = Attr1,
+            Fun = ?m_attr(type, validate, Attr1),
             Fun(Model, Type, Term);
         {false, true} ->
-            #{ type := Type1
-             , type_variables := TypeVars
-             } = Attr1,
+            Type1 = ?m_attr(typedef, type, Attr1),
+            TypeVars = ?m_attr(typedef, type_variables, Attr1),
             VarVals = maps:from_list(lists:zip(TypeVars, Params)),
             Type2 = subst_type_vars(Type1, VarVals),
             validate_term(Model, Type2, Term)
