@@ -175,7 +175,7 @@ mk_lee_type(Type, State0) ->
                            ast().
 mk_type_alias(Module, Line, {Name, Arity}, AST) ->
     Variables = mk_literal_list( Line
-                               , fun(I) -> ?INT(Line, I) end
+                               , fun(I) -> ?ATOM(Line, mk_var_name(I)) end
                                , lists:seq(0, Arity - 1)
                                ),
     ?tuple([ ?cons(?atom(typedef), ?nil)
@@ -240,9 +240,9 @@ reflect_type({{Name, Arity}, {Namespace, _}}) ->
 -spec do_refl_type(#s{}, ast(), #{ast_var() => integer()}) ->
                           {ast(), #s{}}.
 do_refl_type(State, {var, Line, Var}, VarVals) ->
-    #{Var := N} = VarVals,
+    #{Var := VarName} = VarVals,
     AST = ?tuple([ ?atom(var)
-                 , ?int(N)
+                 , ?atom(VarName)
                  ]),
     {AST, State};
 do_refl_type(State, Int = ?INT(_), _) ->
@@ -263,11 +263,11 @@ do_refl_type(State0, {remote_type, Line, CallSpec}, VarVals) ->
           },
     {AST, State}.
 
--spec do_type_vars(integer(), [ast()]) -> [{ast_var(), integer()}].
+-spec do_type_vars(integer(), [ast()]) -> [{ast_var(), atom()}].
 do_type_vars(_Line, Params) ->
     {Result, _} =
         lists:mapfoldl( fun({var, _, Var}, N) ->
-                                {{Var, N}, N + 1}
+                                {{Var, mk_var_name(N)}, N + 1}
                         end
                       , 0
                       , Params
@@ -302,3 +302,6 @@ mk_literal_list(Line, Fun, [Val|Tail]) ->
 
 mk_literal_list(Line, List) ->
     mk_literal_list(Line, fun(A) -> A end, List).
+
+mk_var_name(N) when N + $A < $Z ->
+    list_to_atom([N + $A]).

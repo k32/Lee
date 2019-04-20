@@ -67,7 +67,7 @@ type_refl_test() ->
     ?assertEqual( ?typedef(foo_atom, foo, [])
                 , catch lee_model:get([foo, bar, {foo_atom, 0}], Model)
                 ),
-    ?assertEqual( ?typedef(simple, {var, 0}, [0])
+    ?assertEqual( ?typedef(simple, {var, 'A'}, ['A'])
                 , catch lee_model:get([foo, bar, {simple, 1}], Model)
                 ),
     ?assertEqual( ?typedef(simple, boolean(), [])
@@ -101,10 +101,10 @@ type_refl_test() ->
                 , stupid_list(xxxx)
                 ),
     ?assertEqual( ?typedef( stupid_list
-                          , union( tuple([cons, {var, 0}, stupid_list({var, 0})])
+                          , union( tuple([cons, {var, 'A'}, stupid_list({var, 'A'})])
                                  , nil
                                  )
-                          , [0]
+                          , ['A']
                           )
                 , catch lee_model:get([foo, bar, {stupid_list, 1}], Model)
                 ),

@@ -51,6 +51,7 @@
         , number/0  % Import~
 
         , print_type/2
+        , is_typedef/1
         ]).
 
 %%====================================================================
@@ -479,10 +480,10 @@ validate_exact_map( Model
 -spec print_exact_map(lee:model(), lee:type()) ->
                              iolist().
 print_exact_map(Model, #type{refinement = #{exact_map_spec := Spec}}) ->
-    %% FIXME: Wrong!
+    %% TODO FIXME: Wrong!
     io_lib:format( "~w"
                  , [maps:map( fun(_, V) ->
-                                      print_type(Model, V)
+                                      print_type_(Model, V)
                               end
                             , Spec
                             )]
@@ -494,37 +495,76 @@ number() ->
 
 -spec print_type_(lee:model(), lee:type()) -> iolist().
 print_type_(_, {var, Var}) ->
-    io_lib:format("_~w", [Var]);
+    io_lib:format("~s", [Var]);
 print_type_(_, Atom) when is_atom(Atom) ->
     atom_to_list(Atom);
 print_type_(_, Integer) when is_integer(Integer) ->
     integer_to_list(Integer);
 print_type_(Model, Type) ->
     #type{id = TypeId, parameters = TypeParams} = Type,
-    #mnode{ metatypes = Meta
-          , metaparams = Attrs
-          } = lee_model:get(TypeId, Model),
-    case Attrs of
-        #{print := Print} ->
-            Print(Model, Type);
-        #{typename := TypeName} ->
-            StrParams = [print_type_(Model, I)
-                         || I <- TypeParams
-                        ],
-            io_lib:format("~s(~s)", [ TypeName
-                                    , lists:join($,, StrParams)
-                                    ])
-    end ++
-    case lists:member(typedef, Meta) of
-        true ->
-            [" :: TODO "];
-        false ->
-            []
-    end.
+    #mnode{metaparams = Attrs} = lee_model:get(TypeId, Model),
+    ?m_valid( type,
+       case Attrs of
+           #{print := Print} ->
+               Print(Model, Type);
+           #{typename := TypeName} ->
+               StrParams = [print_type_(Model, I)
+                            || I <- TypeParams
+                           ],
+               io_lib:format("~s(~s)", [ TypeName
+                                       , lists:join($,, StrParams)
+                                       ])
+       end).
 
 -spec print_type(lee:model(), lee:type()) -> string().
 print_type(Model, Type) ->
-    lists:flatten(print_type_(Model, Type)).
+    TermType = print_type_(Model, Type),
+    TypeDefL = collect_typedefs(Model, Type, #{}),
+    TD = case maps:size(TypeDefL) of
+             0 ->
+                 [];
+             _ ->
+                 Typedefs = [print_typedef(Model, TypeId, Attrs)
+                             || {TypeId, Attrs} <- maps:to_list(TypeDefL)],
+                 [" when\n" | Typedefs]
+         end,
+    lists:flatten([TermType|TD]).
+
+-spec collect_typedefs( lee:model()
+                      , lee:type()
+                      , Acc
+                      ) -> Acc when Acc :: #{lee:model_key() => map()}.
+collect_typedefs(Model, #type{id = TypeId}, Acc0) ->
+    MNode = lee_model:get(TypeId, Model),
+    case {map_sets:is_element(TypeId, Acc0), is_typedef(MNode)} of
+        {false, true} ->
+            Attrs = MNode#mnode.metaparams,
+            TypeParams = ?m_attr(typedef, type_variables, Attrs),
+            BaseType = ?m_attr(typedef, type, Attrs),
+            Acc1 = Acc0 #{TypeId => Attrs},
+            Acc = collect_typedefs(Model, BaseType, Acc1),
+            lists:foldl( fun(I, Acc) ->
+                                 collect_typedefs(Model, I, Acc)
+                         end
+                       , Acc
+                       , TypeParams);
+        _ ->
+            Acc0
+    end;
+collect_typedefs(_, _, Acc) ->
+    Acc.
+
+-spec print_typedef(lee:model(), lee:key(), map()) -> iolist().
+print_typedef(Model, _TypeId, Attrs) ->
+    Name = ?m_attr(typedef, typename, Attrs),
+    Vals = [atom_to_list(I) || I <- ?m_attr(typedef, type_variables, Attrs)],
+    Type = print_type_(Model, ?m_attr(typedef, type, Attrs)),
+    Vars = lists:join($,, Vals),
+    io_lib:format("  ~s(~s) :: ~s~n", [Name, Vars, Type]).
+
+-spec is_typedef(#mnode{}) -> boolean().
+is_typedef(#mnode{metatypes = Meta}) ->
+    lists:member(typedef, Meta).
 
 %%====================================================================
 %% Internal functions
