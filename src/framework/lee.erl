@@ -7,6 +7,7 @@
         , metametamodel/0
         , validate_term/3
         , get/3
+        , list/3
         , validate/2
         , validate/3
         , from_string/3
@@ -32,7 +33,7 @@
 %% Types
 %%====================================================================
 
--type data() :: lee_storage:data(term()).
+-type data() :: lee_storage:data() | [lee_storage:data()].
 
 -type patch() :: lee_storage:patch(term()).
 
@@ -45,8 +46,7 @@
 -type model() :: #model{}.
 
 -type validate_result() :: {ok, Warnings :: [string()]}
-                         | {error, Errors :: [term()], Warnings :: [term()]}
-                         .
+                         | {error, Errors :: [term()], Warnings :: [term()]}.
 
 -type validate_callback() :: fun((model(), data(), key(), #mnode{}) ->
                                         validate_result()).
@@ -184,11 +184,11 @@ validate_term(Model, Type = #type{id = TypeName, parameters = Params}, Term) ->
 
 %% @doc Get a value from the config:
 -spec get(lee:model(), data(), lee:key()) -> term().
-get(Model, Data, Key) ->
+get(Model, Data, Key) when ?is_storage(Data) ->
     case lee_storage:get(Key, Data) of
         {ok, Val} ->
             Val;
-        undefined ->
+        _ ->
             MKey = lee_model:get_model_key(Key),
             #mnode{metaparams = Attrs} = lee_model:get(MKey, Model),
             case Attrs of
@@ -199,7 +199,28 @@ get(Model, Data, Key) ->
                     %% the default, so just crash here
                     error({missing_data, Key})
             end
+    end;
+get(Model, [Data], Key) ->
+    get(Model, Data, Key);
+get(Model, [Data|Rest], Key) ->
+    case lee_storage:get(Key, Data) of
+        {ok, Val} ->
+            Val;
+        undefined ->
+            get(Model, Rest, Key)
     end.
+
+%% List instances that can match the pattern
+-spec list(model(), lee:key(), data()) -> [lee:key()].
+list(_Model, Pattern, Data) when ?is_storage(Data) ->
+    %% TODO: Include default values in the list
+    lee_storage:list(Pattern, Data);
+list(Model, Pattern, Data) when is_list(Data) ->
+    lists:usort(lists:foldl( fun(I, Acc) ->
+                                     list(Model, Pattern, I) ++ Acc
+                             end
+                           , []
+                           , Data)).
 
 %% Validate all values against the model
 -spec validate(lee:model(), data()) -> validate_result().

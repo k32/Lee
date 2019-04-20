@@ -16,8 +16,8 @@ metamodel() ->
                                   }
                     }}.
 
--spec read_to(lee:model(), file:filename(), lee:data()) ->
-                     {ok, lee:data()}
+-spec read_to(lee:model(), file:filename(), lee_storage:data()) ->
+                     {ok, lee_storage:data()}
                    | {error, term()}.
 read_to(Model, Filename, Data) ->
     case read(Model, Filename) of

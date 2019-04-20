@@ -71,8 +71,8 @@ read(Model, Args0) ->
         Error -> {error, Error}
     end.
 
--spec read_to(lee:model(), [string()], lee:data()) ->
-                     {ok, lee:data()}
+-spec read_to(lee:model(), [string()], lee_storage:data()) ->
+                     {ok, lee_storage:data()}
                    | {error, string()}.
 read_to(Model, Args, Data) ->
     case read(Model, Args) of

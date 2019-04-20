@@ -15,6 +15,7 @@
 -export([wrap/2]).
 
 -export_type([ data/1
+             , data/0
              , patch/1
              ]).
 
@@ -37,9 +38,11 @@
         , data
         }).
 
--opaque data(A) :: #lee_tree{ backend :: module()
-                            , data    :: storage(A | rose_tree())
-                            }.
+-type data(A) :: #lee_tree{ backend :: module()
+                          , data    :: storage(A | rose_tree())
+                          }.
+
+-type data() :: data(term()).
 
 %%====================================================================
 %% Callbacks
