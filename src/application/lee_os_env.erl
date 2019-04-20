@@ -27,7 +27,7 @@ read(Model) ->
                , []
                , EnvVars).
 
--spec read_to(lee:model(), lee:data()) -> lee:data().
+-spec read_to(lee:model(), lee_storage:data()) -> lee_storage:data().
 read_to(Model, Data) ->
     Patch = read(Model),
     lee_storage:patch(Data, Patch).

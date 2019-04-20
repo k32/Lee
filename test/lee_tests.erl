@@ -102,6 +102,53 @@ get_test() ->
     ?assertMatch(42, lee:get(Model, Config, [baz, ?lcl(0), baz, ?lcl(42), bar])),
     ok.
 
+overlay_test() ->
+    Model0 = #{ foo => {[value]
+                       , #{type => lee_types:boolean()}
+                       }
+              , bar => {[value]
+                       , #{type => lee_types:integer(), default => 42}
+                       }
+              },
+    Model1 = Model0 #{ baz => {[map], #{}, Model0}},
+    Model2 = Model1 #{ baz => {[map], #{}, Model1}},
+    {ok, Model} = lee_model:compile( [lee:base_metamodel()]
+                                   , [lee:base_model(), Model2]
+                                   ),
+    Patch1 = [ {set, [foo],                              true }
+             , {set, [baz, ?lcl(0), foo],                true }
+             , {set, [baz, ?lcl(0), bar],                0    }
+             , {set, [baz, ?lcl(1), foo],                false}
+             , {set, [baz, ?lcl(0), baz, ?lcl(42), foo], false}
+             ],
+    Config1 = lee_storage:patch( lee_storage:new(lee_map_storage)
+                               , Patch1
+                               ),
+    Patch2 = [ {set, [bar],                              32   }
+             , {set, [baz, ?lcl(2), foo],                false}
+             , {set, [baz, ?lcl(2), bar],                21   }
+             ],
+    Config2 = lee_storage:patch( lee_storage:new(lee_map_storage)
+                               , Patch2
+                               ),
+    Config = [Config2, Config1],
+
+    ?assertMatch(true, lee:get(Model, Config, [foo])),
+    ?assertMatch(32, lee:get(Model, Config, [bar])),
+
+    ?assertMatch(0, lee:get(Model, Config, [baz, ?lcl(0), bar])),
+    ?assertMatch(true, lee:get(Model, Config, [baz, ?lcl(0), foo])),
+
+    ?assertMatch(false, lee:get(Model, Config, [baz, ?lcl(1), foo])),
+    ?assertMatch(42, lee:get(Model, Config, [baz, ?lcl(1), bar])),
+
+    ?assertMatch(21, lee:get(Model, Config, [baz, ?lcl(2), bar])),
+
+    ?assertMatch( [[baz, ?lcl(0)], [baz, ?lcl(1)], [baz, ?lcl(2)]]
+                , lee:list(Model, [baz, ?children], Config)
+                ),
+    ok.
+
 from_string_test() ->
     {ok, M} = lee_model:compile([], [lee:base_model()]),
     ?assertMatch({ok, "foo"}, lee:from_string(M, lee_types:string(), "foo")),
