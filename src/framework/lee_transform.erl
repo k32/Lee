@@ -4,7 +4,6 @@
 
 %% TODO: Source code locations are... approximate
 %% TODO: Error handling is inexistent
-%% TODO: Parse `-export_type' attribute and export lee types automatically
 %% TODO: Reflect maps
 
 -type local_tref() :: {Name :: atom(), Arity :: integer()}.
@@ -104,9 +103,14 @@ parse_transform(Forms0, _Options) ->
                , module = Module
                },
     {Forms1, State} = forms(Forms0, State0),
-    %% Append type reflections to the module definition:
     ReflectedTypes = maps:to_list(State#s.reflected_types),
-    Forms1 ++ [reflect_type(I) || I <- ReflectedTypes].
+    %% export_type and export definitions are the same.
+    Exports = [make_export(I) || I <- ReflectedTypes],
+    Forms2 = add_attributes(Forms1, [ {export, Exports}
+                                    , {export_type, Exports}
+                                    ]),
+    %% Append type reflections to the module definition:
+    Forms2 ++ [reflect_type(I) || I <- ReflectedTypes].
 
 forms(?RCALL(Line, lee, type_refl, [Namespace0, Types0]), State0) ->
     %% Type reflection begins from here
@@ -235,6 +239,19 @@ reflect_type({{Name, Arity}, {Namespace, _}}) ->
                   )]
        }]
     }.
+
+%% Insert attributes after `module'
+add_attributes(Forms0, Attributes0) ->
+    Pred = fun({attribute, _, module, _}) -> false;
+              (_) -> true
+           end,
+    {Before, [Module|Rest]} = lists:splitwith(Pred, Forms0),
+    Attributes = [{attribute, 0, K, V} || {K, V} <- Attributes0],
+    Before ++ [Module|Attributes] ++ Rest.
+
+%% Make an export declaration
+make_export({FA = {_Name, _Arity}, _}) ->
+    FA.
 
 %% yay! The only place where line numbering is more or less correct!
 -spec do_refl_type(#s{}, ast(), #{ast_var() => integer()}) ->
