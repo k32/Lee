@@ -109,3 +109,9 @@ type_refl_test() ->
                 , catch lee_model:get([foo, bar, {stupid_list, 1}], Model)
                 ),
     ok.
+
+exports_test() ->
+    Exports = ?MODULE:module_info(exports),
+    ?assertMatch( true
+                , lists:member({stupid_list,1}, Exports)
+                ).
