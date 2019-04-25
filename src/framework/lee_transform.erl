@@ -10,7 +10,7 @@
 
 -type ast() :: term().
 
--type ast_var() :: term().
+-type ast_var() :: atom().
 
 -record(s,
         { module          :: atom()
@@ -94,7 +94,7 @@
 parse_transform(Forms0, _Options) ->
     Ignored = ignored(Forms0),
     CustomVerif = custom_verify(Forms0),
-    Typedefs0 = local_typedefs(Forms0),
+    Typedefs0 = find_local_typedefs(Forms0),
     Typedefs = maps:without(Ignored, Typedefs0),
     Module = hd([M || {attribute, _, module, M} <- Forms0]),
     State0 = #s{ local_types = Typedefs
@@ -110,10 +110,10 @@ parse_transform(Forms0, _Options) ->
                                     , {export_type, Exports}
                                     ]),
     %% Append type reflections to the module definition:
-    Forms2 ++ [reflect_type(I) || I <- ReflectedTypes].
+    Forms2 ++ [make_reflection_function(I) || I <- ReflectedTypes].
 
 forms(?RCALL(Line, lee, type_refl, [Namespace0, Types0]), State0) ->
-    %% Type reflection begins from here
+    %% Type reflection is triggered here
     Namespace = literal_list(fun(?ATOM(A)) -> A end, Namespace0),
     State1 = State0#s{ line      = Line
                      , namespace = Namespace
@@ -123,7 +123,7 @@ forms(?RCALL(Line, lee, type_refl, [Namespace0, Types0]), State0) ->
                            end
                          , Types0
                          ),
-    State2 = lists:foldl(fun mk_lee_type/2, State1, Types1),
+    State2 = lists:foldl(fun refl_type/2, State1, Types1),
     #s{reflected_types = RTypes} = State2,
     %% io:format("State: ~p~n", [State2]),
     TypesAST = [?typedef(Name, Arity, AST)
@@ -133,6 +133,7 @@ forms(?RCALL(Line, lee, type_refl, [Namespace0, Types0]), State0) ->
     AST = ?rcall(lee, namespace, [Namespace0, ?map(TypesAST)]),
     State = State2,
     {AST, State};
+%% The remaining clauses just make up cheesy AST traversal:
 forms(L, State0) when is_list(L) ->
     lists:mapfoldl(fun forms/2, State0, L);
 forms(T, State0) when is_tuple(T) ->
@@ -140,6 +141,46 @@ forms(T, State0) when is_tuple(T) ->
     {AST, State} = forms(L, State0),
     {list_to_tuple(AST), State};
 forms(AST, State) ->
+    {AST, State}.
+
+%% Reflect a local type
+-spec refl_type(local_tref(), #s{}) -> #s{}.
+refl_type(Type, State0) ->
+    #s{ local_types = LocalTypes
+      , line = Line
+      , namespace = Namespace
+      } = State0,
+    {AST0, Params} = maps:get(Type, LocalTypes),
+    {AST, State1} = do_refl_type(State0, AST0),
+    #s{ reflected_types = M0
+      , module = Module
+      } = State1,
+    Val = {Namespace, mk_type_alias(Module, Line, Type, AST, Params)},
+    State1#s{reflected_types = M0 #{Type => Val}}.
+
+%% Traverse AST of a type definition and produce a reflection
+-spec do_refl_type(#s{}, ast()) -> {ast(), #s{}}.
+do_refl_type(State, {var, Line, Var}) ->
+    AST = ?tuple([?atom(var), ?atom(Var)]),
+    {AST, State};
+do_refl_type(State, Int = ?INT(_)) ->
+    {Int, State};
+do_refl_type(State, Atom = ?ATOM(_)) ->
+    {Atom, State};
+do_refl_type(State0, {Qualifier, Line, Name, Args0})
+  when Qualifier =:= type; Qualifier =:= user_type ->
+    %% Another local type was refered... We need to reflect it too:
+    State1 = maybe_refl_type({Name, length(Args0)}, State0),
+    %% Type arguments are nested AST, traverse them
+    {Args, State} = traverse_type_args(State1, Name, Args0),
+    {?lcall(Name, Args), State};
+do_refl_type(State0, {remote_type, Line, CallSpec}) ->
+    [Module, Name, Args0] = CallSpec,
+    {Args, State} = traverse_type_args(State0, Name, Args0),
+    AST = {call, Line
+          , {remote, Line, Module, Name}
+          , Args
+          },
     {AST, State}.
 
 ignored(Forms) ->
@@ -150,37 +191,29 @@ custom_verify(Forms) ->
     Defs = [Def || {attribute, _, lee_verify, Def} <- Forms],
     maps:from_list(Defs).
 
-local_typedefs(Forms) ->
-    maps:from_list([{{Name, length(Params)}, {AST, Params}}
+%% Collect all type definitions in the module
+find_local_typedefs(Forms) ->
+    ExtractTypeVarName = fun({var, _Line, Name}) when is_atom(Name) ->
+                                 Name
+                         end,
+    maps:from_list([begin
+                        Params = lists:map(ExtractTypeVarName, Params0),
+                        {{Name, length(Params)}, {AST, Params}}
+                    end
                     || { attribute
                        , _Line
                        , type
-                       , {Name, AST, Params}
+                       , {Name, AST, Params0}
                        } <- Forms
                    ]).
 
--spec mk_lee_type(local_tref(), #s{}) ->
-                         #s{}.
-mk_lee_type(Type, State0) ->
-    #s{ local_types = LocalTypes
-      , line = Line
-      , namespace = Namespace
-      } = State0,
-    {AST0, Params} = maps:get(Type, LocalTypes),
-    VarVals = do_type_vars(Line, Params),
-    {AST, State1} = do_refl_type(State0, AST0, maps:from_list(VarVals)),
-    #s{ reflected_types = M0
-      , module = Module
-      } = State1,
-    Val = {Namespace, mk_type_alias(Module, Line, Type, AST)},
-    State1#s{reflected_types = M0 #{Type => Val}}.
-
--spec mk_type_alias(atom(), integer(), local_tref(), ast()) ->
+%% Produce a Lee mnode denoting a reflected typedef
+-spec mk_type_alias(atom(), integer(), local_tref(), ast(), [ast_var()]) ->
                            ast().
-mk_type_alias(Module, Line, {Name, Arity}, AST) ->
+mk_type_alias(Module, Line, {Name, Arity}, AST, Params) ->
     Variables = mk_literal_list( Line
-                               , fun(I) -> ?ATOM(Line, mk_var_name(I)) end
-                               , lists:seq(0, Arity - 1)
+                               , fun(I) -> ?ATOM(Line, I) end
+                               , Params
                                ),
     ?tuple([ ?cons(?atom(typedef), ?nil)
            , ?map([ ?ass(?atom(type), AST)
@@ -193,6 +226,7 @@ mk_type_alias(Module, Line, {Name, Arity}, AST) ->
            , ?map([])
            ]).
 
+%% Produce a Lee key
 mk_lee_key(Line, Namespace, Name, Arity) ->
     mk_literal_list( Line
                    , fun(A) when is_atom(A) ->
@@ -205,28 +239,30 @@ mk_lee_key(Line, Namespace, Name, Arity) ->
                    , Namespace ++ [{Name, Arity}]
                    ).
 
--spec check_local_type(local_tref(), #s{}) ->
-                         #s{}.
-check_local_type( TRef
-                , State0 = #s{ reflected_types = RT
-                             , local_types = LT
-                             }
-                ) ->
+%% Check if the type has been already reflected, and reflect it
+%% otherwise
+-spec maybe_refl_type(local_tref(), #s{}) -> #s{}.
+maybe_refl_type( TRef
+                  , State0 = #s{ reflected_types = RT
+                               , local_types = LT
+                               }
+                  ) ->
     case {maps:is_key(TRef, LT), maps:is_key(TRef, RT)} of
         {true, false} ->
             %% Dirty hack to avoid infinite loop:
             State1 = State0#s{ reflected_types =
                                    RT #{TRef => in_progress}
                              },
-            mk_lee_type(TRef, State1);
+            refl_type(TRef, State1);
         _ ->
             State0
     end.
 
-reflect_type({{Name, Arity}, {Namespace, _}}) ->
+%% Make a function defenition that is a reflection of the type in the
+%% term universe
+make_reflection_function({{Name, Arity}, {Namespace, _}}) ->
     Vars = [{var, 0, list_to_atom("V" ++ integer_to_list(I))}
-            || I <- lists:seq(0, Arity - 1)
-           ],
+            || I <- lists:seq(0, Arity - 1)],
     Line = 0,
     Attrs = ?map([]), %% TODO: do something with attrs?
     {function, Line, Name, Arity
@@ -253,53 +289,14 @@ add_attributes(Forms0, Attributes0) ->
 make_export({FA = {_Name, _Arity}, _}) ->
     FA.
 
-%% yay! The only place where line numbering is more or less correct!
--spec do_refl_type(#s{}, ast(), #{ast_var() => integer()}) ->
-                          {ast(), #s{}}.
-do_refl_type(State, {var, Line, Var}, VarVals) ->
-    #{Var := VarName} = VarVals,
-    AST = ?tuple([ ?atom(var)
-                 , ?atom(VarName)
-                 ]),
-    {AST, State};
-do_refl_type(State, Int = ?INT(_), _) ->
-    {Int, State};
-do_refl_type(State, Atom = ?ATOM(_), _) ->
-    {Atom, State};
-do_refl_type(State0, {Qualifier, Line, Name, Args0}, VarVals)
-  when Qualifier =:= type; Qualifier =:= user_type ->
-    State1 = check_local_type({Name, length(Args0)}, State0),
-    {Args, State} = mk_args_list(State1, Name, Args0, VarVals),
-    {?lcall(Name, Args), State};
-do_refl_type(State0, {remote_type, Line, CallSpec}, VarVals) ->
-    [Module, Name, Args0] = CallSpec,
-    {Args, State} = mk_args_list(State0, Name, Args0, VarVals),
-    AST = {call, Line
-          , {remote, Line, Module, Name}
-          , Args
-          },
-    {AST, State}.
-
--spec do_type_vars(integer(), [ast()]) -> [{ast_var(), atom()}].
-do_type_vars(_Line, Params) ->
-    {Result, _} =
-        lists:mapfoldl( fun({var, _, Var}, N) ->
-                                {{Var, mk_var_name(N)}, N + 1}
-                        end
-                      , 0
-                      , Params
-                      ),
-    Result.
-
-mk_args_list(State0, Name, Args0, VarVals) ->
+-spec traverse_type_args(#s{}, atom(), [ast()]) -> {ast(), #s{}}.
+traverse_type_args(State0, Name, Args0) ->
     #s{line = Line} = State0,
-    {Args1, State} = lists:mapfoldl( fun(I, S) ->
-                                             do_refl_type(S, I, VarVals)
-                                     end
+    {Args1, State} = lists:mapfoldl( fun(I, S) -> do_refl_type(S, I) end
                                    , State0
                                    , Args0
                                    ),
-    Args = case lists:member(Name, [tuple, union]) of
+    Args = case lists:member(Name, [tuple, union]) of %% TODO: What
                true ->
                    [mk_literal_list(Line, Args1)];
                false ->
@@ -319,6 +316,3 @@ mk_literal_list(Line, Fun, [Val|Tail]) ->
 
 mk_literal_list(Line, List) ->
     mk_literal_list(Line, fun(A) -> A end, List).
-
-mk_var_name(N) when N + $A < $Z ->
-    list_to_atom([N + $A]).
