@@ -38,10 +38,12 @@
 -type remote_types() :: lee_types:list(lee_types:boolean()).
 
 %% Recursive type is fine too:
--type stupid_list(A) :: {cons, A, stupid_list(A)} | nil.
+-type stupid_list(OwO) :: {cons, OwO, stupid_list(OwO)} | nil.
 
 -lee_verify({url/0, is_url/0}).
 -type url() :: string().
+
+-type mymap(K, V) :: #{K => V}.
 
 halpme(A) ->
     A.
@@ -101,10 +103,10 @@ type_refl_test() ->
                 , stupid_list(xxxx)
                 ),
     ?assertEqual( ?typedef( stupid_list
-                          , union( tuple([cons, {var, 'A'}, stupid_list({var, 'A'})])
+                          , union( tuple([cons, {var, 'OwO'}, stupid_list({var, 'OwO'})])
                                  , nil
                                  )
-                          , ['A']
+                          , ['OwO']
                           )
                 , catch lee_model:get([foo, bar, {stupid_list, 1}], Model)
                 ),
