@@ -4,6 +4,10 @@
 -include_lib("lee/include/lee.hrl").
 -include_lib("lee/include/lee_types.hrl").
 
+-lee_verify({url/0, is_url/0}).
+
+-lee_ignore([ignored/0]).
+
 -define(typedef(TN, Type, TypeVars),
         #mnode{ metatypes = [typedef]
               , metaparams = #{ type           => Type
@@ -12,94 +16,127 @@
                               }
               }).
 
--lee_ignore([ignored/0]).
--type ignored() :: string().
+-define(model(A),
+        {ok, Model} = lee_model:compile( []
+                                       , [lee:type_refl([?MODULE, ?FUNCTION_NAME], A)]
+                                       )).
 
--type foo_atom() :: foo.
+-define(getm(A),
+        catch lee_model:get([?MODULE, ?FUNCTION_NAME, A], Model)).
 
--type simple(A) :: A.
+%% -----------------------------------------------------------------------------
 
--type simple() :: boolean().
+-type mybool() :: boolean().
 
--type strings() :: list(string()).
+boolean_refl_test() ->
+    ?model([mybool/0]),
+    ?assertEqual( ?typedef(mybool, boolean(), [])
+                , ?getm({mybool, 0})
+                ).
 
--type foobar() :: foo | bar | baz.
+%% -----------------------------------------------------------------------------
 
--type my_tuple() :: {float(), float(), xxx}.
+-type myterm1() :: term().
 
--type list_of_bools() :: [boolean()].
+-type myterm2() :: any().
 
--type non_empty_list_of_bools() :: [boolean(), ...].
+term_refl_test() ->
+    ?model([myterm1/0, myterm2/0]),
+    ?assertEqual( ?typedef(myterm1, term(), [])
+                , ?getm({myterm1, 0})
+                ),
+    ?assertEqual( ?typedef(myterm2, term(), [])
+                , ?getm({myterm2, 0})
+                ).
+
+%% -----------------------------------------------------------------------------
 
 -type my_int() :: non_neg_integer().
 
 -type my_byte() :: 0..255.
 
--type remote_types() :: lee_types:list(lee_types:boolean()).
+integer_refl_test() ->
+    ?model([my_int/0, my_byte/0]),
+    ?assertEqual( ?typedef(my_int, non_neg_integer(), [])
+                , ?getm({my_int, 0})
+                ),
+    ?assertEqual( ?typedef(my_byte, range(0, 255), [])
+                , ?getm({my_byte, 0})
+                ).
+
+%% -----------------------------------------------------------------------------
+
+-type list_of_bools() :: [boolean()].
+
+-type non_empty_list_of_bools() :: [boolean(), ...].
+
+-type mylist0() :: list().
+
+-type strings() :: list(string()).
+
+list_refl_test() ->
+    ?model([list_of_bools/0, non_empty_list_of_bools/0, mylist0/0, strings/0]),
+    ?assertEqual( ?typedef(list_of_bools, list(boolean()), [])
+                , ?getm({list_of_bools, 0})
+                ),
+    ?assertEqual( ?typedef(non_empty_list_of_bools, nonempty_list(boolean()), [])
+                , ?getm({non_empty_list_of_bools, 0})
+                ),
+    ?assertEqual( ?typedef(mylist0, list(term()), [])
+                , ?getm({mylist0, 0})
+                ),
+    ?assertEqual( ?typedef(strings, list(string()), [])
+                , ?getm({strings, 0})
+                ).
+
+%% -----------------------------------------------------------------------------
+
+-type foo_atom() :: foo.
+
+atom_refl_test() ->
+    ?model([foo_atom/0]),
+    ?assertEqual( #type{id = [?MODULE, ?FUNCTION_NAME, {foo_atom, 0}]}
+                , foo_atom()
+                ),
+    ?assertEqual( ?typedef(foo_atom, foo, [])
+                , ?getm({foo_atom, 0})
+                ).
+
+%% -----------------------------------------------------------------------------
+
+-type foobarbaz() :: foo | bar | baz.
+
+union_refl_test() ->
+    ?model([foobarbaz/0]),
+    ?assertEqual( ?typedef(foobarbaz, union([foo, bar, baz]), [])
+                , ?getm({foobarbaz, 0})
+                ).
+
+%% -----------------------------------------------------------------------------
+
+-type mytuple() :: {float(), float(), xxx}.
+
+tuple_refl_test() ->
+    ?model([mytuple/0]),
+    ?assertEqual( ?typedef(mytuple, tuple([float(), float(), xxx]), [])
+                , ?getm({mytuple, 0})
+                ).
+
+%% -----------------------------------------------------------------------------
+
+-type simple(A) :: A.
 
 %% Recursive type is fine too:
 -type stupid_list(OwO) :: {cons, OwO, stupid_list(OwO)} | nil.
 
--lee_verify({url/0, is_url/0}).
--type url() :: string().
-
--type mymap(K, V) :: #{K => V}.
-
-halpme(A) ->
-    A.
-
-type_refl_test() ->
-    Model0 = lee:type_refl([foo, bar], [ simple/0
-                                       , simple/1
-                                       , foo_atom/0
-                                       , strings/0
-                                       , foobar/0
-                                       , my_tuple/0
-                                       , list_of_bools/0
-                                       , non_empty_list_of_bools/0
-                                       , my_int/0
-                                       , my_byte/0
-                                       , remote_types/0
-                                       , stupid_list/1
-                                       ]),
-    {ok, Model} = lee_model:compile([], [Model0]),
-    ?assertMatch( #type{id = [foo, bar, {foo_atom, 0}]}
-                , foo_atom()
-                ),
-    ?assertEqual( ?typedef(foo_atom, foo, [])
-                , catch lee_model:get([foo, bar, {foo_atom, 0}], Model)
-                ),
+higher_kind_refl_test() ->
+    ?model([simple/1, stupid_list/1]),
     ?assertEqual( ?typedef(simple, {var, 'A'}, ['A'])
-                , catch lee_model:get([foo, bar, {simple, 1}], Model)
+                , ?getm({simple, 1})
                 ),
-    ?assertEqual( ?typedef(simple, boolean(), [])
-                , catch lee_model:get([foo, bar, {simple, 0}], Model)
-                ),
-    ?assertEqual( ?typedef(strings, list(string()), [])
-                , catch lee_model:get([foo, bar, {strings, 0}], Model)
-                ),
-    ?assertEqual( ?typedef(foobar, union([foo, bar, baz]), [])
-                , catch lee_model:get([foo, bar, {foobar, 0}], Model)
-                ),
-    ?assertEqual( ?typedef(my_tuple, tuple([float(), float(), xxx]), [])
-                , catch lee_model:get([foo, bar, {my_tuple, 0}], Model)
-                ),
-    ?assertEqual( ?typedef(list_of_bools, list(boolean()), [])
-                , catch lee_model:get([foo, bar, {list_of_bools, 0}], Model)
-                ),
-    ?assertEqual( ?typedef(non_empty_list_of_bools, nonempty_list(boolean()), [])
-                , catch lee_model:get([foo, bar, {non_empty_list_of_bools, 0}], Model)
-                ),
-    ?assertEqual( ?typedef(my_int, non_neg_integer(), [])
-                , catch lee_model:get([foo, bar, {my_int, 0}], Model)
-                ),
-    ?assertEqual( ?typedef(my_byte, range(0, 255), [])
-                , catch lee_model:get([foo, bar, {my_byte, 0}], Model)
-                ),
-    ?assertEqual( ?typedef(remote_types, list(boolean()), [])
-                , catch lee_model:get([foo, bar, {remote_types, 0}], Model)
-                ),
-    ?assertMatch( #type{id = [foo, bar, {stupid_list, 1}], parameters = [xxxx]}
+    ?assertMatch( #type{ id = [?MODULE, ?FUNCTION_NAME, {stupid_list, 1}]
+                       , parameters = [xxxx]
+                       }
                 , stupid_list(xxxx)
                 ),
     ?assertEqual( ?typedef( stupid_list
@@ -108,12 +145,47 @@ type_refl_test() ->
                                  )
                           , ['OwO']
                           )
-                , catch lee_model:get([foo, bar, {stupid_list, 1}], Model)
-                ),
-    ok.
+                , ?getm({stupid_list, 1})
+                ).
+
+%% -----------------------------------------------------------------------------
+
+-type mymap1() :: map().
+
+map_refl_test() ->
+    ?model([mymap1/0]),
+    ?assertEqual( ?typedef(mymap1, map(), [])
+                , ?getm({mymap1, 0})
+                ).
+
+%% -----------------------------------------------------------------------------
+
+-type remote_types() :: lee_types:list(lee_types:boolean()).
+
+remote_type_refl_test() ->
+    ?model([remote_types/0]),
+    ?assertEqual( ?typedef(remote_types, list(boolean()), [])
+                , ?getm({remote_types, 0})
+                ).
+
+%% -----------------------------------------------------------------------------
+
+%% TODO: Test Lee attributes
+
+-type ignored() :: string().
+
+-type url() :: string().
+
+%% -----------------------------------------------------------------------------
 
 exports_test() ->
     Exports = ?MODULE:module_info(exports),
-    ?assertMatch( true
-                , lists:member({stupid_list,1}, Exports)
+    ?assertMatch( []
+                , [ {mybool, 0}
+                  , {strings, 0}
+                  , {myterm1, 0}
+                  , {foobarbaz, 0}
+                  , {simple, 1}
+                  , {stupid_list, 1}
+                  ] -- Exports
                 ).

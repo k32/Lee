@@ -1,3 +1,4 @@
+%% @doc This module defines functions for manipulating Lee models.
 -module(lee_model).
 
 %% API exports
@@ -30,7 +31,7 @@
 %% API functions
 %%====================================================================
 
-%% @doc Merge multiple model and metamodel modules to a
+%% @doc Merge multiple model and metamodel modules into a
 %% machine-friendly form.
 -spec compile([lee:lee_module()], [lee:lee_module()]) ->
                     {ok, #model{}} | {error, [term()]}.
@@ -47,8 +48,7 @@ compile(MetaModels0, Models0) ->
             {error, [Err || {error, Err} <- [T1, T2]]}
     end.
 
-%% @doc Merge multiple model fragments while checking for clashing
-%% names
+%% @doc Merge multiple Lee model modules into a single module
 -spec merge([M]) -> {ok, lee:cooked_module()} | {error, term()}
                when M :: lee:cooked_module() | lee:lee_module().
 merge(L) ->
@@ -67,6 +67,7 @@ merge(L) ->
         Err -> Err
     end.
 
+%% @doc Merge two Lee model modules into a single module
 -spec merge(M, M) -> {ok, lee:cooked_module()} | {error, term()}
                when M :: lee:cooked_module() | lee:lee_module().
 merge(M1_0, M2) ->
@@ -94,7 +95,7 @@ get(Id, #model{model = Module}) ->
 get(Id, Module) ->
     case lee_storage:get(Id, Module) of
         {ok, Val} -> Val;
-        _         -> error({badkey, Id})
+        _         -> error({bad_model_key, Id})
     end.
 
 %% @doc Get a node from the metamodel, assuming that it is present
@@ -129,7 +130,7 @@ fold(Fun, Acc, Scope, Module) when is_map(Module) -> %% Fold over raw model
 fold(Fun, Acc, Scope, Model) -> %% Fold over cooked module
     lee_storage:fold(Fun, Acc, Scope, Model).
 
-%% Transform instance key to model key
+%% @doc Transform instance key to model key
 -spec get_model_key(lee:key()) -> lee:model_key().
 get_model_key([]) ->
     [];
@@ -138,16 +139,19 @@ get_model_key([?lcl(_) | T]) ->
 get_model_key([A|T]) ->
     [A | get_model_key(T)].
 
-%% Checks whether an instance key matches with a mnode key
+%% @doc Check whether an instance key matches a mnode key
 -spec match(lee:model_key(), lee:key()) -> boolean().
 match(MK, IK) ->
     get_model_key(IK) =:= MK.
 
-%% Split a key into base part and required part. Consider an example:
-%% `[a, '$children', b, '$children', c]' [a] may or may not have
-%% children, same goes for `[a, X, b]' Hence
-%% `[a, '$children', b, $children']' is base of the key and [c] is
-%% "required part"
+%% @doc Split a key into a <i>base</i> part and a <i>required
+%% part</i>. Child object with <i>required part</i> of the key is
+%% mandatory if object with <i>base</i> key is present.
+%%
+%% Consider an example: <code>[a, '$children', b, '$children',
+%% c]</code>. Here `[a]' may or may not have children, same goes for
+%% `[a, X, b]' Hence <code>[a, '$children', b, $children']</code> is
+%% the <i>base</i> of the key and `[c]' is the <i>required part</i>.
 -spec split_key(lee:model_key()) -> {lee:model_key(), lee:model_key()}.
 split_key(K) ->
     {Req0, Base0} = lists:splitwith( fun(I) -> I =/= ?children end

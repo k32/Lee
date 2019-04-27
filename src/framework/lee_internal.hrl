@@ -1,6 +1,8 @@
 -ifndef(LEE_INTERRNAL_HRL).
 -define(LEE_INTERNAL_HRL, 1).
 
+%% @private
+
 -include("lee.hrl").
 
 -define(unused, []).

@@ -1,3 +1,4 @@
+%% @hidden
 -module(lee_transform).
 
 -export([parse_transform/2]).
@@ -102,6 +103,7 @@ parse_transform(Forms0, _Options) ->
                , reflected_types = #{}
                , module = Module
                },
+    %io:format(user, "AST: ~p~n", [Forms0]),
     {Forms1, State} = forms(Forms0, State0),
     ReflectedTypes = maps:to_list(State#s.reflected_types),
     %% export_type and export definitions are the same.
@@ -125,7 +127,7 @@ forms(?RCALL(Line, lee, type_refl, [Namespace0, Types0]), State0) ->
                          ),
     State2 = lists:foldl(fun refl_type/2, State1, Types1),
     #s{reflected_types = RTypes} = State2,
-    %% io:format("State: ~p~n", [State2]),
+    %io:format(user, "State: ~p~n", [State2]),
     TypesAST = [?typedef(Name, Arity, AST)
                 || {{Name, Arity}, {Namespace1, AST}} <- maps:to_list(RTypes)
                  , Namespace1 =:= Namespace
@@ -167,6 +169,13 @@ do_refl_type(State, Int = ?INT(_)) ->
     {Int, State};
 do_refl_type(State, Atom = ?ATOM(_)) ->
     {Atom, State};
+do_refl_type(State, {type, Line, map, Args0}) -> %% Maps are special
+    Args = case Args0 of
+               any -> [];
+               _   -> Args0
+           end,
+    CallSpec = [?atom(lee_types), ?atom(map), Args],
+    do_refl_type(State, {remote_type, Line, CallSpec});
 do_refl_type(State0, {Qualifier, Line, Name, Args0})
   when Qualifier =:= type; Qualifier =:= user_type ->
     %% Another local type was refered... We need to reflect it too:
@@ -243,10 +252,10 @@ mk_lee_key(Line, Namespace, Name, Arity) ->
 %% otherwise
 -spec maybe_refl_type(local_tref(), #s{}) -> #s{}.
 maybe_refl_type( TRef
-                  , State0 = #s{ reflected_types = RT
-                               , local_types = LT
-                               }
-                  ) ->
+               , State0 = #s{ reflected_types = RT
+                            , local_types = LT
+                            }
+               ) ->
     case {maps:is_key(TRef, LT), maps:is_key(TRef, RT)} of
         {true, false} ->
             %% Dirty hack to avoid infinite loop:
@@ -296,7 +305,7 @@ traverse_type_args(State0, Name, Args0) ->
                                    , State0
                                    , Args0
                                    ),
-    Args = case lists:member(Name, [tuple, union]) of %% TODO: What
+    Args = case lists:member(Name, [tuple, union, map]) of
                true ->
                    [mk_literal_list(Line, Args1)];
                false ->
