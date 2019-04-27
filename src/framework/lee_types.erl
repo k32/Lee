@@ -1,3 +1,4 @@
+%% @doc This module defines reflections of base Erlang types
 -module(lee_types).
 
 %% API exports
@@ -41,6 +42,7 @@
         , validate_tuple/3
         , print_tuple/2
 
+        , map/0  % Import~
         , map/2  % Import~
         , validate_map/3
 
@@ -71,11 +73,9 @@
              , nonempty_list/1
              , string/0
              , tuple/0
-             , map/2
+             , map/0
              , number/0
              ]).
-
--type map(A, B) :: map(A, B). %% TODO Wtf?
 
 %%====================================================================
 %% Macros
@@ -97,17 +97,27 @@
 %%====================================================================
 %% API functions
 %%====================================================================
+
+%% @doc Reflection of `A | B' type.
+%%
+%% Example:
+%% ```union(boolean(), atom())'''
 -spec union(lee:type(), lee:type()) -> lee:type().
 union(A, B) ->
     ?te([A, B]).
 
+%% @doc Reflection of `A | B | ...' type
+%%
+%% Example:
+%% ```union([boolean(), atom(), tuple()])'''
 -spec union([lee:type()]) -> lee:type().
-union([A, B|T]) ->
+union([A, B | T]) ->
     lists:foldl( fun union/2
                , union(A, B)
                , T
                ).
 
+%% @private
 -spec validate_union( lee:model()
                     , lee:type()
                     , term()
@@ -131,19 +141,23 @@ validate_union(Model, #type{parameters = [A, B]}, Term) ->
             end
     end.
 
+%% @private
 -spec print_union(lee:model(), lee:type()) ->
                          iolist().
 print_union(Model, #type{parameters = [A, B]}) ->
     [print_type_(Model, A), " | ", print_type_(Model, B)].
 
+%% @doc Reflection of `boolean()' type
 -spec boolean() -> lee:type().
 boolean() ->
     union(true, false).
 
+%% @doc Reflection of `integer()' type
 -spec integer() -> lee:type().
 integer() ->
     range(neg_infinity, infinity).
 
+%% @private
 -spec validate_integer( lee:model()
                       , lee:type()
                       , term()
@@ -160,6 +174,7 @@ validate_integer(Model, Self = #type{refinement = #{range := {A, B}}}, Term) ->
             {error, [Err], []}
     end.
 
+%% @private
 -spec print_integer(lee:model(), lee:type()) ->
                          iolist().
 print_integer(_Model, #type{refinement = #{range := Range}}) ->
@@ -176,10 +191,12 @@ print_integer(_Model, #type{refinement = #{range := Range}}) ->
             [integer_to_list(A), "..", integer_to_list(B)]
     end.
 
+%% @doc Reflection of `non_neg_integer()' type
 -spec non_neg_integer() -> lee:type().
 non_neg_integer() ->
     range(0, infinity).
 
+%% @doc Reflection of integer range `N..M' type
 -spec range( integer() | neg_infinity
            , integer() | infinity
            ) -> lee:type().
@@ -190,14 +207,17 @@ range(A, B) ->
        , []
        ).
 
+%% @doc Reflection of `string()' type
 -spec string() -> lee:type().
 string() ->
     list(range(0, 16#10ffff)).
 
+%% @doc Reflection of `float()' type
 -spec float() -> lee:type().
 float() ->
     ?te([]).
 
+%% @private
 -spec validate_float( lee:model()
                     , lee:type()
                     , term()
@@ -209,10 +229,12 @@ validate_float(_, _, Term) ->
             {error, [format("Expected float(), got ~p", [Term])], []}
     end.
 
+%% @doc Reflection of `atom()' type
 -spec atom() -> lee:type().
 atom() ->
     ?te([]).
 
+%% @private Validate that value is an atom
 -spec validate_atom( lee:model()
                    , lee:type()
                    , term()
@@ -224,6 +246,7 @@ validate_atom(_, _, Term) ->
             {error, [format("Expected atom(), got ~p", [Term])], []}
     end.
 
+%% @private
 -spec atom_from_string( lee:model()
                       , lee:key()
                       , string()
@@ -231,10 +254,12 @@ validate_atom(_, _, Term) ->
 atom_from_string(_, _, Str) ->
     {ok, list_to_atom(Str)}.
 
+%% @doc Reflection of `binary()' type
 -spec binary() -> lee:type().
 binary() ->
     ?te([]).
 
+%% @private
 -spec validate_binary( lee:model()
                      , lee:type()
                      , term()
@@ -246,10 +271,12 @@ validate_binary(_, _, Term) ->
             {error, [format("Expected binary(), got ~p", [Term])], []}
     end.
 
+%% @doc Reflection of `tuple()' type
 -spec tuple() -> lee:type().
 tuple() ->
     ?te([]).
 
+%% @private
 -spec validate_any_tuple( lee:model()
                         , lee:type()
                         , term()
@@ -261,10 +288,15 @@ validate_any_tuple(_, _, Term) ->
             {error, [format("Expected tuple(), got ~p", [Term])], []}
     end.
 
+%% @doc Reflection of `{A, B, ...}'
+%%
+%% Example:
+%% ```tuple([boolean(), atom()])'''
 -spec tuple([lee:type()]) -> lee:type().
 tuple(Params) ->
     ?te(Params).
 
+%% @private
 -spec validate_tuple( lee:model()
                     , lee:type()
                     , term()
@@ -294,20 +326,24 @@ validate_tuple(Model, Self = #type{parameters = Params}, Term) ->
                            )], []}
     end.
 
+%% @private
 -spec print_tuple(lee:model(), lee:type()) ->
                              iolist().
 print_tuple(Model, #type{parameters = Params}) ->
     PS = [print_type_(Model, I) || I <- Params],
     ["{", lists:join(",", PS), "}"].
 
+%% @doc Reflection of `term()' type
 -spec term() -> lee:type().
 term() ->
     ?te([]).
 
+%% @doc Reflection of `any()' type
 -spec any() -> lee:type().
 any() ->
     term().
 
+%% @private
 -spec validate_term( lee:model()
                    , lee:type()
                    , term()
@@ -315,19 +351,23 @@ any() ->
 validate_term(_, _, _) ->
     {ok, []}.
 
+%% @doc Reflection of `list()' type
 -spec list() -> lee:type().
 list() ->
     list(term()).
 
+%% @doc Reflection of `[A]' type
 -spec list(lee:type()) -> lee:type().
 list(Type) ->
     ?te(#{non_empty => false}, [Type]).
 
 
+%% @doc Reflection of `[A..]' type
 -spec nonempty_list(lee:type()) -> lee:type().
 nonempty_list(Type) ->
     ?te(list, 1, #{non_empty => true}, [Type]).
 
+%% @private
 -spec validate_list( lee:model()
                    , lee:type()
                    , term()
@@ -359,6 +399,7 @@ validate_list( Model
                            )], []}
     end.
 
+%% @private
 -spec print_list(lee:model(), lee:type()) ->
                              iolist().
 print_list(Model, #type{ refinement = #{non_empty := NonEmpty}
@@ -372,10 +413,17 @@ print_list(Model, #type{ refinement = #{non_empty := NonEmpty}
     end,
     [Prefix, "list(", print_type_(Model, Par), ")"].
 
+%% @doc Reflection of `map()' type
+-spec map() -> lee:type().
+map() ->
+    map(term(), term()).
+
+%% @doc Reflection of `#{K => V}' type
 -spec map(lee:type(), lee:type()) -> lee:type().
 map(K, V) ->
     ?te([K, V]).
 
+%% @private
 -spec validate_map( lee:model()
                   , lee:type()
                   , term()
@@ -414,7 +462,7 @@ validate_map( Model
                            )], []}
     end.
 
-%% "Literal" map
+%% @doc Reflection of a "Literal" map
 -spec exact_map(#{term() := lee:type()}) -> lee:type().
 exact_map(Spec) ->
     ?te( #{ exact_map_spec => Spec
@@ -423,6 +471,7 @@ exact_map(Spec) ->
        , []
        ).
 
+%% @private
 -spec validate_exact_map( lee:model()
                         , lee:type()
                         , term()
@@ -477,6 +526,7 @@ validate_exact_map( Model
                            )], []}
     end.
 
+%% @private
 -spec print_exact_map(lee:model(), lee:type()) ->
                              iolist().
 print_exact_map(Model, #type{refinement = #{exact_map_spec := Spec}}) ->
@@ -489,10 +539,12 @@ print_exact_map(Model, #type{refinement = #{exact_map_spec := Spec}}) ->
                             )]
                  ).
 
+%% @doc Reflection of `number()' type
 -spec number() -> lee:type().
 number() ->
     union(integer(), float()).
 
+%% @private
 -spec print_type_(lee:model(), lee:type()) -> iolist().
 print_type_(_, {var, Var}) ->
     io_lib:format("~s", [Var]);
@@ -516,6 +568,7 @@ print_type_(Model, Type) ->
                                        ])
        end).
 
+%% @doc Print type
 -spec print_type(lee:model(), lee:type()) -> string().
 print_type(Model, Type) ->
     TermType = print_type_(Model, Type),
@@ -530,6 +583,7 @@ print_type(Model, Type) ->
          end,
     lists:flatten([TermType|TD]).
 
+%% @private
 -spec collect_typedefs( lee:model()
                       , lee:type()
                       , Acc
@@ -554,6 +608,7 @@ collect_typedefs(Model, #type{id = TypeId}, Acc0) ->
 collect_typedefs(_, _, Acc) ->
     Acc.
 
+%% @private
 -spec print_typedef(lee:model(), lee:key(), map()) -> iolist().
 print_typedef(Model, _TypeId, Attrs) ->
     Name = ?m_attr(typedef, typename, Attrs),
@@ -562,6 +617,7 @@ print_typedef(Model, _TypeId, Attrs) ->
     Vars = lists:join($,, Vals),
     io_lib:format("  ~s(~s) :: ~s~n", [Name, Vars, Type]).
 
+%% @private
 -spec is_typedef(#mnode{}) -> boolean().
 is_typedef(#mnode{metatypes = Meta}) ->
     lists:member(typedef, Meta).
@@ -570,9 +626,11 @@ is_typedef(#mnode{metatypes = Meta}) ->
 %% Internal functions
 %%====================================================================
 
+%% @private
 format(Fmt, Attrs) ->
     lists:flatten(io_lib:format(Fmt, Attrs)).
 
+%% @private
 validate_list_(_, _, []) ->
     ok;
 validate_list_(Model, Param, [Term|Tail]) ->

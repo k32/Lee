@@ -1,3 +1,4 @@
+%% @private
 -module(lee_lib).
 
 -include("lee.hrl").

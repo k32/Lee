@@ -1,3 +1,4 @@
+%% @private
 -module(lee_storage).
 
 -include("lee_internal.hrl").

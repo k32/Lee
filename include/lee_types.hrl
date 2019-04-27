@@ -18,6 +18,7 @@
                    , string/0
                    , tuple/0
                    , tuple/1
+                   , map/0
                    , map/2
                    , exact_map/1
                    , number/0
