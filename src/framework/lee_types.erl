@@ -122,7 +122,7 @@ union([A, B | T]) ->
                     , lee:type()
                     , term()
                     ) -> lee:validate_result().
-validate_union(Model, #type{parameters = [A, B]}, Term) ->
+validate_union(Model, Self = #type{parameters = [A, B]}, Term) ->
     case lee:validate_term(Model, A, Term) of
         {ok, _} ->
             {ok, []};
@@ -131,9 +131,8 @@ validate_union(Model, #type{parameters = [A, B]}, Term) ->
                 {ok, _} ->
                     {ok, []};
                 {error, _, _} ->
-                    Msg = format( "Expected ~s | ~s, got ~p"
-                                , [ print_type(Model, A)
-                                  , print_type(Model, B)
+                    Msg = format( "Expected: ~s~nGot: ~p"
+                                , [ print_type(Model, Self)
                                   , Term
                                   ]
                                 ),
@@ -170,7 +169,7 @@ validate_integer(Model, Self = #type{refinement = #{range := {A, B}}}, Term) ->
         {ok, []}
     catch
         badint ->
-            Err = format("Expected ~s, got ~p", [print_type(Model, Self), Term]),
+            Err = format("Expected: ~s~nGot: ~p", [print_type(Model, Self), Term]),
             {error, [Err], []}
     end.
 
@@ -303,11 +302,9 @@ tuple(Params) ->
                     ) -> lee:validate_result().
 validate_tuple(Model, Self = #type{parameters = Params}, Term) ->
     try
-        is_tuple(Term)
-            orelse throw(badtuple),
+        is_tuple(Term) orelse throw(badtuple),
         List = tuple_to_list(Term),
-        length(Params) =:= length(List)
-            orelse throw(badtuple),
+        length(Params) =:= length(List) orelse throw(badtuple),
         lists:zipwith( fun(Type, Val) ->
                                %% TODO: make better error message
                                case lee:validate_term(Model, Type, Val) of
@@ -321,7 +318,7 @@ validate_tuple(Model, Self = #type{parameters = Params}, Term) ->
         {ok, []}
     catch
         badtuple ->
-            {error, [format( "Expected ~s, got ~p"
+            {error, [format( "Expected: ~s~nGot ~p"
                            , [print_type(Model, Self), Term]
                            )], []}
     end.
@@ -588,24 +585,29 @@ print_type(Model, Type) ->
                       , lee:type()
                       , Acc
                       ) -> Acc when Acc :: #{lee:model_key() => map()}.
-collect_typedefs(Model, #type{id = TypeId}, Acc0) ->
+collect_typedefs(Model, #type{id = TypeId, parameters = Params}, Acc0) ->
     MNode = lee_model:get(TypeId, Model),
-    case {map_sets:is_element(TypeId, Acc0), is_typedef(MNode)} of
-        {false, true} ->
-            Attrs = MNode#mnode.metaparams,
-            TypeParams = ?m_attr(typedef, type_variables, Attrs),
-            BaseType = ?m_attr(typedef, type, Attrs),
-            Acc1 = Acc0 #{TypeId => Attrs},
-            Acc = collect_typedefs(Model, BaseType, Acc1),
-            lists:foldl( fun(I, Acc) ->
-                                 collect_typedefs(Model, I, Acc)
-                         end
-                       , Acc
-                       , TypeParams);
-        _ ->
-            Acc0
-    end;
-collect_typedefs(_, _, Acc) ->
+    Acc1 = case {map_sets:is_element(TypeId, Acc0), is_typedef(MNode)} of
+               {false, true} ->
+                   Attrs = MNode#mnode.metaparams,
+                   TypeParams = ?m_attr(typedef, type_variables, Attrs),
+                   BaseType = ?m_attr(typedef, type, Attrs),
+                   Acc2 = Acc0 #{TypeId => Attrs},
+                   Acc3 = collect_typedefs(Model, BaseType, Acc2),
+                   lists:foldl( fun(I, Acc) ->
+                                        collect_typedefs(Model, I, Acc)
+                                end
+                              , Acc3
+                              , TypeParams);
+               _ ->
+                   Acc0
+           end,
+    lists:foldl( fun(I, Acc) ->
+                         collect_typedefs(Model, I, Acc)
+                 end
+               , Acc1
+               , Params);
+collect_typedefs(_, T, Acc) ->
     Acc.
 
 %% @private
@@ -615,7 +617,7 @@ print_typedef(Model, _TypeId, Attrs) ->
     Vals = [atom_to_list(I) || I <- ?m_attr(typedef, type_variables, Attrs)],
     Type = print_type_(Model, ?m_attr(typedef, type, Attrs)),
     Vars = lists:join($,, Vals),
-    io_lib:format("  ~s(~s) :: ~s~n", [Name, Vars, Type]).
+    io_lib:format("  ~s(~s) :: ~s.~n", [Name, Vars, Type]).
 
 %% @private
 -spec is_typedef(#mnode{}) -> boolean().

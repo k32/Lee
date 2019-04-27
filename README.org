@@ -8,220 +8,379 @@
   make an error in the config. I want documentation about all
   configurable parameters, their purpose and type.
 
-- As a designer I want to focus on the business logic instead of
-  dealing with the boring configuration-related stuff.
+- As a software designer I want to focus on the business logic instead
+  of dealing with the boring configuration-related stuff. I want to
+  have a =?magic:get(Key)= function that returns a value that is
+  guaranteed safe.
 
 There are a few approaches to this conflict:
 
 [[file:doc/images/explanation.png]]
 
-* Explanation
+This library /does/ provide =?magic:get/1= function. The below
+document explains how.
+
+* Introduction
 
 /Lee/ helps creating type-safe, self-documenting configuration for
 Erlang applications. It is basically a data modeling DSL, vaguely
 inspired by [[https://tools.ietf.org/html/rfc7950][YANG]], however scaled down /a lot/.
 
 Software configuration is a solved problem. The solution is to gather
-all the information about the user-facing commands and parameters in
-one place called /data model/ and generate all kinds of code and
+all information about the user-facing commands and parameters in one
+place called /data model/ and generate all kinds of code and
 documentation from it, instead of spending a lot of time trying to
 keep everything in sync and inevitably failing in the end.
 
-Unfortunately the existing data modeling solutions are extremely heavy
-and nasty to deal with. One doesn't want to mess with YANG compilers
-and proprietary libraries for a mere small tool, and it's
-understandable. /Lee/ attempts to implement a /reasonably useful/ data
-modeling DSL, some bare-bones libraries for CLI and config file
-parsing, together with the model validation routines in under 3000 LOC
-or so.
+This approach has been widely used in telecom where the number of
+configurable parameters per device can easily reach
+thousands. Unfortunately the existing solutions are extremely heavy
+and difficult to deal with, also almost none of them is open
+source. One doesn't want to mess with YANG compilers and proprietary
+libraries for a mere small tool, and it's understandable. /Lee/
+attempts to implement a /reasonably useful/ data modeling embedded
+DSL, some bare-bones libraries for CLI and config file parsing,
+together with the model validation routines in under 3000 LOC or
+so. And be fully Erlang-native too.
 
-* Basic examples
+* Type reflections
 
-** Type reflection
-
-/Lee/ provides a /base model/ containing definitions necessary for
-veryfying plain Erlang terms. Let's use it to verify some basic types:
+This document explains Lee from the bottom-up. The most basic Lee
+feature is type-checking of Erlang terms in runtime. Let's use this
+to verify some familiar types:
 
 #+BEGIN_SRC erlang
--include("lee_types.hrl").
+%% This module shows very basic (and relatively low-level) usage of Lee.
+-module(example1).
+
+-export([main/0]).
+
+-include_lib("lee/include/lee_types.hrl").
 
 main() ->
-  Model = lee:base_model(),
-  ok = lee:validate_term(Model, boolean(), true),
-  ok = lee:validate_term(Model, boolean(), false),
-  {error, "Expected true | false, got 42"} =
-    lee:validate_term(Model, boolean(), 42),
-  ok = lee:validate_term(Model, string(), "Hi!"),
-  {error, "Expected list(0..1114111), got [100, -1]"} =
-    lee:validate_term(Model, string(), [100, -1]).
+    %% First of all we need to create a _data model_ from a few _model
+    %% modules_. In this example we use only prepackaged modules that
+    %% contain functions necessary to validate Erlang terms. Don't pay
+    %% too much attention to this part yet, it will be explained in
+    %% more detail later.
+    {ok, Model} = lee_model:compile([lee:base_metamodel()], [lee:base_model()]),
+    %% 2. Validate Erlang terms against the model:
+    {ok, []} = lee:validate_term(Model, boolean(), true),
+    {ok, []} = lee:validate_term(Model, boolean(), false),
+    %% `true' and `false' are indeed valid `boolean()' values...
+    %% Now let's try something illegal:
+    {error, ["Expected true | false, got 42"], _Warnings} =
+        lee:validate_term(Model, boolean(), 42),
+    %% Let's validate some strings:
+    {ok, []} = lee:validate_term(Model, string(), "Hi!"),
+    %% Non-unicode characters are forbidden:
+    {error, ["Expected char(), got -1 in list(char())"], []} =
+        lee:validate_term(Model, string(), [100, -1]),
+    ok.
 #+END_SRC
 
-Now let's play with some custom types. =lee:type_refl/2=
-pseudofunction invokes a parse transform generating a /type
-reflection/ from a dialyzer type spec. It takes two arguments: first
-one is the namespace for the generated types, and the second one is a
-list of local type definitions that should be included in the model.
+User-defined types are supported too. =lee:type_refl/2= pseudofunction
+invokes a parse transform generating a /type reflection/ from a
+dialyzer type spec. It takes two arguments: the first one, namespace,
+is irrelevant for now, and the second one is a list of local type
+definitions that should be included in the resulting model.
 
 #+BEGIN_SRC erlang
--include("lee_types.hrl").
+%% This module shows how type reflection works
+-module(example2).
+
+-export([main/0]).
+
+-include_lib("lee/include/lee_types.hrl").
 
 -type stupid_list(A) :: {cons, A, stupid_list(A)}
-                      | nil
-                      .
+                      | nil.
 
--type foo(A) :: stupid_list(A)
-              | list(A)
-              .
+-type mylist(A) :: stupid_list(A)
+                 | list(A).
+
+-type mylist() :: mylist(term()).
 
 main() ->
-  %% Generate a model containing bar/1 type:
-  Model0 = lee:type_refl([my, model], [foo/1]),
-  %% Merge it with the Lee base model:
-  {ok, Model} = lee_model:merge( lee:base_model()
-                               , Model0
-                               ),
-  ok = lee:validate_term(Model, foo(atom()), [foo, bar]),
-  ok = lee:validate_term(Model, foo(atom()), {cons, foo, {cons, bar, nil}}).
+    %% Generate a _Lee model module_ containing user types:
+    MyModule = lee:type_refl([my, model], [mylist/0, mylist/1]),
+    %% Merge it with the Lee base models (don't focus on this now):
+    {ok, Model} = lee_model:compile( [lee:base_metamodel()]
+                                   , [lee:base_model(), MyModule]
+                                   ),
+    %% Check some values:
+    {ok, []} = lee:validate_term(Model, mylist(atom()), [foo, bar]),
+    {ok, []} = lee:validate_term(Model, mylist(), {cons, foo, {cons, bar, nil}}),
+    {error, [Error], _Warnings} = lee:validate_term(Model, mylist(atom()), {cons, foo, {cons, 1, nil}}),
+    io:put_chars(Error).
 #+END_SRC
 
-Note: you don't need to include all the types in the list, Lee will
-figure out the dependencies.
+=example2:main().= produces the following output:
 
-Note: opaque types can't be reflected (obviously).
+#+BEGIN_EXAMPLE
+Expected: example2:stupid_list(atom()) | list(atom()) when
+  example2:stupid_list(A) :: {cons,A,example2:stupid_list(A)} | nil.
 
-Note: =lee:type_refl= generates a local function with the same name as
-the type. You will get a compilation error if you try to reflect a
-type =foo/0= and there is already a function =foo/0=.
+Got: {cons,foo,{cons,1,nil}}
+#+END_EXAMPLE
 
-** Model validation
+Note: opaque types can't be reflected.
 
-Validating terms against typespecs in the runtime is cool and all, but
-it's still a chore. It can be avoided be defining a custom data model
-describing configuration parameters and their types. Let's create one:
+Note: =lee:type_refl= generates an invisible local function with the
+same name as the type. Attempt to reflect a type =foo/0= when there is
+already a function called =foo/0= will result in a compilation error.
+
+** Remote type dependencies
+
+=lee_transform= can figure out the dependencies between the types
+defined within a single Erlang module. However it cannot automatically
+reflect types located in other Erlang modules. Therefore it is
+necessary to add =lee:type_refl= pseudocall in each Erlang module and
+/merge/ the resulting Lee models. The following example demonstrates
+how cross-module type dependencies can be implemented:
 
 #+BEGIN_SRC erlang
--include("lee_types.hrl").
+-module(a).
 
-main(Config) ->
-    %% Define a custom data model fragment:
-    MyModel = #{ foo => {[value]
-                        , #{ mandatory => true
-                           , type => boolean()
-                           , oneliner => "This value controls fooing"
-                           , doc => "Blah blah blah"
-                           }}
-               , bar => {[value]
-                        , #{ type => integer()
-                           , oneliner => "This value controls baring"
-                           , doc => "Blah blah blah"
-                           , default => 42
-                           }}
-               },
-    %% [value] is a `metatype' which specifies that [foo] and [bar] can be
-    %% retrieved from a config. There may be multiple metatypes; their
-    %% attributes are row-polymorphic. Metatypes belong to the _metamodel_.
+-export([type_refl/0]).
 
-    %% Let's use Lee's base metamodel. It contains definitions of value
-    %% metaclass and a few others
-    MetamodelFragments = [lee:base_metamodel()],
+-type foo() :: ... .
 
-    %% Add base Erlang types to our custom model fragment:
-    ModelFragments = [lee:base_model(), MyModel],
-
-    %% Merge model and metamodel fragments, creating a model
-    {ok, Model} = lee_model:compile(MetamodelFragments, ModelFragments),
-    %% Now we can verify `Config' against the model:
-    case lee:validate(Model, Config) of
-      {ok, _Warnings} ->
-          %% And finally we can read values from the config
-          %% And they _do have_ the specified types!
-          {ok, Foo} = lee:get(Model, Config, [foo]),
-          {ok, Bar} = lee:get(Model, Config, [bar]),
-          ok;
-      {error, Errors, _Warnings} ->
-          io:format("Invalid config: ~p~n", [Errors]),
-          halt(1)
-     end.
+type_refl() ->
+  lee:type_refl([my, types, ?MODULE], [foo/0]).
 #+END_SRC
-
-** Creating the config
-
-And of course reading the config is model-driven too. Extend the model
-with a few new metatypes:
 
 #+BEGIN_SRC erlang
-    MyModel = #{ foo => {[value, environment_variable, cli_param]
-                        , #{ mandatory => true
-                           , type => string()
-                           , oneliner => "This value controls fooing"
-                           , doc => "Blah blah blah"
-                           , env => "FOO"
-                           , cli_param => "foo"
-                           , cli_short => "f"
-                           }}
-               , bar => {[value, cli_param]
-                        , #{ type => integer()
-                           , oneliner => "This value controls baring"
-                           , doc => "Blah blah blah"
-                           , default => 42
-                           , cli_param => "bar"
-                           , cli_short => "b"
-                           }}
-               }
+-module(b).
+
+-type bar() :: a:foo() | ... .
+
+model() ->
+  {ok, Model} = lee_model:compile( [lee:base_metamodel()]
+                                 , [ lee:type_refl([my, types, ?MODULE], [bar/0])
+                                   , a:type_refl()
+                                   ]
+                                 ),
+  Model.
 #+END_SRC
 
-And merge it with some new metamodels:
+* Defining models
+
+/Model/ is the central concept in Lee. Generally speaking, model can
+be seen as a schema of some data.
+
+Models are made of two basic building blocks: /namespaces/ and
+/mnodes/. Namespace is simply an Erlang map where values are either
+mnodes or other namespaces.
+
+Mnode is a tuple that looks like this:
 
 #+BEGIN_SRC erlang
-    MetamodelFragments = [lee:base_metamodel(), lee_cli:metamodel(), lee_env:metamodel()],
-
-    %% Add base Erlang types to our custom model fragment:
-    ModelFragments = [lee:base_model(), MyModel],
-
-    %% Merge model and metamodel fragments, creating a model
-    {ok, Model} = lee_model:compile(MetamodelFragments, ModelFragments),
+{ MetaTypes :: [MetaType :: atom()]
+, MetaParameters :: #{atom() => term()}
+, Children :: lee:namespace()
+}
 #+END_SRC
 
-Reading the config is done like this:
+or this:
 
 #+BEGIN_SRC erlang
-main(CliAttrs) ->
-   ...
-   Config0 = lee_storage:new(lee_map_storage, {}),
-   Config1 = lee_env:read_to(Model, Config0),
-   Config = lee_cli:read_to(Model, CliAttrs, Config1),
-   ...
+{ MetaTypes :: [atom()]
+, MetaParameters :: #{atom() => term()}
+}
 #+END_SRC
 
-And it's all that it takes.
+The latter is just a shortcut where =Children= is an empty map.
 
-** TODO Documentation
+=MetaTypes= is a list of /metatype/ IDs which are applicable to the
+mnode. Example metatypes:
+
+ - =value= metatype means the mnode denotes some runtime data
+
+ - =type= is used internally by Lee to describe reflected Erlang
+   types
+
+=MetaParameters= field contains data relevant to the metatypes
+assigned to the mnode. There are no strict rules about it. For
+example, =value= metatype requires =type= metaparameter and optional
+=default= one.
+
+Finally, =Children= field allows nesting of models.
+
+Any mnode can be identified by /model key/. Model key is a list of
+namespace keys or =$children= atoms denoting mnode children.
+
+The following example shows how to define a /Lee model module/:
+
+#+BEGIN_SRC erlang
+-spec model() -> lee:lee_module().
+model() ->
+    #{ foo =>
+           {[value],
+            #{ type => boolean()
+             , oneliner => "This value controls fooing"
+             }}
+     , bar =>
+           #{ baz =>
+                  {[value],
+                   #{ type => integer()
+                    , oneliner => "This value controls bazing"
+                    , default => 42
+                    }}
+            , quux =>
+                  {[value],
+                   #{ type => nonempty_list(atom())
+                    , oneliner => "This value controls quuxing"
+                    , default => [foo]
+                    }}
+            }
+     }.
+#+END_SRC
+
+=[foo]=, =[bar, baz]= and =[bar, quux]= are valid keys in the above
+model.
+
+Model modules have a nice property: they are /composable/ as long as
+their keys do not clash. One or many model modules make up a
+/model/. Note: technically there is absolutely no difference between
+/model module/ and /model/ (it's a monoid). The latter term denotes
+something that is complete from the application point of
+view. Therefore in the rest of the document both terms are used
+interchangeably.
+
+Model should be merged and compiled to a machine-friendly form before
+use. =lee_model:compile/2= function does that. Note that it takes two
+arguments, both are lists of Lee models. The second argument is
+application model (or *the* model), and the first one is a
+/metamodel/, where all metatypes used in the application model are
+defined.
+
+* Data storage
+
+Now what about actual data described by the models? Lee provides an
+abstraction called =lee_storage= to keep track of it. Essentially any
+key-value storage (from proplist to a mnesia table) can serve as a
+=lee_storage=. There are a few prepackaged implementations:
+
+ - =lee_map_storage= the most basic one storing data in a regular map
+ - =lee_mnesia_storage= uses mnesia as storage, reads are transactional
+ - =lee_dirty_mnesia_storage= same, but reads are dirty
+
+Storage contents can be modified via /patches/. The following example
+illustrates how to create a new storage and populate it with some
+data:
+
+#+BEGIN_SRC erlang
+-spec data() -> lee:data().
+data() ->
+    %% Create am empty storage:
+    Data0 = lee_storage:new(lee_map_storage),
+    %% Define a patch:
+    Patch = [ %% Set some values:
+              {set, [foo], false}
+            , {set, [bar, quux], [quux]}
+              %% Delete a value (if present):
+            , {rm, [bar, baz]}
+            ],
+    %% Apply the patch:
+    lee_storage:patch(Data0, Patch).
+#+END_SRC
+
+** Data validation
+It is possible to verify the entire storage of data against a model:
+
+#+BEGIN_SRC erlang
+main() ->
+    {ok, Model} = lee_model:compile( [lee:base_metamodel()]
+                                   , [lee:base_model(), model()]
+                                   ),
+    Data = data(),
+    {ok, _Warnings} = lee:validate(Model, Data),
+    ...
+#+END_SRC
+
+Successful validation ensures the following properties of =Data=:
+
+ - All values described in the model are either present in =Data=, or
+   =Model= declares their default values
+ - All values present in =Data= have correct types
+
+** Getting the data
+
+Now when we know that data is complete and type-safe, getting values
+becomes extremely simple:
+
+#+BEGIN_SRC erlang
+    [quux] = lee:get(Model, Data, [bar, quux]),
+    false = lee:get(Model, Data, [foo]),
+#+END_SRC
+
+Note that =lee:get= returns plain values rather than something like
+={ok, Value} | undefined=.
+
+Complete code of the example can be found [[file:doc/example/example_model.erl][here]].
+
+* Creating patches
+
+Creating patches can be model-driven too. Lee comes with a few modules
+for reading data:
+
+ - =lee_cli= read data by parsing CLI arguments
+ - =lee_consult= read data from files via =file:consult=
+ - =lee_os_env= read data from environment variables
+
+In order to utilize these modules one should extend the model with new
+metatypes and metaparameters:
+
+#+BEGIN_SRC erlang
+-spec model() -> lee:lee_module().
+model() ->
+    #{ foo =>
+           {[value, cli_param],
+            #{ type => boolean()
+             , oneliner => "This value controls fooing"
+             , cli_short => "f"
+             , cli_operand => "foo"
+             }}
+     , bar =>
+           #{ baz =>
+                  {[value, environment_variable],
+                   #{ type => integer()
+                    , oneliner => "This value controls bazing"
+                    , default => 42
+                    , os_env => "BAZ"
+                    }}
+            , quux =>
+                  {[value, cli_param],
+                   #{ type => nonempty_list(atom())
+                    , oneliner => "This value controls quuxing"
+                    , default => [foo]
+                    , cli_operand => "quux"
+                    }}
+            }
+     }.
+#+END_SRC
+
+Reading data is done like this:
+
+#+BEGIN_SRC erlang
+%% Test data:
+-spec data(lee:model(), [string()]) -> lee:data().
+data(Model, CliArgs) ->
+    %% Create an empty storage:
+    Data0 = lee_storage:new(lee_map_storage),
+    %% Read environment variables:
+    Data1 = lee_os_env:read_to(Model, Data0),
+    %% Read CLI arguments and return the resulting data:
+    lee_cli:read_to(Model, CliArgs, Data1).
+#+END_SRC
+
+Full code of the example can be found [[file:doc/example/example_model2.erl][here]].
+
+* TODO Documentation
 
 Note that the model already contains the docstrings which can be
 easily transformed to manpages and what not. TBD
-
-* Demo application
-
-[[file:doc/examples/demo.erl]] contains a simple application that reads
-some environment variables and CLI options, then uses this data to
-open a file containing erlang terms, which then get validated against
-a model.
-
-It's completely useless and just demonstrates that /Lee/ library
-(somewhat) works.
-
-Build by running make (assuming rebar3 is present in the path).
-
-Try:
-
-#+BEGIN_SRC bash
-_build/default/bin/demo --file priv/demo-correct-1.eterm
-FILE="priv/demo-correct-2.eterm" _build/default/bin/demo
-FILE="priv/demo-correct-2.eterm" _build/default/bin/demo --file priv/demo-incorrect-2.eterm
-#+END_SRC
-
-* TODO Metamodels
-Metamodels validate user models. TBD
 
 * Name?
 
@@ -244,6 +403,6 @@ working. Some example use cases:
 Tl;dr: getting values from config should be very fast, but updating
 and validating config may be slow.
 
-It should be possible to use Lee in hotspots. It means any call to
-=lee:get= should be theoretically possible to implement using at most
-2 hashtable lookups (1 for custom data and 1 for the default value).
+It should be possible to use =lee:get= in hotspots. It means any call
+to =lee:get= should be theoretically possible to implement using at
+most 2 hashtable lookups (1 for data and 1 for the default value).

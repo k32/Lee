@@ -185,7 +185,7 @@ print_typedef_test() ->
     Model0 = lee:type_refl([type], [mytuple/0]),
     {ok, Model} = lee_model:compile([], [Model0, lee:base_model()]),
     ?assertMatch( "lee_types_tests:mytuple() when\n"
-                  "  lee_types_tests:mytuple() :: lee_types_tests:mytuple(integer(),float())\n"
-                  "  lee_types_tests:mytuple(A,B) :: {integer(),A,B}\n"
+                  "  lee_types_tests:mytuple() :: lee_types_tests:mytuple(integer(),float()).\n"
+                  "  lee_types_tests:mytuple(A,B) :: {integer(),A,B}.\n"
                 , lee_types:print_type(Model, mytuple())
                 ).
