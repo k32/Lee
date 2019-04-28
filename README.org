@@ -18,7 +18,8 @@ There are a few approaches to this conflict:
 [[file:doc/images/explanation.png]]
 
 This library /does/ provide =?magic:get/1= function. The below
-document explains how.
+document explains how. (If you just want to check what the API looks
+like, skip to [[#gathering-it-all-together][Gathering it all together]])
 
 * Introduction
 
@@ -377,6 +378,40 @@ data(Model, CliArgs) ->
 #+END_SRC
 
 Full code of the example can be found [[file:doc/example/example_model2.erl][here]].
+
+* Gathering it all together
+
+All Lee APIs that we discussed so far were stateless. Although being
+stateless makes Lee extremely flexible, passing state around is hardly
+practical. Lee comes with a simple reference implementation of
+configuration server, that holds all data in Mnesia and ensures that
+the data is always sound, by validating patches. The following example
+briefly shows how it can be used:
+
+#+BEGIN_SRC erlang
+main() ->
+    application:ensure_started(lee),
+    %% Apply patches in a transaction (invalid ones won't be applied).
+    ok = lee_server:patch(fun(Model, Data) ->
+                             Quux = lee:get(Model, Data, [quux]),
+                             ...
+                             %% Return a patch:
+                             {ok, [ {set, [foo], Val}
+                                  , {rm, [bar]}
+                                  , ...
+                                  ]}
+                          end),
+    %% Get data by dirty read:
+    Foo = lee_server:get_d([foo]),
+    %% Or get a consistent snapshot of data in a transaction:
+    mnesia:transaction(
+      fun() ->
+        Foo = lee_server:get([foo]),
+        Keys = lee_server:list([foo, ?children]),
+        ...
+      end),
+   ...
+#+END_SRC
 
 * TODO Documentation
 

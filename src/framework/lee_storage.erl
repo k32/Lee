@@ -10,6 +10,8 @@
         , list/2
         , fold/3
         , fold/4
+        , dump/1
+        , clone/3
         ]).
 
 %% Internal exports:
@@ -89,12 +91,11 @@ patch(D0 = #lee_tree{backend = Backend, data = Data0}, Patch0) ->
     D0#lee_tree{ data = Data
                }.
 
-%% List instances that can match the pattern
+%% @doc List instances that can match the pattern
 -spec list(lee:key(), data(_)) -> [lee:key()].
 list(Pattern, #lee_tree{backend = Backend, data = Data}) ->
     {ok, Keys} = Backend:get(?rose_tree, Data),
     list(Keys, [], Pattern).
-
 
 -spec fold( fun((lee:key(), Val, Acc) -> Acc)
           , Acc
@@ -126,10 +127,22 @@ fold(Fun0, Acc0, Scope0, Data) ->
           end,
     rt_fold(Fun, Acc0, Scope0, Keys, []).
 
-%% Wrap a persistent storage. Hacky
+%% @doc Wrap a persistent storage. Hacky
 -spec wrap(module(), term()) -> data(term()).
 wrap(Backend, Blob) ->
     #lee_tree{backend = Backend, data = Blob}.
+
+%% @doc Dump contents of the storage to a patch
+-spec dump(data(A)) -> patch(A).
+dump(S) ->
+    fold( fun(K, V, Acc) -> [{set, K, V} | Acc] end
+        , []
+        , S).
+
+%% @doc Clone contents of the storage into another new storage
+-spec clone(data(A), module(), map()) -> data(A).
+clone(A, Backend, BackendOpts) ->
+    patch(new(Backend, BackendOpts), dump(A)).
 
 %%====================================================================
 %% Rose tree operations

@@ -128,3 +128,14 @@ fold_after_delete_test() ->
                                   , Data
                                   )
                 ).
+
+dump_test() ->
+    Data0 = lee_storage:new(lee_map_storage),
+    Data1 = lee_storage:patch(Data0, patch()),
+    ?assertEqual( lists:sort(patch())
+                , lists:sort(lee_storage:dump(Data1))
+                ),
+    Data2 = lee_storage:clone(Data1, lee_map_storage, #{}),
+    ?assertEqual( lists:sort(patch())
+                , lists:sort(lee_storage:dump(Data2))
+                ).

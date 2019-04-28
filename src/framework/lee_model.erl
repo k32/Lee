@@ -15,6 +15,7 @@
         , merge/2
         , split_key/1
         , full_split_key/1
+        , clone/4
         ]).
 
 -export_type([ metatype_index/0
@@ -148,10 +149,10 @@ match(MK, IK) ->
 %% part</i>. Child object with <i>required part</i> of the key is
 %% mandatory if object with <i>base</i> key is present.
 %%
-%% Consider an example: <code>[a, '$children', b, '$children',
-%% c]</code>. Here `[a]' may or may not have children, same goes for
-%% `[a, X, b]' Hence <code>[a, '$children', b, $children']</code> is
-%% the <i>base</i> of the key and `[c]' is the <i>required part</i>.
+%% Consider an example: ```[a, '$children', b, '$children',
+%% c]''' Here `[a]' may or may not have children, same goes for `[a,
+%% X, b]' Hence ```[a, '$children', b, $children']''' is the
+%% <i>base</i> of the key and `[c]' is the <i>required part</i>.
 -spec split_key(lee:model_key()) -> {lee:model_key(), lee:model_key()}.
 split_key(K) ->
     {Req0, Base0} = lists:splitwith( fun(I) -> I =/= ?children end
@@ -173,6 +174,13 @@ full_split_key(Key) ->
 get_metatype_index(MT, #model{meta_class_idx = Idx}) ->
     maps:get(MT, Idx, []).
 
+%% @doc Copy model from one lee_storage to another
+-spec clone(lee:model(), module(), map(), map()) -> lee:model().
+clone(M0 = #model{metamodel = A, model = B}, Backend, BO1, BO2) ->
+    M0#model{ metamodel = lee_storage:clone(A, Backend, BO1)
+            , model = lee_storage:clone(B, Backend, BO2)
+            }.
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -185,7 +193,7 @@ compile_module(Module) when is_map(Module) ->
     lee_storage:patch( lee_storage:new(lee_map_storage)
                      , fold(Fun, [], Module)
                      );
-compile_module(Module) when ?is_storage(Module) -> %% Already cooked:
+compile_module(Module) when ?is_storage(Module) -> %% Already cooked
     Module.
 
 %% Fold over raw model:

@@ -7,8 +7,6 @@
 
 -include("lee.hrl").
 
--include_lib("lee/src/framework/lee_internal.hrl").
-
 -define(metatype, os_env).
 -define(os_env, os_env).
 
