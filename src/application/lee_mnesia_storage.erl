@@ -1,56 +1,20 @@
-%% Simple config storage type that stores everything in a map
+%% Storage backend based on mnesia
 -module(lee_mnesia_storage).
 
 -behavior(lee_storage).
 
 -include("lee.hrl").
 
--export([ create/1
-        , get/2
-        , patch/3
-        ]).
-
--export([ patch/2
-        , ensure_table/2
-        ]).
-
-%%====================================================================
-%% API functions
-%%====================================================================
-
-ensure_table(TabName, TabOpts0) ->
-    TabOpts = [{attributes, [key, val]} | TabOpts0],
-    case mnesia:create_table(TabName, TabOpts) of
-        {atomic, ok} ->
-            {atomic, Ret} = mnesia:transaction(
-                              fun() ->
-                                      lee_storage:new( lee_mnesia_storage
-                                                     , #{table_name => TabName}
-                                                     )
-                              end),
-            Ret;
-        {aborted, {already_exists, _}} ->
-            lee_storage:wrap(?MODULE, TabName)
-    end.
-
-%% @doc Apply a patch in transaction
-patch(Data, Patch) ->
-    {atomic, ok} = mnesia:transaction(
-                     fun() ->
-                             lee_storage:patch(Data, Patch),
-                             ok
-                     end),
-    ok.
+-export([create/1, get/2, patch/3]).
 
 %%====================================================================
 %% lee_storage callbacks
 %%====================================================================
 
-%% Note: it does not actually create table!
 create(Options) ->
     TabName = maps:get(table_name, Options, lee_mnesia_storage),
-    Keys = mnesia:all_keys(TabName),
-    [mnesia:delete({TabName, K}) || K <- Keys],
+    TabOpts = maps:get(table_options, Options, []),
+    ok = ensure_table(TabName, TabOpts),
     TabName.
 
 get(Key, TabName) ->
@@ -62,6 +26,33 @@ get(Key, TabName) ->
     end.
 
 patch(TabName, Delete, Set) ->
+    case mnesia:is_transaction() of
+        true ->
+            patch_t(TabName, Delete, Set);
+        false ->
+            {atomic, Result} =
+                mnesia:transaction(fun() ->
+                                           patch_t(TabName, Delete, Set)
+                                   end),
+            Result
+    end.
+
+%%====================================================================
+%% Internal functions
+%%====================================================================
+
+%% Apply a patch
+patch_t(TabName, Delete, Set) ->
     [mnesia:delete({TabName, K}) || K <- Delete],
     [mnesia:write({TabName, K, V}) || {K, V} <- Set],
     TabName.
+
+ensure_table(TabName, TabOpts0) ->
+    TabOpts = [{attributes, [key, val]} | TabOpts0],
+    case mnesia:create_table(TabName, TabOpts) of
+        {atomic, ok} ->
+            ok;
+        {aborted, {already_exists, _}} ->
+            {atomic, ok} = mnesia:clear_table(TabName),
+            ok
+    end.

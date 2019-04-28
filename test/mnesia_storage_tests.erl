@@ -28,20 +28,18 @@ patch2() ->
 
 get_test() ->
     application:ensure_all_started(mnesia),
-    Data = lee_mnesia_storage:ensure_table(?FUNCTION_NAME, []),
-    ok = lee_mnesia_storage:patch(Data, patch()),
+    Data = lee_storage:new(lee_mnesia_storage, #{table_name => ?FUNCTION_NAME}),
+    ?assertMatchT(_, lee_storage:patch(Data, patch())),
     ?assertMatchT({ok, 1}, lee_storage:get([foo, bar], Data)),
     ?assertMatchT({ok, 2}, lee_storage:get([bar, baz], Data)),
-    %% Check that ensure table doesn't mess up existing data
-    Data1 = lee_mnesia_storage:ensure_table(?FUNCTION_NAME, []),
-    ?assertMatchT({ok, 11}, lee_storage:get([quux, ?lcl(1), foo, ?lcl(1)], Data1)),
-    ?assertMatchT(undefined, lee_storage:get([quux, ?lcl(1), foo, ?lcl(3)], Data1)).
+    ?assertMatchT({ok, 11}, lee_storage:get([quux, ?lcl(1), foo, ?lcl(1)], Data)),
+    ?assertMatchT(undefined, lee_storage:get([quux, ?lcl(1), foo, ?lcl(3)], Data)).
 
 get_after_delete_test() ->
     application:ensure_all_started(mnesia),
-    Data = lee_mnesia_storage:ensure_table(?FUNCTION_NAME, []),
-    ok = lee_mnesia_storage:patch(Data, patch()),
-    ok = lee_mnesia_storage:patch(Data, patch2()),
+    Data = lee_storage:new(lee_mnesia_storage, #{table_name => ?FUNCTION_NAME}),
+    ?assertMatchT(_, lee_storage:patch(Data, patch())),
+    ?assertMatchT(_, lee_storage:patch(Data, patch2())),
     %% Check that simple key gets deleted:
     ?assertMatchT(undefined, lee_storage:get([foo, bar], Data)),
     ?assertMatchT(undefined, lee_storage:get([quux, ?lcl(1), foo, ?lcl(1)], Data)),
@@ -56,8 +54,8 @@ get_after_delete_test() ->
 
 get_dirty_test() ->
     application:ensure_all_started(mnesia),
-    Data0 = lee_mnesia_storage:ensure_table(?FUNCTION_NAME, []),
-    ok = lee_mnesia_storage:patch(Data0, patch()),
+    Data0 = lee_storage:new(lee_mnesia_storage, #{table_name => ?FUNCTION_NAME}),
+    ?assertMatchT(_, lee_storage:patch(Data0, patch())),
     Data = lee_dirty_mnesia_storage:from_table(?FUNCTION_NAME),
     ?assertMatch({ok, 1}, lee_storage:get([foo, bar], Data)),
     ?assertMatch({ok, 2}, lee_storage:get([bar, baz], Data)),
