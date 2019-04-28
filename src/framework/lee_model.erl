@@ -34,8 +34,8 @@
 
 %% @doc Merge multiple model and metamodel modules into a
 %% machine-friendly form.
--spec compile([lee:lee_module()], [lee:lee_module()]) ->
-                    {ok, #model{}} | {error, [term()]}.
+-spec compile([M], [M]) -> {ok, #model{}} | {error, [term()]}
+            when M :: lee:lee_module() | lee:cooked_module().
 compile(MetaModels0, Models0) ->
     MetaModels = [compile_module(I) || I <- MetaModels0],
     Models = [compile_module(I) || I <- Models0],

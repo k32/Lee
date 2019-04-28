@@ -390,7 +390,7 @@ briefly shows how it can be used:
 
 #+BEGIN_SRC erlang
 main() ->
-    application:ensure_started(lee),
+    application:ensure_all_started(lee),
     %% Apply patches in a transaction (invalid ones won't be applied).
     ok = lee_server:patch(fun(Model, Data) ->
                              Quux = lee:get(Model, Data, [quux]),
