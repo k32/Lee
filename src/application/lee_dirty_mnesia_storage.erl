@@ -15,6 +15,8 @@
 %%====================================================================
 %% API functions
 %%====================================================================
+
+-spec from_table(atom()) -> lee_storage:data(_).
 from_table(TabName) ->
     lee_storage:wrap(?MODULE, TabName).
 

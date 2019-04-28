@@ -145,7 +145,7 @@ overlay_test() ->
     ?assertMatch(21, lee:get(Model, Config, [baz, ?lcl(2), bar])),
 
     ?assertMatch( [[baz, ?lcl(0)], [baz, ?lcl(1)], [baz, ?lcl(2)]]
-                , lee:list(Model, [baz, ?children], Config)
+                , lee:list(Model, Config, [baz, ?children])
                 ),
     ok.
 

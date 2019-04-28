@@ -5,7 +5,7 @@
 
 -include("lee.hrl").
 
--export([create/1, get/2, patch/3]).
+-export([create/1, get/2, patch/3, from_table/1]).
 
 %%====================================================================
 %% lee_storage callbacks
@@ -14,7 +14,13 @@
 create(Options) ->
     TabName = maps:get(table_name, Options, lee_mnesia_storage),
     TabOpts = maps:get(table_options, Options, []),
-    ok = ensure_table(TabName, TabOpts),
+    case mnesia:is_transaction() of
+        false ->
+            ok = ensure_table(TabName, TabOpts);
+        true ->
+            KK = mnesia:all_keys(TabName),
+            [mnesia:delete({TabName, K}) || K <- KK]
+    end,
     TabName.
 
 get(Key, TabName) ->
@@ -36,6 +42,10 @@ patch(TabName, Delete, Set) ->
                                    end),
             Result
     end.
+
+-spec from_table(atom()) -> lee_storage:data(_).
+from_table(TabName) ->
+    lee_storage:wrap(?MODULE, TabName).
 
 %%====================================================================
 %% Internal functions

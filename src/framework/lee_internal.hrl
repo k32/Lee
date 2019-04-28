@@ -13,14 +13,8 @@
         , meta_class_idx   :: #{lee:metatype() => [lee:key()]}
         }).
 
-%% (Documentation purpose) Specifies that `Code' can't crash if the
-%% model has been properly validated according to the rules of
-%% `MetaType'. Use this macro to keep track of things that should be
-%% validated.
--define(m_valid(MetaType, Code), Code).
-
-%% Get a mandatory attribute from the attribute map `Attrs', assuming
-%% the latter is valid under `MetaType'
--define(m_attr(MetaType, Attr, Attrs), ?m_valid(MetaType, maps:get(Attr, Attrs))).
+-define(data_table, lee_data).
+-define(model_table, lee_model).
+-define(metamodel_table, lee_metamodel).
 
 -endif.

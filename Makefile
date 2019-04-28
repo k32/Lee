@@ -1,5 +1,5 @@
 all: linelimit
-	rebar3 do dialyzer,eunit,edoc
+	rebar3 do dialyzer,eunit,ct,edoc
 
 demo:
 	rebar3 as demo escriptize

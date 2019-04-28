@@ -185,7 +185,7 @@ validate_term(Model, Type = #type{id = TypeName, parameters = Params}, Term) ->
     end.
 
 %% @doc Get a value from the config:
--spec get(lee:model(), data(), lee:key()) -> term().
+-spec get(lee:model() | lee:cooked_module(), data(), lee:key()) -> term().
 get(Model, Data, Key) when ?is_storage(Data) ->
     case lee_storage:get(Key, Data) of
         {ok, Val} ->
@@ -213,13 +213,13 @@ get(Model, [Data|Rest], Key) ->
     end.
 
 %% List instances that can match the pattern
--spec list(model(), lee:key(), data()) -> [lee:key()].
-list(_Model, Pattern, Data) when ?is_storage(Data) ->
+-spec list(model() | cooked_module(), data(), lee:key()) -> [lee:key()].
+list(_Model, Data, Pattern) when ?is_storage(Data) ->
     %% TODO: Include default values in the list
     lee_storage:list(Pattern, Data);
-list(Model, Pattern, Data) when is_list(Data) ->
+list(Model, Data, Pattern) when is_list(Data) ->
     lists:usort(lists:foldl( fun(I, Acc) ->
-                                     list(Model, Pattern, I) ++ Acc
+                                     list(Model, I, Pattern) ++ Acc
                              end
                            , []
                            , Data)).

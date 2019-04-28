@@ -139,7 +139,7 @@ dump(S) ->
         , []
         , S).
 
-%% @doc Clone contents of the storage
+%% @doc Clone contents of the storage into another new storage
 -spec clone(data(A), module(), map()) -> data(A).
 clone(A, Backend, BackendOpts) ->
     patch(new(Backend, BackendOpts), dump(A)).
