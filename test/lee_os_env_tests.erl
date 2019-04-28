@@ -1,15 +1,17 @@
 -module(lee_os_env_tests).
 
 -include_lib("eunit/include/eunit.hrl").
--include_lib("lee/include/lee.hrl").
+-include_lib("lee/include/lee_types.hrl").
 
 model() ->
-    Model0 = #{ home => {[value, environment_variable]
-                        , #{os_env => "HOME"}
-                        }
-              , path => {[value, environment_variable]
-                        , #{os_env => "PATH"}
-                        }
+    Model0 = #{ home => {[value, os_env],
+                         #{ os_env => "HOME"
+                          , type => string()
+                          }}
+              , path => {[value, os_env],
+                         #{ os_env => "PATH"
+                          , type => string()
+                          }}
               },
     {ok, Model} = lee_model:compile([], [Model0]),
     Model.

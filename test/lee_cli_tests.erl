@@ -148,7 +148,12 @@ tokenize_test() ->
 
 read_cli(String) ->
     Args = string:tokens(String, " "),
-    lee_cli:read_to(test_model(), Args, lee_storage:new(lee_map_storage)).
+    try lee_cli:read_to(test_model(), Args, lee_storage:new(lee_map_storage)) of
+        Data ->
+            {ok, Data}
+    catch
+        Err -> Err
+    end.
 
 simple_long_test() ->
     {ok, Data1} = read_cli("--long foo"),

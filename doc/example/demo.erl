@@ -23,13 +23,13 @@
 %% Configuration model, it validates CLI parameters and environment
 %% variables:
 model1() ->
-    MyModel = #{ file => {[value, environment_variable, cli_param, valid_file]
+    MyModel = #{ file => {[value, os_env, cli_param, valid_file]
                          , #{ mandatory => true
                             , type => string()
                             , oneliner => "Path to the eterm file to verify"
                             , doc => "Path to the eterm file containing a value of\n"
                                      "maybe_stupid_list() type at `list' key"
-                            , env => "FILE"
+                            , os_env => "FILE"
                             , cli_param => "file"
                             , cli_short => $f
                             }}

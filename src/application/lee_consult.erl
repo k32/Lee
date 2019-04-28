@@ -16,46 +16,42 @@ metamodel() ->
                                   }
                     }}.
 
+%% @doc Parse file into a `lee_storage'
+%% @throws {error, string()}
 -spec read_to(lee:model(), file:filename(), lee_storage:data()) ->
-                     {ok, lee_storage:data()}
-                   | {error, term()}.
+                     lee_storage:data().
 read_to(Model, Filename, Data) ->
-    case read(Model, Filename) of
-        {ok, Patch} ->
-            {ok, lee_storage:patch(Data, Patch)};
-        Error ->
-            Error
-    end.
+    Patch = read(Model, Filename),
+    lee_storage:patch(Data, Patch).
 
--spec read(lee:model(), file:filename()) ->
-                  {ok, lee:patch()}
-                | {error, term()}.
+%% @doc Parse file into a patch
+%% @throws {error, string()}
+-spec read(lee:model(), file:filename()) -> lee:patch().
 read(Model, Filename) ->
     Keys = lee_model:get_metatype_index(?consult, Model),
-    try
-        Terms0 = case file:consult(Filename) of
-                     {ok, T0} ->
-                         T0;
-                     {error, Reason} ->
-                         throw(Reason)
-                 end,
-        case Terms0 of
-             [Terms] when is_map(Terms) ->
-                 ok;
-             _ ->
-                 Terms = try maps:from_list(Terms0)
-                         catch
-                             _:_ -> throw(badmap)
-                         end
-        end,
-        {ok, lists:foldl( fun(Key, Acc) ->
-                                  read_val(Model, Terms, Key, Acc)
-                          end
-                        , []
-                        , Keys)}
-    catch
-        Error -> {error, Error}
-    end.
+    Terms0 = case file:consult(Filename) of
+                 {ok, T0} ->
+                     T0;
+                 {error, Reason0} ->
+                     Reason = lee_lib:format( "Reading ~s failed: ~p"
+                                            , [Filename, Reason0]),
+                     throw({error, Reason})
+             end,
+    case Terms0 of
+         [Terms] when is_map(Terms) ->
+             ok;
+         _ ->
+             Terms = try maps:from_list(Terms0)
+                     catch
+                         _:_ ->
+                             throw({error, Filename ++ " should be a proplist or a map"})
+                     end
+    end,
+    lists:foldl( fun(Key, Acc) ->
+                         read_val(Model, Terms, Key, Acc)
+                 end
+               , []
+               , Keys).
 
 
 read_val(Model, Terms, Key, Acc) ->
