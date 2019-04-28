@@ -16,5 +16,5 @@ _build
 .idea
 *.iml
 rebar3.crashdump
-doc
+*.html
 TAGS

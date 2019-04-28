@@ -96,7 +96,10 @@
 %% API functions
 %%====================================================================
 
-%% @doc Put model fragment in a namespace
+%% @doc Put model to a namespace
+%%
+%% ```namespace([foo, bar], A)''' is equivalent to writing
+%% ```#{foo => #{bar => A}}'''
 -spec namespace(lee:key(), lee:module()) ->
                        lee:module().
 namespace(Key, M) ->
