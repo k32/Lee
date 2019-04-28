@@ -185,7 +185,7 @@ compile_module(Module) when is_map(Module) ->
     lee_storage:patch( lee_storage:new(lee_map_storage)
                      , fold(Fun, [], Module)
                      );
-compile_module(Module) when ?is_storage(Module) -> %% Already cooked:
+compile_module(Module) when ?is_storage(Module) -> %% Already cooked
     Module.
 
 %% Fold over raw model:
