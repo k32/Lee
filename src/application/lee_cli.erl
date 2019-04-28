@@ -42,9 +42,9 @@ metamodel() ->
                          }
                    }}.
 
--spec read(lee:model(), [string()]) ->
-                  {ok, lee:patch()}
-                | {error, Error :: string()}.
+%% @doc Read CLI arguments to a patch
+%% @throws {error, string()}
+-spec read(lee:model(), [string()]) -> lee:patch().
 read(Model, Args0) ->
     Scopes = mk_index(Model),
     Tokens = tokenize($@, Args0),
@@ -60,27 +60,21 @@ read(Model, Args0) ->
     try
         Globals = parse_args(Model, maps:get(global, Scopes), Global),
         Acc0 = lee_lib:make_nested_patch(Model, [], Globals),
-        Patch = lists:foldl( fun(Tokns, Acc) ->
-                                     parse_command(Model, Scopes, Tokns) ++ Acc
-                             end
-                           , Acc0
-                           , Commands),
-        {ok, Patch}
+        lists:foldl( fun(Tokns, Acc) ->
+                             parse_command(Model, Scopes, Tokns) ++ Acc
+                     end
+                   , Acc0
+                   , Commands)
     catch
-        Error = {error, _} -> Error;
-        Error -> {error, Error}
+        Error = {error, _} -> throw(Error);
+        Error -> throw({error, Error})
     end.
 
 -spec read_to(lee:model(), [string()], lee_storage:data()) ->
-                     {ok, lee_storage:data()}
-                   | {error, string()}.
+                     lee_storage:data().
 read_to(Model, Args, Data) ->
-    case read(Model, Args) of
-         {ok, Patch} ->
-            {ok, lee_storage:patch(Data, Patch)};
-        Err ->
-            Err
-    end.
+    Patch = read(Model, Args),
+    lee_storage:patch(Data, Patch).
 
 -spec tokenize(char(), [string()]) -> [token()].
 tokenize(Sigil, L) ->
