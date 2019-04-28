@@ -331,7 +331,8 @@ validate_value(Model, Data, Key, #mnode{metaparams = Attrs}) ->
               end,
     case {lee_storage:get(Key, Data), Default} of
         {{ok, Term}, _} ->
-            case validate_term(Model, Type, Term) of
+            Result = validate_term(Model, Type, Term),
+            case lee_lib:inject_error_location(Key, Result) of
                 {ok, Warn} ->
                     {[], Warn};
                 {error, Err, Warn} ->
@@ -340,7 +341,7 @@ validate_value(Model, Data, Key, #mnode{metaparams = Attrs}) ->
         {undefined, {ok, _}} ->
             {[], []};
         {undefined, undefined} ->
-            Err = lee_lib:format("Mandatory value ~p is missing in the config", [Key]),
+            Err = lee_lib:format("~p: Mandatory value is missing in the config", [Key]),
             {[Err] , []}
     end.
 
