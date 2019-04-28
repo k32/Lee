@@ -6,6 +6,7 @@
 
 %% API
 -export([ start_link/2
+        , start_link/1
         , patch/1
         , get_d/1
         , get/1
@@ -33,6 +34,11 @@
 -spec start_link(lee:model(), lee:patch()) -> {ok, pid()}.
 start_link(Model, InitialData) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [Model, InitialData], []).
+
+%% @doc Starts the server
+-spec start_link(lee:patch()) -> {ok, pid()}.
+start_link(InitialData) ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [InitialData], []).
 
 %% @doc Safely apply a patch
 -spec patch(transaction()) -> ok | {error, term()}.
@@ -68,6 +74,11 @@ list(Pattern) ->
 %%% gen_server callbacks
 %%%===================================================================
 
+init([InitialData]) ->
+    %% Collect model from the interface_modules:
+    InterfaceModules = application:get_env(lee, interface_modules, []),
+    Model = gather_model(InterfaceModules),
+    init([Model, InitialData]);
 init([Model0, InitialData]) ->
     MOpts = #{table_name => ?model_table},
     MMOpts = #{table_name => ?metamodel_table},
@@ -132,3 +143,19 @@ do_patch(Fun, M, D) ->
         {atomic, ok}      -> ok;
         {aborted, Reason} -> {error, Reason}
     end.
+
+-spec gather_model([module()]) -> lee:model().
+gather_model(InterfaceModules) ->
+    Models = gather_optional(InterfaceModules, model),
+    MetaModels = gather_optional(InterfaceModules, metamodel),
+    {ok, Model} = lee_model:compile( [lee:base_metamodel() | MetaModels]
+                                   , [lee:base_model() | Models]
+                                   ),
+    Model.
+
+-spec gather_optional([module()], atom()) -> [lee:lee_module()].
+gather_optional(Modules, Callback) ->
+    [apply(I, Callback, []) || I <- Modules
+                             , lists:member( {Callback, 0}
+                                           , I:module_info(exports)
+                                           )].

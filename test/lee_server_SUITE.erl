@@ -12,25 +12,21 @@
                     )).
 
 model() ->
-    Model0 = #{ path =>
-                    {[value, os_env],
-                     #{ type => string()
-                      , os_env => "PATH"
-                      }}
-              , foo =>
-                    {[value],
-                     #{ type => integer()
-                      }}
-              , bar =>
-                    {[value],
-                     #{ type => term()
-                      , default => default
-                      }}
-              },
-    {ok, Model} = lee_model:compile( [lee:base_metamodel()]
-                                   , [lee:base_model(), Model0]
-                                   ),
-    Model.
+    #{ path =>
+           {[value, os_env],
+            #{ type => string()
+             , os_env => "PATH"
+             }}
+     , foo =>
+           {[value],
+            #{ type => integer()
+             }}
+     , bar =>
+           {[value],
+            #{ type => term()
+             , default => default
+             }}
+     }.
 
 initial_data() ->
     [ {set, [path], "initial"}
@@ -95,7 +91,7 @@ suite() ->
     [{timetrap, {seconds, 30}}].
 
 init_per_suite(Config) ->
-    application:ensure_started(mnesia),
+    application:ensure_all_started(mnesia),
     Config.
 
 end_per_suite(_Config) ->
@@ -103,7 +99,8 @@ end_per_suite(_Config) ->
 
 init_per_testcase(_TestCase, Config) ->
     %% Start server:
-    {ok, Pid} = lee_server:start_link(model(), initial_data()),
+    application:set_env(lee, interface_modules, [?MODULE]),
+    {ok, Pid} = lee_server:start_link(initial_data()),
     [{lee_server_pid, Pid} | Config].
 
 end_per_testcase(_TestCase, Config) ->
