@@ -4,10 +4,12 @@
 -include("lee.hrl").
 
 -export([ string_to_term/1
+        , term_to_string/1
         , format/2
         , make_nested_patch/3
         , splitl/2
         , splitr/2
+        , inject_error_location/2
         ]).
 
 string_to_term(String) ->
@@ -87,4 +89,24 @@ splitr(Pred, H, L) ->
             [[H|A]];
         {A, [B|C]} ->
             [[H|A] | splitr(Pred, B, C)]
+    end.
+
+-spec term_to_string(term()) -> string().
+term_to_string(Term) ->
+    case io_lib:printable_unicode_list(Term) of
+        true -> Term;
+        false -> format("~p", [Term])
+    end.
+
+-spec inject_error_location(term(), lee:validate_result()) ->
+                                   lee:validate_result().
+inject_error_location(Location, Result) ->
+    Fun = fun(Msg) ->
+                  format("~p: ~s", [Location, term_to_string(Msg)])
+          end,
+    case Result of
+        {ok, Warn} ->
+            {ok, [Fun(I) || I <- Warn]};
+        {error, Err, Warn} ->
+            {error, [Fun(I) || I <- Err], [Fun(I) || I <- Warn]}
     end.
