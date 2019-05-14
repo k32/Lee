@@ -8,35 +8,35 @@ test_cli_params() ->
      , long =>
            {[value, cli_param]
            , #{ cli_operand => "long"
-              , type => lee_types:string()
+              , type => typerefl:string()
               , default => "default"
               }
            }
      , short => {[value, cli_param]
                 , #{ cli_short => "s"
-                   , type => lee_types:integer()
+                   , type => typerefl:integer()
                    }
                 }
      , flag1 => {[value, cli_param]
                 , #{ cli_short => "f"
-                   , type => lee_types:boolean()
+                   , type => typerefl:boolean()
                    }
                 }
      , flag2 => {[value, cli_param]
                 , #{ cli_short => "g"
-                   , type => lee_types:boolean()
+                   , type => typerefl:boolean()
                    }
                 }
      , flag3 => {[value, cli_param]
                 , #{ cli_short => "h"
-                   , type => lee_types:boolean()
+                   , type => typerefl:boolean()
                    }
                 }
      , both =>
            {[value, cli_param]
            , #{ cli_operand => "both"
               , cli_short => "b"
-              , type => lee_types:tuple([foo, lee_types:integer()])
+              , type => typerefl:tuple([foo, typerefl:integer()])
               }
            }
      }.
@@ -57,13 +57,13 @@ test_positional_args1() ->
     #{ posn_1 =>
            {[value, cli_positional]
            , #{ cli_arg_position => 1
-              , type => lee_types:string()
+              , type => typerefl:string()
               }
            }
      , posn_2 =>
            {[value, cli_positional]
            , #{ cli_arg_position => 2
-              , type => lee_types:string()
+              , type => typerefl:string()
               }
            }
      }.
@@ -72,7 +72,7 @@ test_positional_args2() ->
     #{ posn_n =>
            {[value, cli_positional]
            , #{ cli_arg_position => rest
-              , type => lee_types:list(lee_types:atom())
+              , type => typerefl:list(typerefl:atom())
               }
            }
      }.
@@ -94,7 +94,7 @@ test_model() ->
                                  , test_positional_args2()
                                  ])
           },
-    {ok, M} = lee_model:compile([], [lee:base_model(), MF]),
+    {ok, M} = lee_model:compile([], [MF]),
     M.
 
 -define(tok(String, Pattern),

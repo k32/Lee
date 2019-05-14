@@ -3,28 +3,13 @@
 
 -include("lee.hrl").
 
--export([ string_to_term/1
-        , term_to_string/1
+-export([ term_to_string/1
         , format/2
         , make_nested_patch/3
         , splitl/2
         , splitr/2
         , inject_error_location/2
         ]).
-
-string_to_term(String) ->
-    case erl_scan:string(String) of
-        {ok, Tok0, _} ->
-            Tok = Tok0 ++ [{dot, 1}],
-            case erl_parse:parse_term(Tok) of
-                {ok, Term} ->
-                    {ok, Term};
-                {error, {_, _, Err}} ->
-                    {error, lists:concat(Err)}
-            end;
-        _ ->
-            {error, "Not an erlang term"} %% TODO: Give user some clues
-    end.
 
 -spec format(string(), [term()]) -> string().
 format(Fmt, Attrs) ->

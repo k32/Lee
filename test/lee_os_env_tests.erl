@@ -1,7 +1,7 @@
 -module(lee_os_env_tests).
 
 -include_lib("eunit/include/eunit.hrl").
--include_lib("lee/include/lee_types.hrl").
+-include_lib("typerefl/include/types.hrl").
 
 model() ->
     Model0 = #{ home => {[value, os_env],

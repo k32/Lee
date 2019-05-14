@@ -3,7 +3,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("lee/include/lee.hrl").
 -include_lib("lee/src/framework/lee_internal.hrl").
--include_lib("lee/include/lee_types.hrl").
+-include_lib("typerefl/include/types.hrl").
 
 -define(moc, {[], #{}, #{}}).
 
@@ -31,10 +31,10 @@ run_validate(Model, Config0) ->
 
 validate_test() ->
     Model0 = #{ foo => {[value]
-                       , #{type => lee_types:boolean()}
+                       , #{type => typerefl:boolean()}
                        }
               , bar => {[value]
-                       , #{type => lee_types:integer(), default => 42}
+                       , #{type => typerefl:integer(), default => 42}
                        }
               },
     Model1 = Model0 #{ baz => {[map]
@@ -43,7 +43,7 @@ validate_test() ->
                               }
                      },
     {ok, Model} = lee_model:compile( [lee:base_metamodel()]
-                                   , [lee:base_model(), Model1]
+                                   , [Model1]
                                    ),
     ?valid(#{[foo] => true}),
     ?valid(#{[foo] => true, [bar] => 1}),
@@ -69,16 +69,16 @@ validate_test() ->
 
 get_test() ->
     Model0 = #{ foo => {[value]
-                       , #{type => lee_types:boolean()}
+                       , #{type => typerefl:boolean()}
                        }
               , bar => {[value]
-                       , #{type => lee_types:integer(), default => 42}
+                       , #{type => typerefl:integer(), default => 42}
                        }
               },
     Model1 = Model0 #{ baz => {[map], #{}, Model0}},
     Model2 = Model1 #{ baz => {[map], #{}, Model1}},
     {ok, Model} = lee_model:compile( [lee:base_metamodel()]
-                                   , [lee:base_model(), Model2]
+                                   , [Model2]
                                    ),
     Patch = [ {set, [foo],                              true }
             , {set, [baz, ?lcl(0), foo],                true }
@@ -104,16 +104,16 @@ get_test() ->
 
 overlay_test() ->
     Model0 = #{ foo => {[value]
-                       , #{type => lee_types:boolean()}
+                       , #{type => typerefl:boolean()}
                        }
               , bar => {[value]
-                       , #{type => lee_types:integer(), default => 42}
+                       , #{type => typerefl:integer(), default => 42}
                        }
               },
     Model1 = Model0 #{ baz => {[map], #{}, Model0}},
     Model2 = Model1 #{ baz => {[map], #{}, Model1}},
     {ok, Model} = lee_model:compile( [lee:base_metamodel()]
-                                   , [lee:base_model(), Model2]
+                                   , [Model2]
                                    ),
     Patch1 = [ {set, [foo],                              true }
              , {set, [baz, ?lcl(0), foo],                true }
@@ -147,18 +147,4 @@ overlay_test() ->
     ?assertMatch( [[baz, ?lcl(0)], [baz, ?lcl(1)], [baz, ?lcl(2)]]
                 , lee:list(Model, Config, [baz, ?children])
                 ),
-    ok.
-
-from_string_test() ->
-    {ok, M} = lee_model:compile([], [lee:base_model()]),
-    ?assertMatch({ok, "foo"}, lee:from_string(M, lee_types:string(), "foo")),
-    ?assertMatch({ok, true},  lee:from_string(M, lee_types:boolean(), "true")),
-    ?assertMatch({ok, false}, lee:from_string(M, lee_types:boolean(), "false")),
-    ?assertMatch({ok, "1"}, lee:from_string(M, lee_types:string(), "1")),
-    ?assertMatch({ok, '1'}, lee:from_string(M, lee_types:atom(), "1")),
-    ?assertMatch({ok, 1}, lee:from_string(M, lee_types:integer(), "1")),
-    ?assertMatch({ok, 1.1}, lee:from_string(M, lee_types:float(), "1.1")),
-    ?assertMatch({ok, {foo, "bar", []}}, lee:from_string(M, lee_types:term(), "{foo, \"bar\", []}")),
-    ?assertMatch({error, _}, lee:from_string(M, lee_types:boolean(), "")),
-    ?assertMatch({error, _}, lee:from_string(M, lee_types:boolean(), ",")),
     ok.
