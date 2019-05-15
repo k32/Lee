@@ -40,12 +40,11 @@ read_to(Model, Data) ->
 read_val(Model, Key, Acc) ->
     #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
     EnvVar = ?m_attr(?metatype, ?os_env, Attrs),
-    Type = ?m_attr(?value, type, Attrs),
     case os:getenv(EnvVar) of
         false ->
             Acc;
         Value0 ->
-            case lee:from_string(Model, Type, Value0) of
+            case lee:from_string(Model, Key, Value0) of
                 {ok, Value} ->
                     [{set, Key, Value} | Acc];
                 {error, _} = Error ->

@@ -2,15 +2,14 @@
 
 %% API exports
 -export([ namespace/2
-        , base_model/0
         , base_metamodel/0
         , metametamodel/0
-        , validate_term/3
         , get/3
         , list/3
         , validate/2
         , validate/3
         , from_string/3
+        , from_strings/3
         ]).
 
 -export_type([ node_id/0
@@ -75,23 +74,6 @@
 %% Macros
 %%====================================================================
 
--define(typedef(Name, Arity, Validate, Rest),
-        {Name, Arity} => {[type]
-                         , #{ validate => fun lee_types:Validate/3
-                            , typename => ??Name
-                            } Rest
-                         }).
-
--define(typedef(Name, Arity, Validate),
-        ?typedef(Name, Arity, Validate, #{})).
-
--define(typedef(Name, Validate),
-        ?typedef(Name, 0, Validate)).
-
--define(print(Fun), #{print => fun lee_types:Fun/2}).
-
--define(read(Fun), #{from_string => fun lee_types:Fun/3}).
-
 %%====================================================================
 %% API functions
 %%====================================================================
@@ -110,79 +92,31 @@ namespace(Key, M) ->
                , lists:reverse(Key)
                ).
 
-%% @doc Model fragment containing base types.
--spec base_model() -> lee:module().
-base_model() ->
-    namespace([lee, base_types]
-             , #{ ?typedef(union,      2, validate_union,     ?print(print_union)     )
-                , ?typedef(term,          validate_term                               )
-                , ?typedef(integer,    0, validate_integer,   ?print(print_integer)   )
-                , ?typedef(float,         validate_float                              )
-                , ?typedef(atom,       0, validate_atom,      ?read(atom_from_string) )
-                , ?typedef(binary,        validate_binary                             )
-                , ?typedef(tuple,         validate_any_tuple                          )
-                , ?typedef(tuple,      1, validate_tuple,     ?print(print_tuple)     )
-                , ?typedef(list,       1, validate_list,      ?print(print_list)      )
-                , ?typedef(map,        2, validate_map                                )
-                , ?typedef(exact_map,  1, validate_exact_map, ?print(print_exact_map) )
-                }
-             ).
-
-%% @doc Model fragment containing basic configuration validation
+%% @doc Model module containing basic configuration validation
 %% metaclasses
 -spec base_metamodel() -> lee:module().
 base_metamodel() ->
-    Model = namespace([metatype]
-                     , #{ value =>
-                              {[metatype]
-                              , #{validate_node => fun validate_value/4}
-                              }
-                        , map =>
-                              {[metatype]
-                              , #{}
-                              }
-                        , type => {[metatype] , #{}}
-                        , typedef => {[metatype] , #{}}
-                        }
-                     ),
-    {ok, Val} = lee_model:merge([Model, base_model()]),
-    Val.
+    namespace([metatype]
+             , #{ value =>
+                      {[metatype]
+                      , #{validate_node => fun validate_value/4}
+                      }
+                , map =>
+                      {[metatype]
+                      , #{}
+                      }
+                , type => {[metatype] , #{}}
+                , typedef => {[metatype] , #{}}
+                }
+             ).
 
 %% @doc A model validating metamodels
 -spec metametamodel() -> lee:module().
 metametamodel() ->
     MetaModel = #{
                  },
-    {ok, Result} = lee_model:merge([MetaModel, base_model()]),
+    {ok, Result} = lee_model:merge([MetaModel]),
     Result.
-
--spec validate_term( lee:model()
-                   , lee:type()
-                   , term()
-                   ) -> lee_types:validate_result().
-validate_term(_Model, Atom, Term) when is_atom(Atom) ->
-    case Term of
-        Atom ->
-            {ok, []};
-        _ ->
-            Err = lee_lib:format("Expected ~p, got ~p", [Atom, Term]),
-            {error, [Err], []}
-    end;
-validate_term(Model, Type = #type{id = TypeName, parameters = Params}, Term) ->
-    #mnode{ metatypes = Meta
-          , metaparams = Attr1
-          } = lee_model:get(TypeName, Model),
-    case {ordsets:is_element(type, Meta), ordsets:is_element(typedef, Meta)} of
-        {true, false} ->
-            Fun = ?m_attr(type, validate, Attr1),
-            Fun(Model, Type, Term);
-        {false, true} ->
-            Type1 = ?m_attr(typedef, type, Attr1),
-            TypeVars = ?m_attr(typedef, type_variables, Attr1),
-            VarVals = maps:from_list(lists:zip(TypeVars, Params)),
-            Type2 = subst_type_vars(Type1, VarVals),
-            validate_term(Model, Type2, Term)
-    end.
 
 %% @doc Get a value from the config:
 -spec get(lee:model() | lee:cooked_module(), data(), lee:key()) -> term().
@@ -252,21 +186,36 @@ validate(MetaTypes, Model, Data) ->
             {error, Errors, Warnings}
     end.
 
--spec from_string(lee:model(), lee:type(), string()) ->
+-spec from_string(lee:model(), lee:model_key(), string()) ->
                          {ok, term()} | {error, string()}.
-from_string(Model, Type = #type{id = TId}, String) ->
-    %% TODO: Hack
-    StringT = lee_types:string(),
-    case Type of
-        StringT ->
-            {ok, String};
-        _ ->
-            #mnode{metaparams = Attrs} = lee_model:get(TId, Model),
-            Fun = maps:get( from_string
-                          , Attrs
-                          , fun(_, _, S) -> lee_lib:string_to_term(S) end
-                          ),
-            Fun(Model, Type, String)
+from_string(Model, Key, String) ->
+    #mnode{metaparams = MP} = lee_model:get(Key, Model),
+    Type = maps:get(type, MP),
+    Default = fun(Str) -> typerefl:from_string(Type, Str) end,
+    Fun = maps:get(from_string, MP, Default),
+    Fun(String).
+
+%% @doc Temporary function, don't use it.
+-spec from_strings(lee:model(), lee:model_key(), [string()]) ->
+                          {ok, [term()]} | {error, string()}.
+from_strings(Model, Key, Strings) ->
+    #mnode{metaparams = MP} = lee_model:get(Key, Model),
+    Type = maps:get(type, MP),
+    try
+        case MP of
+            #{?m_valid(value, from_string) := Fun} ->
+                [case Fun(I) of
+                     {ok, T}          -> T;
+                     Err = {error, _} -> throw(Err)
+                 end || I <- Strings];
+            _ ->
+                case typerefl:from_string(Type, Strings) of
+                    {ok, L} -> L;
+                    error -> throw({error, "Not an Erlang term"})
+                end
+        end
+    catch
+        Err = {error, _} -> Err
     end.
 
 %%====================================================================
@@ -331,12 +280,15 @@ validate_value(Model, Data, Key, #mnode{metaparams = Attrs}) ->
               end,
     case {lee_storage:get(Key, Data), Default} of
         {{ok, Term}, _} ->
-            Result = validate_term(Model, Type, Term),
+            Result = case typerefl:typecheck(Type, Term) of
+                         ok           -> {ok, []};
+                         {error, Err} -> {error, [Err], []}
+                     end,
             case lee_lib:inject_error_location(Key, Result) of
                 {ok, Warn} ->
                     {[], Warn};
-                {error, Err, Warn} ->
-                    {Err, Warn}
+                {error, Err1, Warn} ->
+                    {Err1, Warn}
             end;
         {undefined, {ok, _}} ->
             {[], []};
@@ -344,19 +296,3 @@ validate_value(Model, Data, Key, #mnode{metaparams = Attrs}) ->
             Err = lee_lib:format("~p: Mandatory value is missing in the config", [Key]),
             {[Err] , []}
     end.
-
--spec subst_type_vars(lee:type(), map()) -> lee:type().
-subst_type_vars(Atom, _) when is_atom(Atom) ->
-    Atom;
-subst_type_vars({var, Var}, VarVals) ->
-    #{Var := Subst} = VarVals,
-    Subst;
-subst_type_vars(Type = #type{parameters = Params0}, VarVals) ->
-    Params = [case I of
-                  {var, Var} ->
-                      #{Var := Subst} = VarVals,
-                      Subst;
-                  _ ->
-                      subst_type_vars(I, VarVals)
-              end || I <- Params0],
-    Type#type{parameters = Params}.

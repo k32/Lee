@@ -19,7 +19,7 @@
         { name             :: string() | undefined
         , short = #{}      :: #{char() => {lee:key(), lee:type()}}
         , long  = #{}      :: #{string() => {lee:key(), lee:type()}}
-        , positional = []  :: [{integer() | rest, lee:key(), lee:type()}]
+        , positional = []  :: [{integer() | rest, lee:key()}]
         , parent = []      :: lee:key()
         }).
 
@@ -139,6 +139,7 @@ parse_args( Model
           , #sc{ name = Name
                , long = Long
                , short = Short
+               , parent = Parent
                } = Scope
           , [{ArgType, Arg, Val}|Rest]
           ) when ArgType =:= long; ArgType =:= short ->
@@ -152,15 +153,17 @@ parse_args( Model
                                      , [Dash, Arg, Name]
                                      ),
             throw(ErrorMsg);
-        {Key, Type} ->
-            {ok, Term} = lee:from_string(Model, Type, Val),
-            maps:merge( #{Key => Term}
+        Key ->
+            RelKey = make_relative(Key, Parent),
+            {ok, Term} = lee:from_string(Model, Key, Val),
+            maps:merge( #{RelKey => Term}
                       , parse_args(Model, Scope, Rest)
                       )
     end;
 parse_args( Model
           , #sc{ name = Name
                , positional = Pos0
+               , parent = Parent
                } = Scope0
           , Positionals = [{positional, Val} | Rest]
           ) ->
@@ -170,19 +173,15 @@ parse_args( Model
                                      , [Val, Name]
                                      ),
             throw(ErrorMsg);
-        [{rest, Key, Type0}] ->
-            %% Type0 MUST be a list, now extracting its argument
-            #type{ parameters = [Type] } = Type0,
-            Terms = lists:map( fun({positional, Str}) ->
-                                       {ok, Term} = lee:from_string(Model, Type, Str),
-                                       Term
-                               end
-                             , Positionals),
-            #{Key => Terms};
-        [{Position, Key, Type} | PRest] ->
+        [{rest, Key}] ->
+            RelKey = make_relative(Key, Parent),
+            Terms = lee:from_strings(Model, Key, [I || {_, I} <- Positionals]),
+            #{RelKey => Terms};
+        [{Position, Key} | PRest] ->
+            RelKey = make_relative(Key, Parent),
             Scope = Scope0#sc{positional = PRest},
-            {ok, Term} = lee:from_string(Model, Type, Val),
-            maps:merge( #{Key => Term}
+            {ok, Term} = lee:from_string(Model, Key, Val),
+            maps:merge( #{RelKey => Term}
                       , parse_args(Model, Scope, Rest)
                       )
     end.
@@ -222,22 +221,19 @@ mk_index(Key, #mnode{metatypes = Meta, metaparams = Attrs}, Acc, Scope) ->
             {Acc #{NewScope => SC}, NewScope}
     end.
 
-add_param(Key0, Attrs, SC0) ->
+add_param(Key, Attrs, SC0) ->
     #sc{ long = Long0
        , short = Short0
        } = SC0,
-    Type = maps:get(type, Attrs),
-    %% Make key relative:
-    Key = make_relative(Key0, SC0),
     Long = case Attrs of
                #{cli_operand := L} ->
-                   Long0 #{L => {Key, Type}};
+                   Long0 #{L => Key};
                _ ->
                    Long0
            end,
     Short = case Attrs of
                 #{cli_short := S} ->
-                    Short0 #{S => {Key, Type}};
+                    Short0 #{S => Key};
                 _ ->
                     Short0
             end,
@@ -245,15 +241,13 @@ add_param(Key0, Attrs, SC0) ->
           , long = Long
           }.
 
-add_positional(Key0, Attrs, SC0 = #sc{positional = Pos0}) ->
+add_positional(Key, Attrs, SC0 = #sc{positional = Pos0}) ->
     %% Make key relative:
-    Key = make_relative(Key0, SC0),
     Pos = maps:get(cli_arg_position, Attrs),
-    Type = maps:get(type, Attrs),
-    SC0#sc{ positional = [{Pos, Key, Type} | Pos0] }.
+    SC0#sc{ positional = [{Pos, Key} | Pos0] }.
 
-make_relative(Key, #sc{parent = []}) ->
+make_relative(Key, []) ->
     Key;
-make_relative(Key0, #sc{parent = Parent}) ->
+make_relative(Key0, Parent) ->
     [?children | Key] = Key0 -- Parent,
     Key.

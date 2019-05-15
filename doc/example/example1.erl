@@ -3,7 +3,7 @@
 
 -export([main/0]).
 
--include_lib("lee/include/lee_types.hrl").
+-include_lib("typerefl/include/types.hrl").
 
 main() ->
     %% First of all we need to create a _data model_ from a few _model
@@ -11,7 +11,7 @@ main() ->
     %% contain functions necessary to validate Erlang terms. Don't pay
     %% too much attention to this part yet, it will be explained in
     %% more detail later.
-    {ok, Model} = lee_model:compile([lee:base_metamodel()], [lee:base_model()]),
+    {ok, Model} = lee_model:compile([lee:base_metamodel()], []),
     %% 2. Validate Erlang terms against the model:
     {ok, []} = lee:validate_term(Model, boolean(), true),
     {ok, []} = lee:validate_term(Model, boolean(), false),

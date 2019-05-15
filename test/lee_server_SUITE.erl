@@ -4,7 +4,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
--include_lib("lee/include/lee_types.hrl").
+-include_lib("typerefl/include/types.hrl").
 
 -define(assertMatchT(A, B),
         ?assertMatch( {atomic, A}

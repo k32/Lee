@@ -149,7 +149,7 @@ gather_model(InterfaceModules) ->
     Models = gather_optional(InterfaceModules, model),
     MetaModels = gather_optional(InterfaceModules, metamodel),
     {ok, Model} = lee_model:compile( [lee:base_metamodel() | MetaModels]
-                                   , [lee:base_model() | Models]
+                                   , Models
                                    ),
     Model.
 
