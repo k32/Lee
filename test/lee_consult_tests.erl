@@ -4,10 +4,10 @@
 -include_lib("lee/include/lee.hrl").
 
 model() ->
-    Model0 = #{ list => {[value, consult]
+    Model0 = #{ list => {[value, consult, foo]
                         , #{file_key => list}
                         }
-              , deps => {[value, consult]
+              , deps => {[value, consult, bar]
                         , #{file_key => deps}
                         }
               },
@@ -70,4 +70,10 @@ not_proplist_test() ->
                                            , "test/data/not-proplist.eterm"
                                            , lee_storage:new(lee_map_storage, [])
                                            )
+                ).
+
+filter_by_metatype_test() ->
+    Model = model(),
+    ?assertMatch( [{set, [list], [foo,bar,baz]}]
+                , lee_consult:read(Model, "test/data/demo-correct-1.eterm", [foo])
                 ).
