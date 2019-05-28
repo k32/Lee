@@ -206,9 +206,25 @@ full_split_key_test() ->
                 , lee_model:full_split_key([foo, ?lcl(1), bar, ?children, baz])
                 ).
 
+map_vals_test() ->
+    M0 = #{ foo => {[], 0}
+          , bar => #{ baz => {[], 1}
+                    }
+          },
+    Fun = fun({MT, N}) ->
+                  {[a|MT], N+1}
+          end,
+    ?assertEqual( #{ foo => {[a], 1}
+                   , bar => #{ baz => {[a], 2}
+                             }
+                   }
+                , lee_model:map_vals(Fun, M0)
+                ).
+
 %%%===================================================================
 %%% Proper generators
 %%%===================================================================
+
 key() ->
     oneof([1, 2, 3, 4, 5, foo, bar, baz, quux, {foo, 1}]).
 
