@@ -4,6 +4,7 @@
 %% API exports
 -export([ compile/2
         , compile_module/1
+        , map_vals/2
         , fold/3
         , fold/4
         , get/2
@@ -103,6 +104,19 @@ get(Id, Module) ->
 -spec get_meta(lee:model_key(), lee:model()) -> #mnode{}.
 get_meta(Id, #model{metamodel = Module}) ->
     get(Id, Module).
+
+%% @doc Apply a function to all nodes of a raw model module. Doesn't
+%% traverse into child nodes
+-spec map_vals( fun((lee:mnode()) -> lee:mnode())
+              , lee:module()
+              ) -> lee:module().
+map_vals(Fun, Model) ->
+    maps:map( fun(_, Val) when is_map(Val) ->
+                      map_vals(Fun, Val);
+                 (_, Node) ->
+                      Fun(Node)
+              end
+            , Model).
 
 %% @doc Recursion schema for model fold
 -spec fold( fun((lee:model_key(), #mnode{}, Acc) -> Acc)
