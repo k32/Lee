@@ -16,7 +16,7 @@
 
 %% CLI command scope:
 -record(sc,
-        { name             :: string() | undefined
+        { name = global    :: string() | global
         , short = #{}      :: #{char() => {lee:key(), lee:type()}}
         , long  = #{}      :: #{string() => {lee:key(), lee:type()}}
         , positional = []  :: [{integer() | rest, lee:key()}]
@@ -129,7 +129,7 @@ parse_command(Model, Scopes, [{command, Cmd} | Rest]) ->
             Patch = parse_args(Model, SC, Rest),
             lee_lib:make_nested_patch(Model, Parent, Patch);
         undefined ->
-            ErrorMsg = lee_lib:format("Unknown command ~s", [Cmd]),
+            ErrorMsg = lee_lib:format("Unknown CLI command ~s", [Cmd]),
             throw(ErrorMsg)
     end.
 
@@ -149,16 +149,23 @@ parse_args( Model
                      end,
     case maps:get(Arg, ArgMap, undefined) of
         undefined ->
-            ErrorMsg = lee_lib:format( "Unexpected argument -~s~s in context ~s"
+            ErrorMsg = lee_lib:format( "Unexpected CLI argument -~s~s in context ~s"
                                      , [Dash, Arg, Name]
                                      ),
             throw(ErrorMsg);
         Key ->
             RelKey = make_relative(Key, Parent),
-            {ok, Term} = lee:from_string(Model, Key, Val),
-            maps:merge( #{RelKey => Term}
-                      , parse_args(Model, Scope, Rest)
-                      )
+            case lee:from_string(Model, Key, Val) of
+                {ok, Term} ->
+                    maps:merge( #{RelKey => Term}
+                              , parse_args(Model, Scope, Rest)
+                              );
+                _ ->
+                    ErrorMsg = lee_lib:format( "Unable to parse term: ~p~nKey: ~p"
+                                             , [Val, Key]
+                                             ),
+                    throw(ErrorMsg)
+            end
     end;
 parse_args( Model
           , #sc{ name = Name
@@ -169,7 +176,7 @@ parse_args( Model
           ) ->
     case Pos0 of
         [] ->
-            ErrorMsg = lee_lib:format( "Unexpected positional argument ~p in context ~s"
+            ErrorMsg = lee_lib:format( "Unexpected positional CLI argument ~p in context ~s"
                                      , [Val, Name]
                                      ),
             throw(ErrorMsg);
