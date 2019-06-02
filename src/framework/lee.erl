@@ -191,7 +191,14 @@ validate(MetaTypes, Model, Data) ->
 from_string(Model, Key, String) ->
     #mnode{metaparams = MP} = lee_model:get(Key, Model),
     Type = maps:get(type, MP),
-    Default = fun(Str) -> typerefl:from_string(Type, Str) end,
+    Default = fun(Str) ->
+                      case typerefl:from_string(Type, Str) of
+                          Ok = {ok, _} ->
+                              Ok;
+                          error ->
+                              {error, "Unable to parse term"}
+                      end
+              end,
     Fun = maps:get(from_string, MP, Default),
     Fun(String).
 

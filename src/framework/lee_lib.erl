@@ -87,7 +87,7 @@ term_to_string(Term) ->
                                    lee:validate_result().
 inject_error_location(Location, Result) ->
     Fun = fun(Msg) ->
-                  format("~p: ~s", [Location, term_to_string(Msg)])
+                  format("Key: ~p~n~s", [Location, term_to_string(Msg)])
           end,
     case Result of
         {ok, Warn} ->
