@@ -66,7 +66,7 @@
 -type type() :: #type{} | atom() | {var, term()}.
 
 %% Model node
--type mnode() :: {[metatype()], properties(), module()}
+-type mnode() :: {[metatype()], properties(), lee_module()}
                | {[metatype()], properties()} %% Shortcut for child-free MOs
                .
 
