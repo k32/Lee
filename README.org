@@ -13,6 +13,8 @@
   have a =?magic:get(Key)= function that returns a value that is
   guaranteed safe.
 
+- As a designer I want to work with native Erlang data types
+
 There are a few approaches to this conflict:
 
 [[file:doc/images/explanation.png]]
@@ -44,162 +46,49 @@ DSL, some bare-bones libraries for CLI and config file parsing,
 together with the model validation routines in under 3000 LOC or
 so. And be fully Erlang-native too.
 
+The below document explains Lee from the bottom-up.
+
 * Type reflections
 
-This document explains Lee from the bottom-up. The most basic Lee
-feature is type-checking of Erlang terms in runtime. Let's use this
-to verify some familiar types:
-
-#+BEGIN_SRC erlang
-%% This module shows very basic (and relatively low-level) usage of Lee.
--module(example1).
-
--export([main/0]).
-
--include_lib("lee/include/lee_types.hrl").
-
-main() ->
-    %% First of all we need to create a _data model_ from a few _model
-    %% modules_. In this example we use only prepackaged modules that
-    %% contain functions necessary to validate Erlang terms. Don't pay
-    %% too much attention to this part yet, it will be explained in
-    %% more detail later.
-    {ok, Model} = lee_model:compile([lee:base_metamodel()], [lee:base_model()]),
-    %% 2. Validate Erlang terms against the model:
-    {ok, []} = lee:validate_term(Model, boolean(), true),
-    {ok, []} = lee:validate_term(Model, boolean(), false),
-    %% `true' and `false' are indeed valid `boolean()' values...
-    %% Now let's try something illegal:
-    {error, ["Expected true | false, got 42"], _Warnings} =
-        lee:validate_term(Model, boolean(), 42),
-    %% Let's validate some strings:
-    {ok, []} = lee:validate_term(Model, string(), "Hi!"),
-    %% Non-unicode characters are forbidden:
-    {error, ["Expected char(), got -1 in list(char())"], []} =
-        lee:validate_term(Model, string(), [100, -1]),
-    ok.
-#+END_SRC
-
-User-defined types are supported too. =lee:type_refl/2= pseudofunction
-invokes a parse transform generating a /type reflection/ from a
-dialyzer type spec. It takes two arguments: the first one, namespace,
-is irrelevant for now, and the second one is a list of local type
-definitions that should be included in the resulting model.
-
-#+BEGIN_SRC erlang
-%% This module shows how type reflection works
--module(example2).
-
--export([main/0]).
-
--include_lib("lee/include/lee_types.hrl").
-
--type stupid_list(A) :: {cons, A, stupid_list(A)}
-                      | nil.
-
--type mylist(A) :: stupid_list(A)
-                 | list(A).
-
--type mylist() :: mylist(term()).
-
-main() ->
-    %% Generate a _Lee model module_ containing user types:
-    MyModule = lee:type_refl([my, model], [mylist/0, mylist/1]),
-    %% Merge it with the Lee base models (don't focus on this now):
-    {ok, Model} = lee_model:compile( [lee:base_metamodel()]
-                                   , [lee:base_model(), MyModule]
-                                   ),
-    %% Check some values:
-    {ok, []} = lee:validate_term(Model, mylist(atom()), [foo, bar]),
-    {ok, []} = lee:validate_term(Model, mylist(), {cons, foo, {cons, bar, nil}}),
-    {error, [Error], _Warnings} = lee:validate_term(Model, mylist(atom()), {cons, foo, {cons, 1, nil}}),
-    io:put_chars(Error).
-#+END_SRC
-
-=example2:main().= produces the following output:
-
-#+BEGIN_EXAMPLE
-Expected: example2:stupid_list(atom()) | list(atom()) when
-  example2:stupid_list(A) :: {cons,A,example2:stupid_list(A)} | nil.
-
-Got: {cons,foo,{cons,1,nil}}
-#+END_EXAMPLE
-
-Note: opaque types can't be reflected.
-
-Note: =lee:type_refl= generates an invisible local function with the
-same name as the type. Attempt to reflect a type =foo/0= when there is
-already a function called =foo/0= will result in a compilation error.
-
-** Remote type dependencies
-
-=lee_transform= can figure out the dependencies between the types
-defined within a single Erlang module. However it cannot automatically
-reflect types located in other Erlang modules. Therefore it is
-necessary to add =lee:type_refl= pseudocall in each Erlang module and
-/merge/ the resulting Lee models. The following example demonstrates
-how cross-module type dependencies can be implemented:
-
-#+BEGIN_SRC erlang
--module(a).
-
--export([type_refl/0]).
-
--type foo() :: ... .
-
-type_refl() ->
-  lee:type_refl([my, types, ?MODULE], [foo/0]).
-#+END_SRC
-
-#+BEGIN_SRC erlang
--module(b).
-
--type bar() :: a:foo() | ... .
-
-model() ->
-  {ok, Model} = lee_model:compile( [lee:base_metamodel()]
-                                 , [ lee:type_refl([my, types, ?MODULE], [bar/0])
-                                   , a:type_refl()
-                                   ]
-                                 ),
-  Model.
-#+END_SRC
+As advertized, Lee configuration is fully aware of the Dialyzer
+types. In order to make use of them to the runtime, Lee relies on
+[[https://github.com/k32/typerefl][typerefl]] library.
 
 * Defining models
 
-/Model/ is the central concept in Lee. Generally speaking, model can
-be seen as a schema of some data.
+/Model/ is the central concept in Lee. Generally speaking, Lee model
+can be seen as a schema of the configuration. The model is a tree-like
+structure where each node represent some entity.
 
-Models are made of two basic building blocks: /namespaces/ and
-/mnodes/. Namespace is simply an Erlang map where values are either
+Lee models are made of two basic building blocks: /namespaces/ and
+/mnodes/. Namespace is a regular Erlang map where values are either
 mnodes or other namespaces.
 
 Mnode is a tuple that looks like this:
 
 #+BEGIN_SRC erlang
-{ MetaTypes :: [MetaType :: atom()]
+{ MetaTypes      :: [MetaType :: atom()]
 , MetaParameters :: #{atom() => term()}
-, Children :: lee:namespace()
+, Children       :: lee:namespace()
 }
 #+END_SRC
 
 or this:
 
 #+BEGIN_SRC erlang
-{ MetaTypes :: [atom()]
+{ MetaTypes      :: [atom()]
 , MetaParameters :: #{atom() => term()}
 }
 #+END_SRC
 
-The latter is just a shortcut where =Children= is an empty map.
+(The latter is just a shortcut where =Children= is an empty map.)
 
 =MetaTypes= is a list of /metatype/ IDs which are applicable to the
 mnode. Example metatypes:
 
  - =value= metatype means the mnode denotes some runtime data
 
- - =type= is used internally by Lee to describe reflected Erlang
-   types
+ - =list= metatype denotes that mnode is a container for some data
 
 =MetaParameters= field contains data relevant to the metatypes
 assigned to the mnode. There are no strict rules about it. For
@@ -238,21 +127,20 @@ model() ->
      }.
 #+END_SRC
 
-=[foo]=, =[bar, baz]= and =[bar, quux]= are valid keys in the above
-model.
+=[foo]=, =[bar, baz]= and =[bar, quux]= are valid /model keys/ in the
+above model.
 
 Model modules have a nice property: they are /composable/ as long as
 their keys do not clash. One or many model modules make up a
 /model/. Note: technically there is absolutely no difference between
-/model module/ and /model/ (it's a monoid). The latter term denotes
-something that is complete from the application point of
-view. Therefore in the rest of the document both terms are used
-interchangeably.
+/model module/ and /model/. The latter term denotes something that is
+complete from the application point of view. Therefore in the rest of
+the document both terms are used interchangeably.
 
-Model should be merged and compiled to a machine-friendly form before
-use. =lee_model:compile/2= function does that. Note that it takes two
-arguments, both are lists of Lee models. The second argument is
-application model (or *the* model), and the first one is a
+Model modules should be merged and compiled to a machine-friendly form
+before use. =lee_model:compile/2= function does that. Note that it
+takes two arguments, both are lists of Lee models. The second argument
+is application model (or *the* model), and the first one is a
 /metamodel/, where all metatypes used in the application model are
 defined.
 
@@ -317,7 +205,8 @@ becomes extremely simple:
 #+END_SRC
 
 Note that =lee:get= returns plain values rather than something like
-={ok, Value} | undefined=.
+={ok, Value} | undefined=. This is perfectly safe, as long as the data
+is validated using =lee:validate=.
 
 Complete code of the example can be found [[file:doc/example/example_model.erl][here]].
 
@@ -383,10 +272,10 @@ Full code of the example can be found [[file:doc/example/example_model2.erl][her
 
 All Lee APIs that we discussed so far were stateless. Although being
 stateless makes Lee extremely flexible, passing state around is hardly
-practical. Lee comes with a simple reference implementation of
-configuration server, that holds all data in Mnesia and ensures that
-the data is always sound, by validating patches. The following example
-briefly shows how it can be used:
+practical for a configuration library. Lee comes with a simple
+reference implementation of configuration server, that holds all data
+in Mnesia and ensures that the data is always sound by validating
+patches. The following example briefly shows how it can be used:
 
 #+BEGIN_SRC erlang
 main() ->
@@ -441,4 +330,5 @@ and validating config may be slow.
 
 It should be possible to use =lee:get= in hotspots. It means any call
 to =lee:get= should be theoretically possible to implement using at
-most 2 hashtable lookups (1 for data and 1 for the default value).
+most (N + 1) hashtable lookups (N for the number of configuration
+overlays and 1 for the defaults).
