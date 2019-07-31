@@ -3,9 +3,10 @@
 -export([ metamodel/0
         , read/1
         , read_to/2
+        , document_values/1
         ]).
 
--include("lee.hrl").
+-include_lib("lee/src/framework/lee_internal.hrl").
 
 -define(metatype, os_env).
 
@@ -14,7 +15,9 @@ metamodel() ->
     #{ metatype =>
            #{ ?metatype =>
                   {[metatype]
-                  , #{}
+                  , #{ doc_chapter_title => "OS Environment Variables"
+                     , doc_gen           => fun ?MODULE:document_values/1
+                     }
                   }
             }
      }.
@@ -52,3 +55,23 @@ read_val(Model, Key, Acc) ->
                     throw(Error)
             end
     end.
+
+-spec document_values(lee:model()) -> xmerl:document().
+document_values(Model) ->
+    #model{meta_class_idx = Idx} = Model,
+    Keys = maps:get(?metatype, Idx, []),
+    Fun = fun(Key) ->
+                  #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
+                  Oneliner = ?m_valid(value, maps:get(oneliner, Attrs, "")),
+                  EnvVar = ?m_attr(?metatype, os_env, Attrs),
+                  {section, [{id, EnvVar}]
+                  , [ {title, [EnvVar]}
+                    , {para, [Oneliner, lee_doc:xref_key(Key)]}
+                    ]
+                  }
+          end,
+    Intro = "<para>The following OS environment variables are used to
+             set configuration values. Values of type string() are
+             taken from OS environment variables verbatim, other types
+             are parsed as Erlang terms.</para>",
+    lee_doc:docbook(Intro) ++ lists:map(Fun, Keys).

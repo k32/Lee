@@ -98,8 +98,10 @@ namespace(Key, M) ->
 base_metamodel() ->
     namespace([metatype]
              , #{ value =>
-                      {[metatype],
-                       #{ validate_node => fun validate_value/4
+                      {[metatype, doc_gen],
+                       #{ validate_node     => fun validate_value/4
+                        , doc_chapter_title => "Values"
+                        , doc_gen           => fun lee_doc:document_values/1
                         }}
                 , map =>
                       {[metatype], #{}}

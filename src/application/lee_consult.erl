@@ -62,7 +62,8 @@ read(Model, Filename, Filter) ->
                      T0;
                  {error, Reason0} ->
                      Reason = lee_lib:format( "Reading ~s failed: ~p"
-                                            , [Filename, Reason0]),
+                                            , [Filename, Reason0]
+                                            ),
                      throw({error, Reason})
              end,
     case Terms0 of
