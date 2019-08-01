@@ -17,10 +17,11 @@
 
 -spec metamodel() -> lee:module().
 metamodel() ->
-    #{ metatype => #{ ?consult => {[metatype]
-                                  , #{}
-                                  }
-                    }}.
+    #{ metatype =>
+           #{ ?consult => {[metatype, documented]
+                          , #{}
+                          }
+            }}.
 
 %% @doc Parse file into a `lee_storage'
 %% @throws {error, string()}

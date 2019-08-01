@@ -3,7 +3,7 @@
 -export([ metamodel/0
         , read/1
         , read_to/2
-        , document_values/1
+        , document_values/2
         ]).
 
 -include_lib("lee/src/framework/lee_internal.hrl").
@@ -14,9 +14,9 @@
 metamodel() ->
     #{ metatype =>
            #{ ?metatype =>
-                  {[metatype]
+                  {[metatype, documented]
                   , #{ doc_chapter_title => "OS Environment Variables"
-                     , doc_gen           => fun ?MODULE:document_values/1
+                     , doc_gen           => fun ?MODULE:document_values/2
                      }
                   }
             }
@@ -56,8 +56,8 @@ read_val(Model, Key, Acc) ->
             end
     end.
 
--spec document_values(lee:model()) -> xmerl:document().
-document_values(Model) ->
+-spec document_values(lee:model(), term()) -> lee_doc:doc().
+document_values(Model, _Config) ->
     #model{meta_class_idx = Idx} = Model,
     Keys = maps:get(?metatype, Idx, []),
     Fun = fun(Key) ->
