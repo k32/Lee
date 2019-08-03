@@ -1,6 +1,7 @@
 -module(lee_doc_test).
 
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("typerefl/include/types.hrl").
 
 -include("lee.hrl").
 
@@ -74,9 +75,26 @@ consectetur. Suspendisse non est ex.</para>"
                      , type     => {typerefl:nonempty_list([]), typerefl:iolist()}
                      , os_env   => "BAR"
                      }}
+             , baz =>
+                   {[value],
+                    #{ type => {typerefl:nonempty_list([]), typerefl:iolist()}
+                     }}
+             , quux =>
+                   {[value, consult, foo],
+                    #{ type     => integer()
+                     , oneliner => "This value controls quuxing"
+                     , file_key => quux
+                     }}
+             , xizzy =>
+                   {[value, consult, bar],
+                    #{ type     => float()
+                     , oneliner => "This value controls xizzying"
+                     , file_key => xizzy
+                     }}
              },
     {ok, Mod} = lee_model:compile( [ lee:base_metamodel()
                                    , lee_os_env:metamodel()
+                                   , lee_consult:metamodel()
                                    ]
                                  , [Model]
                                  ),
@@ -84,7 +102,17 @@ consectetur. Suspendisse non est ex.</para>"
 
 
 export_test() ->
-    lee_doc:make_doc(model(), "My application", [os_env, value], "foo.xml"),
+    MTs = [ os_env
+          , consult
+          , {consult, #{ filter      => [foo]
+                       , config_name => "foo.conf"
+                       }}
+          , {consult, #{ filter      => [bar]
+                       , config_name => "bar.conf"
+                       }}
+          , value
+          ],
+    lee_doc:make_doc(model(), "My application", MTs, "foo.xml"),
     [io:put_chars(
        os:cmd("pandoc -o foo." ++ Fmt ++
               " --toc -sf docbook -t " ++ Fmt ++" foo.xml"))

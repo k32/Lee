@@ -61,14 +61,10 @@ document_values(Model, _Config) ->
     #model{meta_class_idx = Idx} = Model,
     Keys = maps:get(?metatype, Idx, []),
     Fun = fun(Key) ->
-                  #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
-                  Oneliner = ?m_valid(value, maps:get(oneliner, Attrs, "")),
+                  MNode = lee_model:get(Key, Model),
+                  #mnode{metaparams = Attrs} = MNode,
                   EnvVar = ?m_attr(?metatype, os_env, Attrs),
-                  {section, [{id, EnvVar}]
-                  , [ {title, [EnvVar]}
-                    , {para, [Oneliner, lee_doc:xref_key(Key)]}
-                    ]
-                  }
+                  lee_doc:refer_value(Key, ?metatype, EnvVar, MNode)
           end,
     Intro = "<para>The following OS environment variables are used to
              set configuration values. Values of type string() are

@@ -1,7 +1,7 @@
 -module(lee_cli).
 
 %% TODO: This module is experimental; it's too convoluted and it needs
-%% a serious refactoring
+%% some serious refactoring
 
 -export([ metamodel/0
         , read/2

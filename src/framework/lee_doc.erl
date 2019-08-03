@@ -2,7 +2,12 @@
 
 -export([make_doc/3, make_doc/4, document_values/2]).
 
--export([simplesect/2, erlang_listing/1, xref_key/1, docbook/1]).
+-export([ simplesect/2
+        , erlang_listing/1
+        , xref_key/1
+        , refer_value/4
+        , docbook/1
+        ]).
 
 -include("lee_internal.hrl").
 
@@ -30,6 +35,18 @@ simplesect(Title, Doc0) ->
 xref_key(Key) ->
     Node = lee_lib:format("~p", [Key]),
     {xref, [{linkend, Node}], []}.
+
+-spec refer_value(lee:model_key(), lee:metatype(), string(), #mnode{}) ->
+                         doc().
+refer_value(Key, Metatype, Title, MNode) ->
+    SectionId = lee_lib:format("~p", [{Metatype, Title}]),
+    #mnode{metaparams = Attrs} = MNode,
+    Oneliner = ?m_valid(value, maps:get(oneliner, Attrs, "")),
+    {section, [{id, SectionId}]
+    , [ {title, [Title]}
+      , {para, [Oneliner ++ ", see: ", lee_doc:xref_key(Key)]}
+      ]
+    }.
 
 -spec docbook(string()) -> [doc()].
 docbook([]) ->
@@ -116,7 +133,15 @@ make_doc(Model, Title, Metatypes0) ->
 metatype_docs({MetaType, DocConfig}, Model) ->
     #model{metamodel = Meta} = Model,
     #mnode{metaparams = Attrs} = lee_model:get([metatype, MetaType], Meta),
-    Title   = ?m_attr(documented, doc_chapter_title, Attrs),
+    Title0 = ?m_attr(documented, doc_chapter_title, Attrs),
+    Title = if is_function(Title0, 2) ->
+                    Title0(Model, DocConfig);
+               is_list(Title0) ->
+                    Title0
+            end,
     GenDocs = ?m_attr(documented, doc_gen, Attrs),
     Content = GenDocs(Model, DocConfig),
-    {chapter, [{title, [Title]} | Content]}.
+    SectionId = lee_lib:format("~p", [{metatype, MetaType, DocConfig}]),
+    {chapter, [{id, SectionId}]
+    , [{title, [Title]} | Content]
+    }.
