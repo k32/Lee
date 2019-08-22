@@ -4,6 +4,7 @@
         , read/1
         , read_to/2
         , document_values/2
+        , meta_validate/4
         ]).
 
 -include_lib("lee/src/framework/lee_internal.hrl").
@@ -17,10 +18,19 @@ metamodel() ->
                   {[metatype, documented]
                   , #{ doc_chapter_title => "OS Environment Variables"
                      , doc_gen           => fun ?MODULE:document_values/2
+                     , meta_validate     => fun ?MODULE:meta_validate/4
                      }
                   }
             }
      }.
+
+-spec meta_validate(lee:model(), _, lee:key(), #mnode{}) ->
+                            lee_lib:check_result().
+meta_validate(_, _, Key, MNode) ->
+    lee_lib:validate_meta_attr( os_env
+                              , typerefl:printable_latin1_list()
+                              , MNode
+                              ).
 
 %% @doc Make a patch from OS environment variables
 %% @throws {error, string()}

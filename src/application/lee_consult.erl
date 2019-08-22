@@ -7,6 +7,7 @@
         , read_to/4
         , doc_chapter_title/2
         , doc_gen/2
+        , meta_validate/4
         ]).
 
 -export_type([filter/0, doc_config/0]).
@@ -27,9 +28,15 @@ metamodel() ->
            #{ ?consult => {[metatype, documented]
                           , #{ doc_chapter_title => fun ?MODULE:doc_chapter_title/2
                              , doc_gen => fun ?MODULE:doc_gen/2
+                             , meta_validate => fun ?MODULE:meta_validate/4
                              }
                           }
             }}.
+
+-spec meta_validate(lee:model(), _, lee:key(), #mnode{}) ->
+                            lee_lib:check_result().
+meta_validate(_, _, Key, MNode) ->
+    lee_lib:validate_meta_attr(file_key, typerefl:atom(), MNode).
 
 %% @doc Parse file into a `lee_storage'
 %% @throws {error, string()}

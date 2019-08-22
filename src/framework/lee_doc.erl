@@ -7,9 +7,12 @@
         , xref_key/1
         , refer_value/4
         , docbook/1
+        , check_docstrings/1
+        , validate_doc_root/4
         ]).
 
 -include("lee_internal.hrl").
+-include_lib("typerefl/include/types.hrl").
 
 -type doc() :: term().
 
@@ -61,6 +64,33 @@ docbook([]) ->
 docbook(String) ->
     {Doc, Rest} = xmerl_scan:string(String, [{document, false}]),
     [Doc | docbook(Rest)].
+
+-spec check_docstrings(lee:parameters()) -> lee_lib:check_result().
+check_docstrings(Attrs) ->
+    CheckOneliner = lee_lib:validate_optional_meta_attr( oneliner
+                                                       , printable_unicode_list()
+                                                       , Attrs
+                                                       , true
+                                                       ),
+    CheckDoc = case Attrs of
+                   #{doc := Doc} ->
+                       try docbook(Doc) of
+                           _ -> {[], []}
+                       catch
+                           _:_ -> {["`doc' attribute is not a valid docbook string"], []}
+                       end;
+                   _ ->
+                       {[], ["`doc' attribute is expected"]}
+               end,
+    lee_lib:compose_checks([CheckOneliner, CheckDoc]).
+
+-spec validate_doc_root(lee:model(), _, lee:key(), #mnode{}) ->
+                               lee_lib:check_result().
+validate_doc_root(_, _, Key, #mnode{metaparams = Attrs}) ->
+    Fun = fun(#{app_name := _}) -> {[], []};
+             (_)                -> {["missing `app_name' parameter"], []}
+          end,
+    lee_lib:perform_checks(Key, Attrs, [fun check_docstrings/1, Fun]).
 
 -spec document_value(lee:model_key(), lee:model()) ->
                             doc().
