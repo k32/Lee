@@ -7,7 +7,6 @@
   {modules, []},
   {mod, {lee_app, []}},
 
-  {maintainers, []},
   {licenses, ["public domain"]},
   {links, [{"Github","https://github.com/k32/Lee"}]}
  ]}.
