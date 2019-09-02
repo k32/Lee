@@ -181,7 +181,7 @@ It is possible to verify the entire storage of data against a model:
 #+BEGIN_SRC erlang
 main() ->
     {ok, Model} = lee_model:compile( [lee:base_metamodel()]
-                                   , [lee:base_model(), model()]
+                                   , [model()]
                                    ),
     Data = data(),
     {ok, _Warnings} = lee:validate(Model, Data),
