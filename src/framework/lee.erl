@@ -362,7 +362,6 @@ meta_validate_value(_Model, _, Key, #mnode{metaparams = Attrs}) ->
 -spec meta_validate_map(lee:model(), _, lee:key(), #mnode{}) ->
                             lee_lib:check_result().
 meta_validate_map(#model{model = Model}, _, Key, #mnode{metaparams = Params}) ->
-    io:format("OHAYO: ~p~n", [Model]),
     ValidateKey =
         fun(ChildKey) ->
                 case lee_storage:get(Key ++ [?children|ChildKey], Model) of
