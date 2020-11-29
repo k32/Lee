@@ -7,12 +7,13 @@ packages:
   - pandoc
 
 tasks:
-  - prepare: |
+  - install_otp: |
       export otp_version="23.1-1"
       deb="esl-erlang_${otp_version}~ubuntu~focal_amd64.deb"
       wget "https://packages.erlang-solutions.com/erlang/debian/pool/${deb}"
       sudo apt-get install -y --allow-downgrades --no-install-recommends ./${deb}
 
+  - install_rebar3: |
       wget https://github.com/erlang/rebar3/releases/download/3.14.0/rebar3
       chmod +x rebar3
       sudo mv rebar3 /usr/local/bin/rebar3
