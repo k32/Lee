@@ -1,19 +1,22 @@
 image: ubuntu/lts
 
-repositories:
-  - "https://packages.erlang-solutions.com/erlang/debian/pool/esl-erlang_21.3.8.17-1~ubuntu~bionic_amd64.deb"
-
-packages:
-  - erlang
-
 sources:
   - https://git.sr.ht/~k32/Lee
 
+packages:
+  - pandoc
+
 tasks:
   - prepare: |
+      export otp_version="23.1-1"
+      deb="esl-erlang_${otp_version}~ubuntu~focal_amd64.deb"
+      wget "https://packages.erlang-solutions.com/erlang/debian/pool/${deb}"
+      sudo apt-get install -y --allow-downgrades --no-install-recommends ./${deb}
+
       wget https://github.com/erlang/rebar3/releases/download/3.14.0/rebar3
       chmod +x rebar3
       sudo mv rebar3 /usr/local/bin/rebar3
 
   - make: |
+      cd Lee
       make
