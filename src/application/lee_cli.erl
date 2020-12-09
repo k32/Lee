@@ -269,14 +269,15 @@ parse_args( Model
                } = Scope
           , [{ArgType, Arg, Val} | Rest]
           ) when ArgType =:= long; ArgType =:= short ->
-    {Dash, ArgMap} = case ArgType of
-                         long  -> {"-", Long};
-                         short -> {"", Short}
-                     end,
+    {Dash, ArgMap, Readable} =
+        case ArgType of
+            long  -> {"-", Long, Arg};
+            short -> {"", Short, [Arg]}
+        end,
     case maps:get(Arg, ArgMap, undefined) of
         undefined ->
             ErrorMsg = lee_lib:format( "Unexpected CLI argument -~s~s in context ~s"
-                                     , [Dash, Arg, Name]
+                                     , [Dash, Readable, Name]
                                      ),
             throw(ErrorMsg);
         Key ->
