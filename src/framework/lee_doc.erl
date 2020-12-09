@@ -22,6 +22,7 @@
          , introduction => doc()
          , metatypes    := [lee:metatype() | {lee:metatype(), term()}]
          , output_dir   => file:filename()
+         , run_pandoc   => boolean()
          }.
 
 -export_type([doc/0, doc_options/0]).
