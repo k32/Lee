@@ -18,9 +18,7 @@
 -type doc() :: term().
 
 -type doc_options() ::
-        #{ app_name     := string()
-         , introduction => doc()
-         , metatypes    := [lee:metatype() | {lee:metatype(), term()}]
+        #{ metatypes    := [lee:metatype() | {lee:metatype(), term()}]
          , output_dir   => file:filename()
          , run_pandoc   => boolean()
          }.
