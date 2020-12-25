@@ -13,8 +13,8 @@
         , perform_checks/3
         , run_cmd/2
         , validate_optional_meta_attr/4
-        , validate_optional_meta_attr/5
-        , validate_meta_attr/4
+        , validate_optional_meta_attr/3
+        , validate_meta_attr/3
         ]).
 
 -export_type([check_result/0]).
@@ -98,9 +98,7 @@ term_to_string(Term) ->
                                    check_result().
 inject_error_location(Location, {Err, Warn}) ->
     Fun = fun(Msg) ->
-                  format( "Key: ~p~n~s"
-                        , [Location, term_to_string(Msg)]
-                        )
+                  format( "~p: ~s", [Location, term_to_string(Msg)])
           end,
     {[Fun(I) || I <- Err], [Fun(I) || I <- Warn]}.
 
@@ -131,24 +129,23 @@ compose_checks(L) ->
     {Err, Warn} = lists:unzip(L),
     {lists:append(Err), lists:append(Warn)}.
 
--spec perform_checks(lee:key(), M, [fun((M, lee:key()) -> check_result())]) ->
+-spec perform_checks(lee:key(), M, [fun((M) -> check_result())]) ->
                             check_result().
 perform_checks(Key, Attrs, CheckFuns) ->
-    CheckResults = [F(Attrs, Key) || F <- CheckFuns],
+    CheckResults = [F(Attrs) || F <- CheckFuns],
     inject_error_location(Key, compose_checks(CheckResults)).
 
 -spec validate_optional_meta_attr( atom()
-                                 , lee:key()
                                  , typerefl:type()
                                  , lee:properties() | #mnode{}
                                  , boolean()
                                  ) -> lee:validate_result().
-validate_optional_meta_attr(Attr, Key, Type, #mnode{metaparams = MP}, WarnIfAbsent) ->
-    validate_optional_meta_attr(Attr, Key, Type, MP, WarnIfAbsent);
-validate_optional_meta_attr(Attr, Key, Type, Params, WarnIfAbsent) ->
+validate_optional_meta_attr(Attr, Type, #mnode{metaparams = MP}, WarnIfAbsent) ->
+    validate_optional_meta_attr(Attr, Type, MP, WarnIfAbsent);
+validate_optional_meta_attr(Attr, Type, Params, WarnIfAbsent) ->
     case Params of
         #{Attr := _} ->
-            validate_meta_attr(Attr, Key, Type, Params);
+            validate_meta_attr(Attr, Type, Params);
         _ when WarnIfAbsent ->
             Warn = format("Missing attribute ~p", [Attr]),
             {[], [Warn]};
@@ -157,31 +154,28 @@ validate_optional_meta_attr(Attr, Key, Type, Params, WarnIfAbsent) ->
     end.
 
 -spec validate_optional_meta_attr( atom()
-                                 , lee:key()
                                  , typerefl:type()
                                  , lee:properties() | #mnode{}
                                  ) -> lee:validate_result().
-validate_optional_meta_attr(Attr, Key, Type, #mnode{metaparams = MP}) ->
-    validate_optional_meta_attr(Attr, Key, Type, MP, false).
+validate_optional_meta_attr(Attr, Type, #mnode{metaparams = MP}) ->
+    validate_optional_meta_attr(Attr, Type, MP, false).
 
 -spec validate_meta_attr( atom()
-                        , lee:key()
                         , typerefl:type()
                         , lee:properties() | #mnode{}
                         ) -> lee:validate_result().
-validate_meta_attr(Attr, Key, Type, #mnode{metaparams = MP}) ->
-    validate_meta_attr(Attr, Key, Type, MP);
-validate_meta_attr(Attr, Key, Type, Params) ->
+validate_meta_attr(Attr, Type, #mnode{metaparams = MP}) ->
+    validate_meta_attr(Attr, Type, MP);
+validate_meta_attr(Attr, Type, Params) ->
     case Params of
         #{Attr := Val} ->
             case typerefl:typecheck(Type, Val) of
                 ok ->
                     {[], []};
                 {error, Err} ->
-                    Str = format("~p: ~s", [Key, Err]),
-                    {[Str], []}
+                    {[Err], []}
             end;
         _ ->
-            Err = format("~p: Expected mandatory meta-parameter ~p", [Key, Attr]),
+            Err = format("Missing mandatory meta-parameter ~p", [Attr]),
             {[Err], []}
     end.

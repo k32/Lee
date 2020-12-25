@@ -355,8 +355,8 @@ validate_value(Model, Data, Key, #mnode{metaparams = Attrs}) ->
 -spec meta_validate_value(lee:model(), _, lee:key(), #mnode{}) ->
                             lee_lib:check_result().
 meta_validate_value(_Model, _, Key, #mnode{metaparams = Attrs}) ->
-    lee_lib:perform_checks(Key, Attrs, [ fun lee_doc:check_docstrings/2
-                                       , fun check_type_and_default/2
+    lee_lib:perform_checks(Key, Attrs, [ fun lee_doc:check_docstrings/1
+                                       , fun check_type_and_default/1
                                        ]).
 
 -spec meta_validate_map(lee:model(), _, lee:key(), #mnode{}) ->
@@ -366,9 +366,7 @@ meta_validate_map(#model{model = Model}, _, Key, #mnode{metaparams = Params}) ->
         fun(ChildKey) ->
                 case lee_storage:get(Key ++ [?children|ChildKey], Model) of
                     undefined ->
-                        Error = lee_lib:format( "~p is not a valid child key of ~p"
-                                              , [ChildKey, Key]
-                                              ),
+                        Error = lee_lib:format( "~p: ~p is not a valid child key", [Key, ChildKey]),
                         {true, Error};
                     {ok, _} ->
                         false
@@ -378,27 +376,26 @@ meta_validate_map(#model{model = Model}, _, Key, #mnode{metaparams = Params}) ->
           #{key_elements := KeyElems} when is_list(KeyElems) ->
               lists:filtermap(ValidateKey, KeyElems);
           #{key_elements := _}  ->
-              ["`key_elements' should be a list of valid child keys"];
+              [lee_lib:format("~p: `key_elements' should be a list of valid child keys", [Key])];
           _ ->
               []
       end
     , []
     }.
 
-check_type_and_default(Attrs, Key) ->
+check_type_and_default(Attrs) ->
     case Attrs of
         #{type := Type, default := Default} ->
             case typerefl:typecheck(Type, Default) of
                 ok ->
                     {[], []};
                 {error, Err} ->
-                    Str = lee_lib:format("~p: Mistyped default value: ~s", [Key, Err]),
+                    Str = lee_lib:format("Mistyped default value: ~s", [Err]),
                     {[Str], []}
             end;
         #{type := _Type} ->
             %% TODO: typerefl:is_type?
             {[], []};
         _ ->
-            Str = lee_lib:format("~p: missing `type' metaparameter", [Key]),
-            {[Str], []}
+            {["Missing `type' metaparameter"], []}
     end.

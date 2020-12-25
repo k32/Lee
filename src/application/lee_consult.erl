@@ -74,7 +74,9 @@ metamodel() ->
 -spec meta_validate(lee:model(), _, lee:key(), #mnode{}) ->
                             lee_lib:check_result().
 meta_validate(_, _, Key, MNode) ->
-    lee_lib:validate_meta_attr(file_key, Key, typerefl:atom(), MNode).
+    lee_lib:inject_error_location(
+      Key,
+      lee_lib:validate_meta_attr(file_key, typerefl:atom(), MNode)).
 
 %% @doc Parse file into a `lee_storage'
 %% @throws {error, string()}

@@ -231,12 +231,16 @@ doc_gen(Model, Config) ->
 -spec meta_validate_positional(lee:model(), _, lee:key(), #mnode{}) ->
                             lee_lib:check_result().
 meta_validate_positional(_, _, Key, MNode) ->
-    lee_lib:validate_meta_attr(cli_arg_position, Key, position(), MNode).
+    lee_lib:inject_error_location(
+      Key,
+      lee_lib:validate_meta_attr(cli_arg_position, position(), MNode)).
 
 -spec meta_validate_action(lee:model(), _, lee:key(), #mnode{}) ->
                             lee_lib:check_result().
 meta_validate_action(_, _, Key, MNode) ->
-    lee_lib:validate_meta_attr(cli_operand, Key, string(), MNode).
+    lee_lib:inject_error_location(
+      Key,
+      lee_lib:validate_meta_attr(cli_operand, string(), MNode)).
 
 -spec meta_validate_param(lee:model(), _, lee:key(), #mnode{}) ->
                             lee_lib:check_result().
@@ -247,14 +251,15 @@ meta_validate_param(_, _, Key, MNode) ->
                    #{cli_short := _} ->
                        {[], []};
                    _ ->
-                       Str = lee_lib:format("~p: Missing `cli_operand' or `cli_short' attributes", [Key]),
-                       {[Str], []}
+                       {["Missing `cli_operand' or `cli_short' attributes"], []}
                end,
-    lee_lib:compose_checks(
-      [ lee_lib:validate_optional_meta_attr(cli_operand, Key, string(), MNode)
-      , lee_lib:validate_optional_meta_attr(cli_short, Key, char(), MNode)
-      , Presense
-      ]).
+    lee_lib:inject_error_location(
+      Key,
+      lee_lib:compose_checks(
+        [ lee_lib:validate_optional_meta_attr(cli_operand, string(), MNode)
+        , lee_lib:validate_optional_meta_attr(cli_short, char(), MNode)
+        , Presense
+        ])).
 
 %%====================================================================
 %% Internal functions

@@ -273,43 +273,43 @@ rest_empty_list_test() ->
 validate_param_test() ->
     M1 = #{ foo => {[cli_param], #{}}
           },
-    ?assertMatch({error, {validation_error, _}}, compile(M1)),
+    ?assertMatch({error, ["[foo]: Missing" ++ _]}, compile(M1)),
     M2 = #{ foo => {[cli_param],
                     #{ cli_short => a
                      }}
           },
-    ?assertMatch( {error, {validation_error, ["[foo]: Expected type" ++ _]}}
+    ?assertMatch( {error, ["[foo]: Expected type" ++ _]}
                 , compile(M2)
                 ),
     M3 = #{ foo => {[cli_param],
                     #{ cli_operand => a
                      }}
           },
-    ?assertMatch( {error, {validation_error, ["[foo]: Expected type" ++ _]}}
+    ?assertMatch( {error, ["[foo]: Expected type" ++ _]}
                 , compile(M3)
                 ).
 
 validate_action_test() ->
     M1 = #{ foo => {[cli_action], #{}}
           },
-    ?assertMatch({error, {validation_error, _}}, compile(M1)),
+    ?assertMatch({error, ["[foo]: Missing" ++ _]}, compile(M1)),
     M2 = #{ foo => {[cli_action],
                     #{ cli_operand => a
                      }}
           },
-    ?assertMatch( {error, {validation_error, ["[foo]: Expected type" ++ _]}}
+    ?assertMatch( {error, ["[foo]: Expected type" ++ _]}
                 , compile(M2)
                 ).
 
 validate_positional_test() ->
     M1 = #{ foo => {[cli_positional], #{}}
           },
-    ?assertMatch({error, {validation_error, _}}, compile(M1)),
+    ?assertMatch({error, ["[foo]: Missing" ++ _]}, compile(M1)),
     M2 = #{ foo => {[cli_positional],
                     #{ cli_arg_position => a
                      }}
           },
-    ?assertMatch( {error, {validation_error, ["[foo]: Expected type" ++ _]}}
+    ?assertMatch( {error, ["[foo]: Expected type" ++ _]}
                 , compile(M2)
                 ).
 

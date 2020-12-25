@@ -62,11 +62,12 @@ metamodel() ->
 -spec meta_validate(lee:model(), _, lee:key(), #mnode{}) ->
                             lee_lib:check_result().
 meta_validate(_, _, Key, MNode) ->
-    lee_lib:validate_meta_attr( os_env
-                              , Key
-                              , typerefl:printable_latin1_list()
-                              , MNode
-                              ).
+    lee_lib:inject_error_location(
+      Key,
+      lee_lib:validate_meta_attr( os_env
+                                , typerefl:printable_latin1_list()
+                                , MNode
+                                )).
 
 %% @doc Make a patch from OS environment variables
 %% @throws {error, string()}

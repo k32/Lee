@@ -35,7 +35,7 @@
 
 %% @doc Merge multiple model and metamodel modules into a
 %% machine-friendly form
--spec compile([M], [M]) -> {ok, #model{}} | {error, [term()]}
+-spec compile([M], [M]) -> {ok, #model{}} | {error, [string()]}
             when M :: lee:lee_module() | lee:cooked_module().
 compile(MetaModels0, Models0) ->
     MetaModels = [compile_module(I) || I <- MetaModels0],
@@ -49,8 +49,8 @@ compile(MetaModels0, Models0) ->
             case lee:meta_validate(Result) of
                 {ok, _} ->
                     {ok, Result};
-                {error, Err, _Warn} ->
-                    {error, {validation_error, Err}}
+                {error, Errs, _Warns} ->
+                    {error, Errs}
             end;
         {T1, T2} ->
             {error, [Err || {error, Err} <- [T1, T2]]}
@@ -76,7 +76,8 @@ merge(L) ->
     end.
 
 %% @doc Merge two Lee model modules into a single module
--spec merge(M, M) -> {ok, lee:cooked_module()} | {error, term()}
+-spec merge(M, M) -> {ok, lee:cooked_module()}
+                   | {error, [string()]}
                when M :: lee:cooked_module() | lee:lee_module().
 merge(M1_0, M2) ->
     M1 = compile_module(M1_0),
@@ -93,7 +94,7 @@ merge(M1_0, M2) ->
         [] ->
             {ok, lee_storage:patch(M1, Patch)};
         _ ->
-            {error, {clashing_keys, Collisions}}
+            {error, [lee_lib:format("Colliding model key: ~p", [Key]) || Key <- Collisions]}
     end.
 
 %% @doc Get a node from the model, assuming that it is present

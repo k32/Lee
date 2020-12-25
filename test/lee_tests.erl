@@ -70,34 +70,40 @@ meta_validate_value_test() ->
                       compile(#{foo => {[value], Attrs}})
               end,
     %% Missing `type':
-    ?assertMatch( {error, {validation_error, _}}
+    ?assertMatch( {error, ["[foo]: Missing `type' metaparameter"]}
                 , Compile(#{})
                 ),
     %% Wrong type of `default':
-    ?assertMatch( {error, {validation_error, _}}
+    ?assertMatch( {error, ["[foo]: Mistyped default value" ++ _]}
                 , Compile(#{type => integer(), default => foo})
                 ),
     %% Wrong type of `oneliner':
-    ?assertMatch( {error, {validation_error, _}}
+    ?assertMatch( {error, ["[foo]: Expected type:" ++ _]}
                 , Compile(#{type => integer(), oneliner => foo})
                 ),
     %% Error in `doc':
-    ?assertMatch( {error, {validation_error, _}}
+    ?assertMatch( {error, ["[foo]: `doc' attribute is not a valid docbook string"]}
                 , Compile(#{type => integer(), doc => "<para>foo"})
                 ).
 
 meta_validate_map_test() ->
     Model1 = #{foo => {[map], #{key_elements => foo}}},
-    ?assertMatch({error, {validation_error, _}}, compile(Model1)),
+    ?assertMatch( {error, ["[foo]: `key_elements' should be a list of valid child keys"]}
+                , compile(Model1)
+                ),
     Model2 = #{foo => {[map], #{key_elements => []}}},
     ?assertMatch({ok, _}, compile(Model2)),
     Model3 = #{foo => {[map], #{key_elements => [[foo]]}}},
-    ?assertMatch({error, {validation_error, _}}, compile(Model3)),
+    ?assertMatch( {error, ["[foo]: [foo] is not a valid child key"]}
+                , compile(Model3)
+                ),
     Model4 = #{foo => {[map],
                        #{key_elements => [bar]},
                        #{bar => {[value], #{}}}
                       }},
-    ?assertMatch({error, {validation_error, _}}, compile(Model4)),
+    ?assertMatch( {error, ["[foo]: bar is not a valid child key"]}
+                , compile(Model4)
+                ),
     Model5 = #{foo => {[map],
                        #{key_elements => [[bar]]},
                        #{bar => {[value], #{}}}

@@ -8,7 +8,7 @@
         , xref_key/1
         , refer_value/4
         , docbook/1
-        , check_docstrings/2
+        , check_docstrings/1
         , validate_doc_root/4
         ]).
 
@@ -75,10 +75,9 @@ docbook(String) ->
     [Doc | docbook(Rest)].
 
 %% @private Meta-validation of docstrings
--spec check_docstrings(lee:parameters(), lee:key()) -> lee_lib:check_result().
-check_docstrings(Attrs, Key) ->
+-spec check_docstrings(lee:parameters()) -> lee_lib:check_result().
+check_docstrings(Attrs) ->
     CheckOneliner = lee_lib:validate_optional_meta_attr( oneliner
-                                                       , Key
                                                        , printable_unicode_list()
                                                        , Attrs
                                                        , true
@@ -99,13 +98,10 @@ check_docstrings(Attrs, Key) ->
 -spec validate_doc_root(lee:model(), _, lee:key(), #mnode{}) ->
                                lee_lib:check_result().
 validate_doc_root(_, _, Key, #mnode{metaparams = Attrs}) ->
-    Fun = fun(#{app_name := _}, _) ->
-                  {[], []};
-             (_, Key) ->
-                  Str = lee_lib:format("~p: missing `app_name' parameter", [Key]),
-                  {[Str], []}
+    Fun = fun(#{app_name := _}) -> {[], []};
+             (_)                -> {["Missing `app_name' parameter"], []}
           end,
-    lee_lib:perform_checks(Key, Attrs, [fun check_docstrings/2, Fun]).
+    lee_lib:perform_checks(Key, Attrs, [fun check_docstrings/1, Fun]).
 
 %% @private
 -spec document_value(lee:model_key(), lee:model()) ->
