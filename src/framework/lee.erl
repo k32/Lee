@@ -355,8 +355,8 @@ validate_value(Model, Data, Key, #mnode{metaparams = Attrs}) ->
 -spec meta_validate_value(lee:model(), _, lee:key(), #mnode{}) ->
                             lee_lib:check_result().
 meta_validate_value(_Model, _, Key, #mnode{metaparams = Attrs}) ->
-    lee_lib:perform_checks(Key, Attrs, [ fun lee_doc:check_docstrings/1
-                                       , fun check_type_and_default/1
+    lee_lib:perform_checks(Key, Attrs, [ fun lee_doc:check_docstrings/2
+                                       , fun check_type_and_default/2
                                        ]).
 
 -spec meta_validate_map(lee:model(), _, lee:key(), #mnode{}) ->
@@ -385,16 +385,20 @@ meta_validate_map(#model{model = Model}, _, Key, #mnode{metaparams = Params}) ->
     , []
     }.
 
-check_type_and_default(Attrs) ->
+check_type_and_default(Attrs, Key) ->
     case Attrs of
         #{type := Type, default := Default} ->
             case typerefl:typecheck(Type, Default) of
-                ok           -> {[], []};
-                {error, Err} -> {["Mistyped default value: " ++ Err], []}
+                ok ->
+                    {[], []};
+                {error, Err} ->
+                    Str = lee_lib:format("~p: Mistyped default value: ~s", [Key, Err]),
+                    {[Str], []}
             end;
         #{type := _Type} ->
             %% TODO: typerefl:is_type?
             {[], []};
         _ ->
-            {["missing `type' metaparamter"], []}
+            Str = lee_lib:format("~p: missing `type' metaparameter", [Key]),
+            {[Str], []}
     end.

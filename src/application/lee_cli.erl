@@ -24,22 +24,32 @@
         , read/2
         , read_to/3
         , doc_gen/2
+        , meta_validate_param/4
+        , meta_validate_positional/4
+        , meta_validate_action/4
         ]).
 
 -ifdef(TEST).
 -export([tokenize/2]).
 -endif.
 
+-include_lib("typerefl/include/types.hrl").
 -include("lee.hrl").
 
 -define(sigil, $@).
+
+%%====================================================================
+%% Types
+%%====================================================================
+
+-type position() :: integer() | rest.
 
 %% CLI command scope:
 -record(sc,
         { name = global    :: string() | global
         , short = #{}      :: #{char() => lee:key()}
         , long  = #{}      :: #{string() => lee:key()}
-        , positional = []  :: [{integer() | rest, lee:key()}]
+        , positional = []  :: [{position(), lee:key()}]
         , parent = []      :: lee:key()
         }).
 
@@ -51,6 +61,12 @@
                | {command, string()}
                | separator
                .
+
+-reflect_type([position/0]).
+
+%%====================================================================
+%% API
+%%====================================================================
 
 %% @doc Metamodel module containing definitions of CLI-related metatypes:
 %%
@@ -143,15 +159,18 @@ metamodel() ->
                  {[metatype, documented]
                  , #{ doc_chapter_title => "CLI Arguments"
                     , doc_gen => fun ?MODULE:doc_gen/2
+                    , meta_validate => fun ?MODULE:meta_validate_param/4
                     }
                  }
            , cli_action =>
                  {[metatype]
-                 , #{}
+                 , #{ meta_validate => fun ?MODULE:meta_validate_action/4
+                    }
                  }
            , cli_positional =>
                  {[metatype]
-                 , #{}
+                 , #{ meta_validate => fun ?MODULE:meta_validate_positional/4
+                    }
                  }
            }
      }.
@@ -208,6 +227,34 @@ doc_gen(Model, Config) ->
          , [{title, [[?sigil|Name]]} | make_cli_action_docs(I, Model)]}
          || {Name, I} <- Scopes],
     GlobalDoc ++ ActionDocs.
+
+-spec meta_validate_positional(lee:model(), _, lee:key(), #mnode{}) ->
+                            lee_lib:check_result().
+meta_validate_positional(_, _, Key, MNode) ->
+    lee_lib:validate_meta_attr(cli_arg_position, Key, position(), MNode).
+
+-spec meta_validate_action(lee:model(), _, lee:key(), #mnode{}) ->
+                            lee_lib:check_result().
+meta_validate_action(_, _, Key, MNode) ->
+    lee_lib:validate_meta_attr(cli_operand, Key, string(), MNode).
+
+-spec meta_validate_param(lee:model(), _, lee:key(), #mnode{}) ->
+                            lee_lib:check_result().
+meta_validate_param(_, _, Key, MNode) ->
+    Presense = case MNode#mnode.metaparams of
+                   #{cli_operand := _} ->
+                       {[], []};
+                   #{cli_short := _} ->
+                       {[], []};
+                   _ ->
+                       Str = lee_lib:format("~p: Missing `cli_operand' or `cli_short' attributes", [Key]),
+                       {[Str], []}
+               end,
+    lee_lib:compose_checks(
+      [ lee_lib:validate_optional_meta_attr(cli_operand, Key, string(), MNode)
+      , lee_lib:validate_optional_meta_attr(cli_short, Key, char(), MNode)
+      , Presense
+      ]).
 
 %%====================================================================
 %% Internal functions

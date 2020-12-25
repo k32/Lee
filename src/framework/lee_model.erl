@@ -194,7 +194,7 @@ full_split_key(Key) ->
 
 %% @doc Get an index of mnodes belonging to metatypes
 -spec get_metatype_index(lee:metatype(), lee:model()) ->
-                                ordets:set(lee:model_key()).
+          ordsets:set(lee:model_key()).
 get_metatype_index(MT, #model{meta_class_idx = Idx}) ->
     maps:get(MT, Idx, []).
 

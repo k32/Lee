@@ -63,6 +63,7 @@ metamodel() ->
                             lee_lib:check_result().
 meta_validate(_, _, Key, MNode) ->
     lee_lib:validate_meta_attr( os_env
+                              , Key
                               , typerefl:printable_latin1_list()
                               , MNode
                               ).

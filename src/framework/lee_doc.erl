@@ -8,7 +8,7 @@
         , xref_key/1
         , refer_value/4
         , docbook/1
-        , check_docstrings/1
+        , check_docstrings/2
         , validate_doc_root/4
         ]).
 
@@ -75,9 +75,10 @@ docbook(String) ->
     [Doc | docbook(Rest)].
 
 %% @private Meta-validation of docstrings
--spec check_docstrings(lee:parameters()) -> lee_lib:check_result().
-check_docstrings(Attrs) ->
+-spec check_docstrings(lee:parameters(), lee:key()) -> lee_lib:check_result().
+check_docstrings(Attrs, Key) ->
     CheckOneliner = lee_lib:validate_optional_meta_attr( oneliner
+                                                       , Key
                                                        , printable_unicode_list()
                                                        , Attrs
                                                        , true
@@ -98,10 +99,13 @@ check_docstrings(Attrs) ->
 -spec validate_doc_root(lee:model(), _, lee:key(), #mnode{}) ->
                                lee_lib:check_result().
 validate_doc_root(_, _, Key, #mnode{metaparams = Attrs}) ->
-    Fun = fun(#{app_name := _}) -> {[], []};
-             (_)                -> {["missing `app_name' parameter"], []}
+    Fun = fun(#{app_name := _}, _) ->
+                  {[], []};
+             (_, Key) ->
+                  Str = lee_lib:format("~p: missing `app_name' parameter", [Key]),
+                  {[Str], []}
           end,
-    lee_lib:perform_checks(Key, Attrs, [fun check_docstrings/1, Fun]).
+    lee_lib:perform_checks(Key, Attrs, [fun check_docstrings/2, Fun]).
 
 %% @private
 -spec document_value(lee:model_key(), lee:model()) ->
@@ -193,20 +197,24 @@ metatype_docs(MetaType, Model) ->
 -spec make_docs(lee:model(), doc_options()) -> ok.
 make_docs(Model, Options) ->
     #{metatypes := Metatypes} = Options,
-    DocRoot = maps:get(doc_root, Options, ['$doc_root']),
-    #mnode{metaparams = Attrs} = lee_model:get(DocRoot, Model),
-    AppName = ?m_attr(doc_root, app_name, Attrs),
-    Intro = make_intro_chapter(Attrs),
-    Chapters = [metatype_docs(MT, Model) || MT <- Metatypes],
-    Contents = [{title, [AppName]}, Intro | Chapters],
-    Top = make_file(book, Contents, AppName),
-    case maps:get(run_pandoc, Options, false) of
-        true ->
-            {0, _} = run_pandoc(Top, "html"),
-            {0, _} = run_pandoc(Top, "man"),
-            {0, _} = run_pandoc(Top, "texinfo");
-        false ->
-            ok
+    case lee_model:get_metatype_index(doc_root, Model) of
+        [DocRoot] ->
+            #mnode{metaparams = Attrs} = lee_model:get(DocRoot, Model),
+            AppName = ?m_attr(doc_root, app_name, Attrs),
+            Intro = make_intro_chapter(Attrs),
+            Chapters = [metatype_docs(MT, Model) || MT <- Metatypes],
+            Contents = [{title, [AppName]}, Intro | Chapters],
+            Top = make_file(book, Contents, AppName),
+            case maps:get(run_pandoc, Options, false) of
+                true ->
+                    {0, _} = run_pandoc(Top, "html"),
+                    {0, _} = run_pandoc(Top, "man"),
+                    {0, _} = run_pandoc(Top, "texinfo");
+                false ->
+                    ok
+            end;
+        _ ->
+            error("Only one doc root should be present in the model")
     end.
 
 make_intro_chapter(Attrs) ->
