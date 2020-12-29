@@ -38,4 +38,7 @@
 -define(m_attr(MetaType, Attr, Attrs, Default),
         ?m_valid(MetaType, maps:get(Attr, Attrs, Default))).
 
+%% Takes place of a configuration value for the lee map
+-define(lee_map_placeholder, []).
+
 -endif.
