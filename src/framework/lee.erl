@@ -141,6 +141,10 @@ base_metamodel() ->
                       {[metatype],
                        #{ meta_validate     => fun lee_doc:validate_doc_root/4
                         }}
+                , undocumented =>
+                      {[metatype],
+                       #{
+                        }}
                 }
              ).
 

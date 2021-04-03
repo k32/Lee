@@ -104,10 +104,9 @@ validate_doc_root(_, _, Key, #mnode{metaparams = Attrs}) ->
     lee_lib:perform_checks(Key, Attrs, [fun check_docstrings/1, Fun]).
 
 %% @private
--spec document_value(lee:model_key(), lee:model()) ->
-                            doc().
-document_value(Key, Model) ->
-    #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
+-spec document_value(lee:model_key(), #mnode{}) -> doc().
+document_value(Key, MNode) ->
+    #mnode{metaparams = Attrs} = MNode,
     Oneliner = ?m_attr(value, oneliner, Attrs, ""),
     Type = ?m_attr(value, type, Attrs),
     Default =
@@ -141,7 +140,15 @@ document_value(Key, Model) ->
 document_values(Model, _Config) ->
     #model{meta_class_idx = Idx} = Model,
     Keys = maps:get(value, Idx, []),
-    [document_value(Key, Model) || Key <- Keys].
+    lists:filtermap( fun(Key) ->
+                             MNode = lee_model:get(Key, Model),
+                             case lists:member(undocumented, MNode#mnode.metatypes) of
+                                 false -> {true, document_value(Key, MNode)};
+                                 true  -> false
+                             end
+                     end
+                   , Keys
+                   ).
 
 %% @private
 -spec make_file(atom(), doc(), string()) -> file:filename().
