@@ -48,9 +48,9 @@ make_nested_patch(Model, Parent, Children) ->
                         end
                 end
         end,
-    ChildKey = lists:map(MakeChildKey, KeyElems),
-    [{set, Parent ++ [?lcl(ChildKey)], ?lee_map_placeholder}
-    |[{set, Parent ++ [?lcl(ChildKey)|K], V} || {K, V} <- maps:to_list(Children)]].
+    ChildKey = list_to_tuple(lists:map(MakeChildKey, KeyElems)),
+    [{set, Parent ++ [ChildKey], ?lee_map_placeholder}
+    |[{set, Parent ++ [ChildKey|K], V} || {K, V} <- maps:to_list(Children)]].
 
 -spec splitl(fun((A) -> boolean()), [A]) -> [[A]].
 splitl(_, []) ->

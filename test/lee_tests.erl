@@ -50,17 +50,17 @@ validate_test() ->
     ?invalid(#{[bar] => 1}),
     ?invalid(#{[foo] => 1}),
     ?invalid(#{[foo] => true, [bar] => 1.0}),
-    ?valid(#{ [baz, ?lcl(1), foo] => true
-            , [baz, ?lcl(1), bar] => 1
+    ?valid(#{ [baz, {1}, foo] => true
+            , [baz, {1}, bar] => 1
             , [foo] => true
             }),
-    ?valid(#{ [baz, ?lcl(1), foo] => false
+    ?valid(#{ [baz, {1}, foo] => false
             , [foo] => true
             }),
-    ?invalid(#{ [baz, ?lcl(1), foo] => foo
+    ?invalid(#{ [baz, {1}, foo] => foo
               , [foo] => true
               }),
-    ?invalid(#{ [baz, ?lcl(1), bar] => 1
+    ?invalid(#{ [baz, {1}, bar] => 1
               , [foo] => true
               }),
     ok.
@@ -122,10 +122,10 @@ get_test() ->
     Model2 = Model1 #{ baz => {[map], #{}, Model1}},
     {ok, Model} = compile(Model2),
     Patch = [ {set, [foo],                              true }
-            , {set, [baz, ?lcl(0), foo],                true }
-            , {set, [baz, ?lcl(0), bar],                0    }
-            , {set, [baz, ?lcl(1), foo],                false}
-            , {set, [baz, ?lcl(0), baz, ?lcl(42), foo], false}
+            , {set, [baz, {0}, foo],                true }
+            , {set, [baz, {0}, bar],                0    }
+            , {set, [baz, {1}, foo],                false}
+            , {set, [baz, {0}, baz, {42}, foo], false}
             ],
     Config = lee_storage:patch( lee_storage:new(lee_map_storage)
                               , Patch
@@ -133,14 +133,14 @@ get_test() ->
     ?assertMatch(true, lee:get(Model, Config, [foo])),
     ?assertMatch(42, lee:get(Model, Config, [bar])),
 
-    ?assertMatch(0, lee:get(Model, Config, [baz, ?lcl(0), bar])),
-    ?assertMatch(true, lee:get(Model, Config, [baz, ?lcl(0), foo])),
+    ?assertMatch(0, lee:get(Model, Config, [baz, {0}, bar])),
+    ?assertMatch(true, lee:get(Model, Config, [baz, {0}, foo])),
 
-    ?assertMatch(false, lee:get(Model, Config, [baz, ?lcl(1), foo])),
-    ?assertMatch(42, lee:get(Model, Config, [baz, ?lcl(1), bar])),
+    ?assertMatch(false, lee:get(Model, Config, [baz, {1}, foo])),
+    ?assertMatch(42, lee:get(Model, Config, [baz, {1}, bar])),
 
-    ?assertMatch(false, lee:get(Model, Config, [baz, ?lcl(0), baz, ?lcl(42), foo])),
-    ?assertMatch(42, lee:get(Model, Config, [baz, ?lcl(0), baz, ?lcl(42), bar])),
+    ?assertMatch(false, lee:get(Model, Config, [baz, {0}, baz, {42}, foo])),
+    ?assertMatch(42, lee:get(Model, Config, [baz, {0}, baz, {42}, bar])),
     ok.
 
 overlay_test() ->
@@ -155,17 +155,17 @@ overlay_test() ->
     Model2 = Model1 #{ baz => {[map], #{}, Model1}},
     {ok, Model} = compile(Model2),
     Patch1 = [ {set, [foo],                              true }
-             , {set, [baz, ?lcl(0), foo],                true }
-             , {set, [baz, ?lcl(0), bar],                0    }
-             , {set, [baz, ?lcl(1), foo],                false}
-             , {set, [baz, ?lcl(0), baz, ?lcl(42), foo], false}
+             , {set, [baz, {0}, foo],                true }
+             , {set, [baz, {0}, bar],                0    }
+             , {set, [baz, {1}, foo],                false}
+             , {set, [baz, {0}, baz, {42}, foo], false}
              ],
     Config1 = lee_storage:patch( lee_storage:new(lee_map_storage)
                                , Patch1
                                ),
     Patch2 = [ {set, [bar],                              32   }
-             , {set, [baz, ?lcl(2), foo],                false}
-             , {set, [baz, ?lcl(2), bar],                21   }
+             , {set, [baz, {2}, foo],                false}
+             , {set, [baz, {2}, bar],                21   }
              ],
     Config2 = lee_storage:patch( lee_storage:new(lee_map_storage)
                                , Patch2
@@ -175,15 +175,15 @@ overlay_test() ->
     ?assertMatch(true, lee:get(Model, Config, [foo])),
     ?assertMatch(32, lee:get(Model, Config, [bar])),
 
-    ?assertMatch(0, lee:get(Model, Config, [baz, ?lcl(0), bar])),
-    ?assertMatch(true, lee:get(Model, Config, [baz, ?lcl(0), foo])),
+    ?assertMatch(0, lee:get(Model, Config, [baz, {0}, bar])),
+    ?assertMatch(true, lee:get(Model, Config, [baz, {0}, foo])),
 
-    ?assertMatch(false, lee:get(Model, Config, [baz, ?lcl(1), foo])),
-    ?assertMatch(42, lee:get(Model, Config, [baz, ?lcl(1), bar])),
+    ?assertMatch(false, lee:get(Model, Config, [baz, {1}, foo])),
+    ?assertMatch(42, lee:get(Model, Config, [baz, {1}, bar])),
 
-    ?assertMatch(21, lee:get(Model, Config, [baz, ?lcl(2), bar])),
+    ?assertMatch(21, lee:get(Model, Config, [baz, {2}, bar])),
 
-    ?assertMatch( [[baz, ?lcl(0)], [baz, ?lcl(1)], [baz, ?lcl(2)]]
+    ?assertMatch( [[baz, {0}], [baz, {1}], [baz, {2}]]
                 , lee:list(Model, Config, [baz, ?children])
                 ),
     ok.

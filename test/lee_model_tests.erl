@@ -153,10 +153,10 @@ match_test() ->
                 , lee_model:match([bar, bar], [bar, foo])
                 ),
     ?assertMatch( true
-                , lee_model:match([baz, ?children, quux], [baz, ?lcl(1), quux])
+                , lee_model:match([baz, ?children, quux], [baz, {1}, quux])
                 ),
     ?assertMatch( false
-                , lee_model:match([baz, ?children, quux], [baz, ?lcl(1), foo])
+                , lee_model:match([baz, ?children, quux], [baz, {1}, foo])
                 ),
     ok.
 
@@ -209,11 +209,11 @@ full_split_key_test() ->
     ?assertMatch( [[foo, ?children], [bar]]
                 , lee_model:full_split_key([foo, ?children, bar])
                 ),
-    ?assertMatch( [[foo, ?lcl(1)], [bar]]
-                , lee_model:full_split_key([foo, ?lcl(1), bar])
+    ?assertMatch( [[foo, {1}], [bar]]
+                , lee_model:full_split_key([foo, {1}, bar])
                 ),
-    ?assertMatch( [[foo, ?lcl(1)], [bar, ?children], [baz]]
-                , lee_model:full_split_key([foo, ?lcl(1), bar, ?children, baz])
+    ?assertMatch( [[foo, {1}], [bar, ?children], [baz]]
+                , lee_model:full_split_key([foo, {1}, bar, ?children, baz])
                 ).
 
 map_vals_test() ->

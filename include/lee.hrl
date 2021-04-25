@@ -1,13 +1,9 @@
 -ifndef(LEE_HRL).
 -define(LEE_HRL, true).
 
--define(children, '$children').
+-define(children, {}).
 
 -define(key_elements, key_elements).
-
--define(lcl(A), {'$child', A}). %% Lee ChiLd
-
--define(lsngl, ?lcl([])).
 
 -define(is_storage(A), (element(1, (A)) =:= lee_tree)).
 

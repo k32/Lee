@@ -60,9 +60,9 @@
                  | integer()
                  .
 
--type model_key() :: [ node_id() | ?children ].
+-type model_key() :: [ node_id() | tuple() ].
 
--type key() :: [ node_id() | ?lcl(term()) | ?children ].
+-type key() :: [ node_id() | tuple() ].
 
 -type properties() :: #{atom() => term()}.
 
@@ -183,7 +183,7 @@ get(Model, [Data|Rest], Key) ->
 %%
 %% `?children' nodes in the key will be replaced with actual child
 %% keys, e.g. ```list(Model, Data, [foo, ?children])''' will return
-%% ```[[foo, ?lcl(1)], [foo, ?lcl(2)]]''' when map `[foo]' contains
+%% ```[[foo, {1}], [foo, {2}]]''' when map `[foo]' contains
 %% two children with keys `1' and `2'.
 -spec list(model() | cooked_module(), data(), lee:key()) -> [lee:key()].
 list(_Model, Data, Key) when ?is_storage(Data) ->

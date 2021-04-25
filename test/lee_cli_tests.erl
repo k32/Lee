@@ -216,46 +216,46 @@ global_flags_test() ->
 children_test() ->
     {ok, Data} = read_cli("@action_1 -fgs1 --long foo @action_2 foo bar"),
     %% List children
-    ?assertMatch( [[action_1, ?lcl([1, "foo"])]]
-                , lee_storage:list([action_1, ?children], Data)
+    ?assertMatch( [[action_1, {1, "foo"}]]
+                , lee_storage:list([action_1, {}], Data)
                 ),
-    ?assertMatch( [[action_2, ?lcl(["foo"])]]
-                , lee_storage:list([action_2, ?children], Data)
+    ?assertMatch( [[action_2, {"foo"}]]
+                , lee_storage:list([action_2, {}], Data)
                 ),
     ?assertMatch( {ok, true}
-                , lee_storage:get([action_1, ?lcl([1, "foo"]), flag1], Data)
+                , lee_storage:get([action_1, {1, "foo"}, flag1], Data)
                 ),
     ?assertMatch( {ok, "foo"}
-                , lee_storage:get([action_1, ?lcl([1, "foo"]), long], Data)
+                , lee_storage:get([action_1, {1, "foo"}, long], Data)
                 ),
     ?assertMatch( {ok, "foo"}
-                , lee_storage:get([action_2, ?lcl(["foo"]), posn_1], Data)
+                , lee_storage:get([action_2, {"foo"}, posn_1], Data)
                 ),
     ?assertMatch( {ok, "bar"}
-                , lee_storage:get([action_2, ?lcl(["foo"]), posn_2], Data)
+                , lee_storage:get([action_2, {"foo"}, posn_2], Data)
                 ).
 
 rest1_test() ->
     {ok, Data} = read_cli("@action_3 foo quux 1"),
     ?assertMatch( {ok, [foo, quux, '1']}
-                , lee_storage:get([action_3, ?lsngl, posn_n], Data)
+                , lee_storage:get([action_3, {}, posn_n], Data)
                 ).
 
 rest2_test() ->
     {ok, Data} = read_cli("@action_4 1 2 foo bar"),
     ?assertMatch( {ok, "1"}
-                , lee_storage:get([action_4, ?lcl(["1"]), posn_1], Data)
+                , lee_storage:get([action_4, {"1"}, posn_1], Data)
                 ),
     ?assertMatch( {ok, "2"}
-                , lee_storage:get([action_4, ?lcl(["1"]), posn_2], Data)
+                , lee_storage:get([action_4, {"1"}, posn_2], Data)
                 ),
     ?assertMatch( {ok, [foo, bar]}
-                , lee_storage:get([action_4, ?lcl(["1"]), posn_n], Data)
+                , lee_storage:get([action_4, {"1"}, posn_n], Data)
                 ).
 
 default_key_test() ->
     {ok, Data} = read_cli("@action_1 -s 42"),
-    ?assertMatch( [[action_1, ?lcl([42, "default"])]]
+    ?assertMatch( [[action_1, {42, "default"}]]
                 , lee_storage:list([action_1, ?children], Data)
                 ).
 
@@ -267,7 +267,7 @@ no_key_test() ->
 rest_empty_list_test() ->
     {ok, Data} = read_cli("@action_3"),
     ?assertMatch( {ok, []}
-                , catch lee_storage:get([action_3, ?lsngl, posn_n], Data)
+                , catch lee_storage:get([action_3, {}, posn_n], Data)
                 ).
 
 validate_param_test() ->

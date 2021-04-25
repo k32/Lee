@@ -156,7 +156,7 @@ fold(Fun, Acc, Scope, Model) -> %% Fold over cooked module
 -spec get_model_key(lee:key()) -> lee:model_key().
 get_model_key([]) ->
     [];
-get_model_key([?lcl(_) | T]) ->
+get_model_key([{_} | T]) ->
     [?children | get_model_key(T)];
 get_model_key([A|T]) ->
     [A | get_model_key(T)].
@@ -183,13 +183,12 @@ split_key(K) ->
     {lists:reverse(Base0), lists:reverse(Req0)}.
 
 %% @doc Split a key into a list of child keys. Example:
-%% ```full_split_key([foo, ?children, bar, baz, ?lcl([1]), quux]) -->
-%%        [[foo, ?children], [bar, baz, ?lcl([1])], [quux]]'''
+%% ```full_split_key([foo, ?children, bar, baz, {[1]}, quux]) -->
+%%        [[foo, ?children], [bar, baz, {[1]}], [quux]]'''
 -spec full_split_key(lee:key()) -> [lee:key()].
 full_split_key(Key) ->
-    Pred = fun(?children) -> false;
-              (?lcl(_))   -> false;
-              (_)         -> true
+    Pred = fun(T) when is_tuple(T) -> false;
+              (_)                  -> true
            end,
     lee_lib:splitl(Pred, Key).
 
