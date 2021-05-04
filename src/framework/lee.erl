@@ -163,6 +163,8 @@ get(Model, Data, Key) when ?is_storage(Data) ->
             case Attrs of
                 #{default := Val} ->
                     Val;
+                #{default_ref := RefKey} ->
+                    get(Model, Data, RefKey);
                 _ ->
                     %% Data shouldn't have passed validation without
                     %% the default, so just crash here
