@@ -338,32 +338,33 @@ validate_node(Model, Data, NodeId, ValidateFun) ->
                             lee_lib:check_result().
 validate_value(Model, Data, Key, #mnode{metaparams = Attrs}) ->
     Type = ?m_attr(value, type, Attrs),
-    Default = case Attrs of
-                  #{default := Default0} ->
-                      {ok, Default0};
-                  _ ->
-                      undefined
-              end,
-    case {lee_storage:get(Key, Data), Default} of
-        {{ok, Term}, _} ->
+    HasDefault = case Attrs of
+                     #{default     := _} -> true;
+                     #{default_ref := _} -> true;
+                     _                   -> false
+                 end,
+    case lee_storage:get(Key, Data) of
+        {ok, Term} ->
             Result = case typerefl:typecheck(Type, Term) of
                          ok           -> {[], []};
                          {error, Err} -> {[Err], []}
                      end,
             lee_lib:inject_error_location(Key, Result);
-        {undefined, {ok, _}} ->
+        undefined when HasDefault ->
             {[], []};
-        {undefined, undefined} ->
+        undefined ->
             Err = lee_lib:format("~p: Mandatory value is missing in the config", [Key]),
             {[Err] , []}
     end.
 
 -spec meta_validate_value(lee:model(), _, lee:key(), #mnode{}) ->
                             lee_lib:check_result().
-meta_validate_value(_Model, _, Key, #mnode{metaparams = Attrs}) ->
-    lee_lib:perform_checks(Key, Attrs, [ fun lee_doc:check_docstrings/1
-                                       , fun check_type_and_default/1
-                                       ]).
+meta_validate_value(Model, _, Key, #mnode{metaparams = Attrs}) ->
+    Results = lee_lib:compose_checks([ lee_doc:check_docstrings(Attrs)
+                                     , check_type_and_default(Model, Attrs)
+                                     ]),
+    lee_lib:inject_error_location(Key, Results).
+
 
 -spec meta_validate_map(lee:model(), _, lee:key(), #mnode{}) ->
                             lee_lib:check_result().
@@ -389,7 +390,7 @@ meta_validate_map(#model{model = Model}, _, Key, #mnode{metaparams = Params}) ->
     , []
     }.
 
-check_type_and_default(Attrs) ->
+check_type_and_default(Model, Attrs) ->
     case Attrs of
         #{type := Type, default := Default} ->
             case typerefl:typecheck(Type, Default) of
@@ -398,6 +399,23 @@ check_type_and_default(Attrs) ->
                 {error, Err} ->
                     Str = lee_lib:format("Mistyped default value: ~s", [Err]),
                     {[Str], []}
+            end;
+        #{type := Type, default_ref := DefaultRef} ->
+            try lee_model:get(DefaultRef, Model) of
+                #mnode{metatypes = MTs, metaparams = RefAttrs} ->
+                    case lists:member(value, MTs) of
+                        true ->
+                            case RefAttrs of
+                                #{type := Type} -> %% TODO: Better type comparison?
+                                    {[], []};
+                                _ ->
+                                    {["Type of the `default_ref' is different"], []}
+                            end;
+                        false ->
+                            {"Invalid `default_ref' metatype", []}
+                    end
+            catch
+                _:_ -> {["Invalid `default_ref' reference key"], []}
             end;
         #{type := _Type} ->
             %% TODO: typerefl:is_type?

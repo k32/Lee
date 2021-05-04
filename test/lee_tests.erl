@@ -36,6 +36,12 @@ validate_test() ->
               , bar => {[value]
                        , #{type => typerefl:integer(), default => 42}
                        }
+              , barfoo => {[value]
+                          , #{type => typerefl:boolean(), default_ref => [foo]}
+                          }
+              , foobar => {[value]
+                          , #{type => typerefl:integer(), default_ref => [bar]}
+                          }
               },
     Model1 = Model0 #{ baz => {[map]
                               , #{}
@@ -57,10 +63,16 @@ validate_test() ->
     ?valid(#{ [baz, {1}, foo] => false
             , [foo] => true
             }),
-    ?invalid(#{ [baz, {1}, foo] => foo
-              , [foo] => true
+    ?invalid(#{ [foo] => true
+              , [baz, {1}, baz] => foo
               }),
     ?invalid(#{ [baz, {1}, bar] => 1
+              , [foo] => true
+              }),
+    ?invalid(#{ [foobar] => true
+              , [foo] => true
+              }),
+    ?invalid(#{ [barfoo] => 1
               , [foo] => true
               }),
     ok.
@@ -76,6 +88,26 @@ meta_validate_value_test() ->
     %% Wrong type of `default':
     ?assertMatch( {error, ["[foo]: Mistyped default value" ++ _]}
                 , Compile(#{type => integer(), default => foo})
+                ),
+    %% Wrong type of `default_ref':
+    ?assertMatch( {error, ["[foo]: Invalid `default_ref' reference key"]}
+                , Compile(#{type => integer(), default_ref => foo})
+                ),
+    %% Non-existent `default_ref':
+    ?assertMatch( {error, ["[foo]: Invalid `default_ref' reference key"]}
+                , Compile(#{type => integer(), default_ref => [bar]})
+                ),
+    %% Wrong type of the value referred by `default_ref':
+    ?assertMatch( {error, ["[foo]: Type of the `default_ref' is different"]}
+                , compile(#{ foo => {[value], #{type => integer(), default_ref => [bar]}}
+                           , bar => {[value], #{type => boolean()}}
+                           })
+                ),
+    %% Correct `default_ref':
+    ?assertMatch( {ok, _}
+                , compile(#{ foo => {[value], #{type => integer(), default_ref => [bar]}}
+                           , bar => {[value], #{type => integer()}}
+                           })
                 ),
     %% Wrong type of `oneliner':
     ?assertMatch( {error, ["[foo]: Expected type:" ++ _]}
@@ -111,20 +143,25 @@ meta_validate_map_test() ->
     ?assertMatch({ok, _}, compile(Model5)).
 
 get_test() ->
-    Model0 = #{ foo => {[value]
-                       , #{type => typerefl:boolean()}
-                       }
-              , bar => {[value]
-                       , #{type => typerefl:integer(), default => 42}
-                       }
+    Model0 = #{ foo => {[value],
+                        #{ type => typerefl:boolean()
+                         }}
+              , bar => {[value],
+                        #{ type => typerefl:integer()
+                         , default => 42
+                         }}
+              , foobar => {[value],
+                           #{ type => typerefl:integer()
+                            , default_ref => [bar]
+                            }}
               },
     Model1 = Model0 #{ baz => {[map], #{}, Model0}},
     Model2 = Model1 #{ baz => {[map], #{}, Model1}},
     {ok, Model} = compile(Model2),
-    Patch = [ {set, [foo],                              true }
-            , {set, [baz, {0}, foo],                true }
-            , {set, [baz, {0}, bar],                0    }
-            , {set, [baz, {1}, foo],                false}
+    Patch = [ {set, [foo],                      true }
+            , {set, [baz, {0}, foo],            true }
+            , {set, [baz, {0}, bar],            0    }
+            , {set, [baz, {1}, foo],            false}
             , {set, [baz, {0}, baz, {42}, foo], false}
             ],
     Config = lee_storage:patch( lee_storage:new(lee_map_storage)
@@ -132,8 +169,10 @@ get_test() ->
                               ),
     ?assertMatch(true, lee:get(Model, Config, [foo])),
     ?assertMatch(42, lee:get(Model, Config, [bar])),
+    ?assertMatch(42, lee:get(Model, Config, [foobar])),
 
     ?assertMatch(0, lee:get(Model, Config, [baz, {0}, bar])),
+    ?assertMatch(42, lee:get(Model, Config, [baz, {0}, foobar])),
     ?assertMatch(true, lee:get(Model, Config, [baz, {0}, foo])),
 
     ?assertMatch(false, lee:get(Model, Config, [baz, {1}, foo])),
@@ -144,26 +183,26 @@ get_test() ->
     ok.
 
 overlay_test() ->
-    Model0 = #{ foo => {[value]
-                       , #{type => typerefl:boolean()}
-                       }
-              , bar => {[value]
-                       , #{type => typerefl:integer(), default => 42}
-                       }
+    Model0 = #{ foo => {[value],
+                        #{ type => typerefl:boolean()
+                         }}
+              , bar => {[value],
+                        #{ type => typerefl:integer(), default => 42
+                         }}
               },
     Model1 = Model0 #{ baz => {[map], #{}, Model0}},
     Model2 = Model1 #{ baz => {[map], #{}, Model1}},
     {ok, Model} = compile(Model2),
-    Patch1 = [ {set, [foo],                              true }
-             , {set, [baz, {0}, foo],                true }
-             , {set, [baz, {0}, bar],                0    }
-             , {set, [baz, {1}, foo],                false}
+    Patch1 = [ {set, [foo],                      true }
+             , {set, [baz, {0}, foo],            true }
+             , {set, [baz, {0}, bar],            0    }
+             , {set, [baz, {1}, foo],            false}
              , {set, [baz, {0}, baz, {42}, foo], false}
              ],
     Config1 = lee_storage:patch( lee_storage:new(lee_map_storage)
                                , Patch1
                                ),
-    Patch2 = [ {set, [bar],                              32   }
+    Patch2 = [ {set, [bar],                          32   }
              , {set, [baz, {2}, foo],                false}
              , {set, [baz, {2}, bar],                21   }
              ],
