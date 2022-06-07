@@ -16,7 +16,10 @@
 -module(lee_metatype).
 
 %% API:
--export([name/1, validate_node/5, meta_validate/5, doc_chapter_title/1, doc_gen/3]).
+-export([create/1, create/2, get_module/2, is_implemented/3,
+         validate_node/5, meta_validate_node/4, doc_chapter_title/2, doc_gen/2]).
+
+-export_types([cooked_metatype/0]).
 
 -include("lee_internal.hrl").
 
@@ -24,48 +27,96 @@
 %% Callback declarations
 %%================================================================================
 
--callback name() -> atom().
+-callback names(_Config) -> [lee:metatype()].
 
--callback validate_node(lee:model(), lee:data(), lee:key(), #mnode{}) -> lee_lib:check_result().
+-callback create(map()) -> _Config.
 
--callback meta_validate(lee:model(), lee:data(), lee:key(), #mnode{}) -> lee_lib:check_result().
+-callback validate_node(lee:metatype(), lee:model(), lee:data(), lee:key(), #mnode{}) -> lee_lib:check_result().
 
--callback doc_chapter_title() -> string().
+-callback meta_validate_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) -> lee_lib:check_result().
 
--callback doc_gen(lee:model(), lee:data()) -> lee_doc:doc().
+-callback doc_chapter_title(lee:metatype(), lee:model()) -> string() | undefined.
 
--optional_callbacks([validate_node/4, meta_validate/4, doc_chapter_title/0, doc_gen/2]).
+-callback doc_gen(lee:metatype(), lee:model()) -> lee_doc:doc().
+
+-optional_callbacks([validate_node/5, meta_validate_node/4, doc_chapter_title/2, doc_gen/2]).
+
+%%================================================================================
+%% Type declarations
+%%================================================================================
+
+-type cooked_metatype() :: {module(), [atom()], _Config}.
+
+-type callback() :: validate_node | meta_validate | doc_chapter_title | doc_gen.
+
+%%================================================================================
+%% Macros
+%%================================================================================
+
+-define(is_implemented(M),
+        erlang:function_exported(M, ?FUNCTION_NAME, callback_arity(?FUNCTION_NAME))).
 
 %%================================================================================
 %% API funcions
 %%================================================================================
 
--spec name(module()) -> atom().
-name(M) ->
-    M:name().
+-spec create(module(), map()) -> cooked_metatype().
+create(M, Params) ->
+    Conf = M:create(Params),
+    Names = M:names(Params),
+    {M, Names, Conf}.
 
--spec validate_node(module(), lee:model(), lee:data(), lee:key(), #mnode{}) -> lee_lib:check_result().
-validate_node(M, Model, Data, Key, MNode) ->
-    case erlang:function_exported(M, ?FUNCTION_NAME, 4) of
-        true  -> M:?FUNCTION_NAME(Model, Data, Key, MNode);
+-spec create(module()) -> cooked_metatype().
+create(Module) ->
+    create(Module, #{}).
+
+-spec get_module(lee:model(), lee:metatype()) -> module().
+get_module(#model{metamodules = Modules}, Metatype) ->
+    maps:get(Metatype, Modules).
+
+-spec is_implemented(lee:model(), lee:metatype(), callback()) -> boolean().
+is_implemented(Model, Metatype, Callback) ->
+    Mod = get_module(Model, Metatype),
+    erlang:function_exported(Mod, Callback, callback_arity(Callback)).
+
+-spec validate_node(lee:metatype(), lee:model(), lee:data(), lee:key(), #mnode{}) -> lee_lib:check_result().
+validate_node(Metatype, Model, Data, Key, MNode) ->
+    Module = get_module(Model, Metatype),
+    case ?is_implemented(Module) of
+        true  -> Module:?FUNCTION_NAME(Metatype, Model, Data, Key, MNode);
         false -> {[], []}
     end.
 
--spec meta_validate(module(), lee:model(), lee:data(), lee:key(), #mnode{}) -> lee_lib:check_result().
-meta_validate(M, Model, Data, Key, MNode) ->
-    case erlang:function_exported(M, ?FUNCTION_NAME, 4) of
-        true  -> M:?FUNCTION_NAME(Model, Data, Key, MNode);
+-spec meta_validate_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) -> lee_lib:check_result().
+meta_validate_node(Metatype, Model, Key, MNode) ->
+    Module = get_module(Model, Metatype),
+    case ?is_implemented(Module) of
+        true  -> Module:?FUNCTION_NAME(Metatype, Model, Key, MNode);
         false -> {[], []}
     end.
 
--spec doc_chapter_title(module()) -> string().
-doc_chapter_title(M) ->
-    M:doc_chapter_title().
+-spec doc_chapter_title(lee:metatype(), lee:model()) -> string() | undefined.
+doc_chapter_title(Metatype, Model) ->
+    M = get_module(Model, Metatype),
+    M:doc_chapter_title(Metatype, Model).
 
--spec doc_gen(module(), lee:model(), lee:data()) -> lee_doc:doc().
-doc_gen(M, Model, Data) ->
-    M:doc_gen(Model, Data).
+-spec doc_gen(lee:metatype(), lee:model()) -> lee_doc:doc().
+doc_gen(Metatype, Model) ->
+    M = get_module(Model, Metatype),
+    M:doc_gen(Metatype, Model).
 
 %%================================================================================
 %% Internal functions
 %%================================================================================
+
+-spec callback_arity(callback()) -> arity().
+callback_arity(validate_node) ->
+    5;
+callback_arity(meta_validate_node) ->
+    4;
+callback_arity(doc_chapter_title) ->
+    2;
+callback_arity(doc_gen) ->
+    2;
+callback_arity(CB) ->
+    error({unknown_callback, CB}).

@@ -123,30 +123,13 @@ namespace(Key, M) ->
 %%     </li>
 %% </ul>
 %%
--spec base_metamodel() -> lee:module().
+-spec base_metamodel() -> [lee_metatype:cooked_metatype()].
 base_metamodel() ->
-    namespace([metatype]
-             , #{ value =>
-                      {[metatype, documented],
-                       #{ validate_node     => fun validate_value/4
-                        , meta_validate     => fun meta_validate_value/4
-                        , doc_chapter_title => "Values"
-                        , doc_gen           => fun lee_doc:document_values/2
-                        }}
-                , map =>
-                      {[metatype],
-                       #{ meta_validate     => fun meta_validate_map/4
-                        }}
-                , doc_root =>
-                      {[metatype],
-                       #{ meta_validate     => fun lee_doc:validate_doc_root/4
-                        }}
-                , undocumented =>
-                      {[metatype],
-                       #{
-                        }}
-                }
-             ).
+    [ lee_metatype:create(lee_value)
+    , lee_metatype:create(lee_map)
+    , lee_metatype:create(lee_doc_root)
+    , lee_metatype:create(lee_undocumented)
+    ].
 
 %% @doc Get a value from the config
 %%
@@ -299,11 +282,18 @@ validate(ValidationType, MetaTypes, Model, Data) ->
                     , atom() | integer() | tuple()
                     , ordsets:set(lee:model_key())
                     ) -> lee_lib:check_result().
-validate_nodes(ValidationType, Model, Data, MetaTypeId, Nodes) ->
-    #model{metamodel = Meta} = Model,
-    #mnode{metaparams = Attrs} = lee_model:get([metatype, MetaTypeId], Meta),
-    Default = fun(_, _, _, _) -> {[], []} end,
-    ValidateFun = ?m_attr(metatype, ValidationType, Attrs, Default),
+validate_nodes(ValidationType, Model, Data, Metatype, Nodes) ->
+    ValidateFun =
+        case ValidationType of
+            validate_node ->
+                fun(Model, Data, Key, MNode) ->
+                        lee_metatype:validate_node(Metatype, Model, Data, Key, MNode)
+                end;
+            meta_validate ->
+                fun(Model, Data, Key, MNode) ->
+                        lee_metatype:meta_validate_node(Metatype, Model, Key, MNode)
+                end
+        end,
     ordsets:fold( fun(NodeId, {E0, W0}) ->
                           {E1, W1} = validate_node(Model, Data, NodeId, ValidateFun),
                           {E1 ++ E0, W1 ++ W0}
@@ -327,99 +317,9 @@ validate_node(Model, Data, NodeId, ValidateFun) ->
                 end,
     lists:foldl( fun(Id, {Err0, Warn0}) ->
                          {Err1, Warn1} = ValidateFun(Model, Data, Id, MNode),
+
                          {Err1 ++ Err0, Warn1 ++ Warn0}
                  end
                , {[], []}
                , Instances
                ).
-
-%% Validate nodes of `value' metatype
--spec validate_value(lee:model(), lee:data(), lee:key(), #mnode{}) ->
-                            lee_lib:check_result().
-validate_value(Model, Data, Key, #mnode{metaparams = Attrs}) ->
-    Type = ?m_attr(value, type, Attrs),
-    HasDefault = case Attrs of
-                     #{default     := _} -> true;
-                     #{default_ref := _} -> true;
-                     _                   -> false
-                 end,
-    case lee_storage:get(Key, Data) of
-        {ok, Term} ->
-            Result = case typerefl:typecheck(Type, Term) of
-                         ok           -> {[], []};
-                         {error, Err} -> {[Err], []}
-                     end,
-            lee_lib:inject_error_location(Key, Result);
-        undefined when HasDefault ->
-            {[], []};
-        undefined ->
-            Err = lee_lib:format("~p: Mandatory value is missing in the config", [Key]),
-            {[Err] , []}
-    end.
-
--spec meta_validate_value(lee:model(), _, lee:key(), #mnode{}) ->
-                            lee_lib:check_result().
-meta_validate_value(Model, _, Key, #mnode{metaparams = Attrs}) ->
-    Results = lee_lib:compose_checks([ lee_doc:check_docstrings(Attrs)
-                                     , check_type_and_default(Model, Attrs)
-                                     ]),
-    lee_lib:inject_error_location(Key, Results).
-
-
--spec meta_validate_map(lee:model(), _, lee:key(), #mnode{}) ->
-                            lee_lib:check_result().
-meta_validate_map(#model{model = Model}, _, Key, #mnode{metaparams = Params}) ->
-    ValidateKey =
-        fun(ChildKey) ->
-                case lee_storage:get(Key ++ [?children|ChildKey], Model) of
-                    undefined ->
-                        Error = lee_lib:format( "~p: ~p is not a valid child key", [Key, ChildKey]),
-                        {true, Error};
-                    {ok, _} ->
-                        false
-                end
-        end,
-    { case Params of
-          #{key_elements := KeyElems} when is_list(KeyElems) ->
-              lists:filtermap(ValidateKey, KeyElems);
-          #{key_elements := _}  ->
-              [lee_lib:format("~p: `key_elements' should be a list of valid child keys", [Key])];
-          _ ->
-              []
-      end
-    , []
-    }.
-
-check_type_and_default(Model, Attrs) ->
-    case Attrs of
-        #{type := Type, default := Default} ->
-            case typerefl:typecheck(Type, Default) of
-                ok ->
-                    {[], []};
-                {error, Err} ->
-                    Str = lee_lib:format("Mistyped default value: ~s", [Err]),
-                    {[Str], []}
-            end;
-        #{type := Type, default_ref := DefaultRef} ->
-            try lee_model:get(DefaultRef, Model) of
-                #mnode{metatypes = MTs, metaparams = RefAttrs} ->
-                    case lists:member(value, MTs) of
-                        true ->
-                            case RefAttrs of
-                                #{type := Type} -> %% TODO: Better type comparison?
-                                    {[], []};
-                                _ ->
-                                    {["Type of the `default_ref' is different"], []}
-                            end;
-                        false ->
-                            {"Invalid `default_ref' metatype", []}
-                    end
-            catch
-                _:_ -> {["Invalid `default_ref' reference key"], []}
-            end;
-        #{type := _Type} ->
-            %% TODO: typerefl:is_type?
-            {[], []};
-        _ ->
-            {["Missing `type' metaparameter"], []}
-    end.

@@ -173,6 +173,9 @@ make_file(Top, Data, Id) ->
                    , lee:model()
                    ) -> doc().
 metatype_docs({MetaType, DocConfig}, Model) ->
+    lee_metatype:is_implemented(Model, MetaType, doc_chapter_title)
+        andalso
+
     #model{metamodel = Meta} = Model,
     #mnode{metaparams = Attrs} = lee_model:get([metatype, MetaType], Meta),
     Title0 = ?m_attr(documented, doc_chapter_title, Attrs),

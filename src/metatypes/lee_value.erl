@@ -18,10 +18,10 @@
 -behavior(lee_metatype).
 
 %% API:
--export([create/0]).
+-export([create/1]).
 
 %% behavior callbacks:
--export([name/0, validate_node/4, meta_validate/4, doc_chapter_title/0, doc_gen/2]).
+-export([names/1, validate_node/5, meta_validate_node/4, doc_chapter_title/0, doc_gen/2]).
 
 -include("../framework/lee_internal.hrl").
 
@@ -29,20 +29,20 @@
 %% API funcions
 %%================================================================================
 
-create() ->
-    ok.
+create(_) ->
+    #{}.
 
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
 
-name() ->
-    value.
+names(_) ->
+    [value].
 
 %% Validate nodes of `value' metatype
--spec validate_node(lee:model(), lee:data(), lee:key(), #mnode{}) ->
+-spec validate_node(lee:metatype(), lee:model(), lee:data(), lee:key(), #mnode{}) ->
                             lee_lib:check_result().
-validate_node(Model, Data, Key, #mnode{metaparams = Attrs}) ->
+validate_node(value, Model, Data, Key, #mnode{metaparams = Attrs}) ->
     Type = ?m_attr(value, type, Attrs),
     HasDefault = case Attrs of
                      #{default     := _} -> true;
@@ -63,11 +63,11 @@ validate_node(Model, Data, Key, #mnode{metaparams = Attrs}) ->
             {[Err] , []}
     end.
 
--spec meta_validate(lee:model(), _, lee:key(), #mnode{}) ->
+-spec meta_validate_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) ->
                             lee_lib:check_result().
-meta_validate(Model, _, Key, #mnode{metaparams = Attrs}) ->
-    Results = lee_lib:compose_checks([ lee_doc:check_docstrings(Attrs)
-                                     , check_type_and_default(Model, Attrs)
+meta_validate_node(value, Model, Key, #mnode{metaparams = Attrs}) ->
+    Results = lee_lib:compose_checks([ %lee_doc:check_docstrings(Attrs) TODO
+                                      check_type_and_default(Model, Attrs)
                                      ]),
     lee_lib:inject_error_location(Key, Results).
 

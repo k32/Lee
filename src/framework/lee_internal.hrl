@@ -8,8 +8,9 @@
 -define(unused, []).
 
 -record(model,
-        { metamodel        :: lee:cooked_module()
+        { metaconfig       :: lee_storage:storage(_)
         , model            :: lee:cooked_module()
+        , metamodules      :: #{lee:metatype() => module()}
         , meta_class_idx   :: #{lee:metatype() => [lee:key()]}
         }).
 

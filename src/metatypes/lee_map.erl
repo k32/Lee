@@ -18,29 +18,29 @@
 -behavior(lee_metatype).
 
 %% API:
--export([create/0]).
+-export([create/1]).
 
 %% behavior callbacks:
--export([name/0, meta_validate/4]).
+-export([names/1, meta_validate_node/4]).
 
 -include("../framework/lee_internal.hrl").
 
 %%================================================================================
 %% API funcions
 %%================================================================================
-create() ->
-    ok.
+create(_) ->
+    #{}.
 
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
 
-name() ->
-    map.
+names(_) ->
+    [map].
 
--spec meta_validate(lee:model(), _, lee:key(), #mnode{}) ->
+-spec meta_validate_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) ->
                             lee_lib:check_result().
-meta_validate(#model{model = Model}, _, Key, #mnode{metaparams = Params}) ->
+meta_validate_node(map, #model{model = Model}, Key, #mnode{metaparams = Params}) ->
     ValidateKey =
         fun(ChildKey) ->
                 case lee_storage:get(Key ++ [?children|ChildKey], Model) of

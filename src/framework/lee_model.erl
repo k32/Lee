@@ -35,15 +35,20 @@
 
 %% @doc Merge multiple model and metamodel modules into a
 %% machine-friendly form
--spec compile([M], [M]) -> {ok, #model{}} | {error, [string()]}
-            when M :: lee:lee_module() | lee:cooked_module().
-compile(MetaModels0, Models0) ->
-    MetaModels = [compile_module(I) || I <- MetaModels0],
+-spec compile([T], [M]) -> {ok, #model{}} | {error, [string()]}
+              when M :: lee:lee_module() | lee:cooked_module(),
+                   T :: lee_metatype:cooked_metatype().
+compile(MetaModules0, Models0) ->
+    MetaModules = lists:flatten(MetaModules0),
+    ModuleLookup = maps:from_list([{Name, Module} || {Module, Names, _Conf} <- MetaModules,
+                                                     Name <- Names]),
+    MetaConfig = maps:from_list([{Module, Conf} || {Module, _, Conf} <- MetaModules]),
     Models = [compile_module(I) || I <- Models0],
-    case {merge(MetaModels), merge(Models)} of
-        {{ok, MetaModel}, {ok, Model}} ->
-            Result = #model{ metamodel      = MetaModel
+    case merge(Models) of
+        {ok, Model} ->
+            Result = #model{ metaconfig     = MetaConfig
                            , model          = Model
+                           , metamodules    = ModuleLookup
                            , meta_class_idx = mk_metatype_index(Model)
                            },
             case lee:meta_validate(Result) of
@@ -52,8 +57,8 @@ compile(MetaModels0, Models0) ->
                 {error, Errs, _Warns} ->
                     {error, Errs}
             end;
-        {T1, T2} ->
-            {error, [Err || {error, Err} <- [T1, T2]]}
+        T ->
+            {error, [Err || {error, Err} <- [T]]}
     end.
 
 %% @doc Merge multiple Lee model modules into a single module
@@ -109,8 +114,8 @@ get(Id, Module) ->
 
 %% @doc Get a node from the metamodel, assuming that it is present
 -spec get_meta(lee:model_key(), lee:model()) -> #mnode{}.
-get_meta(Id, #model{metamodel = Module}) ->
-    get(Id, Module).
+get_meta(Id, #model{metaconfig = MetaConfig}) ->
+    get(Id, MetaConfig).
 
 %% @doc Apply a function to all nodes of a raw model module. Doesn't
 %% traverse into child nodes
@@ -200,8 +205,8 @@ get_metatype_index(MT, #model{meta_class_idx = Idx}) ->
 
 %% @doc Copy model from one lee_storage to another
 -spec clone(lee:model(), module(), map(), map()) -> lee:model().
-clone(M0 = #model{metamodel = A, model = B}, Backend, BO1, BO2) ->
-    M0#model{ metamodel = lee_storage:clone(A, Backend, BO1)
+clone(M0 = #model{metaconfig = A, model = B}, Backend, BO1, BO2) ->
+    M0#model{ metaconfig = lee_storage:clone(A, Backend, BO1)
             , model = lee_storage:clone(B, Backend, BO2)
             }.
 
