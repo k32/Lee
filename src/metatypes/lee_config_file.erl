@@ -21,7 +21,8 @@
 -export([read_to/3, read/2]).
 
 %% behavior callbacks:
--export([create/1, names/1, description/1, read_patch/2]).
+-export([create/1, names/1, read_patch/2,
+         description_title/2, description/2]).
 
 -define(filename_key(TAG), [?MODULE, TAG, filename]).
 -define(prio_key(TAG), [?MODULE, TAG, priority]).
@@ -58,8 +59,24 @@ create(#{file := File, tag := Tag} = Attrs) ->
 names(#{tag := Tag}) ->
     [Tag].
 
-description(_) ->
-    "".
+description_title(Tag, Model) ->
+    {ok, Filename} = lee_model:get_meta(?filename_key(Tag), Model),
+    "Configuration file " ++ Filename.
+
+description(Tag, Model) ->
+    {ok, Prio} = lee_model:get_meta(?prio_key(Tag), Model),
+    [ {para,
+       ["Any value can be set using this configuration file.
+         It should have the following form:"]}
+    , lee_doc:erlang_listing(
+"#{ key1 => value
+ , key2 =>
+    #{ key3 => value
+     }
+ }.")
+    , {para,
+       ["Priority: ", integer_to_list(Prio)]}
+    ].
 
 read_patch(Tag, Model) ->
     {ok, Filename} = lee_model:get_meta(?filename_key(Tag), Model),

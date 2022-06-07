@@ -21,8 +21,8 @@
 -export([]).
 
 %% behavior callbacks:
--export([create/1, names/1, description/1, validate_node/5, meta_validate_node/4,
-         doc_chapter_title/2, doc_gen/4]).
+-export([create/1, names/1, description/2, validate_node/5, meta_validate_node/4,
+         description_title/2, description_node/4]).
 
 -include("../framework/lee_internal.hrl").
 
@@ -36,8 +36,8 @@ create(_) ->
 names(_) ->
     [value].
 
-description(value) ->
-    "<para>All configurable values.</para>".
+description(value, _Model) ->
+    [{para, ["This section lists all configurable values."]}].
 
 %% Validate nodes of `value' metatype
 -spec validate_node(lee:metatype(), lee:model(), lee:data(), lee:key(), #mnode{}) ->
@@ -71,10 +71,10 @@ meta_validate_node(value, Model, Key, #mnode{metaparams = Attrs}) ->
                                      ]),
     lee_lib:inject_error_location(Key, Results).
 
-doc_chapter_title(value, _) ->
+description_title(value, _) ->
     "Values".
 
-doc_gen(value, Model, Key, #mnode{metaparams = Attrs}) ->
+description_node(value, Model, Key, #mnode{metaparams = Attrs}) ->
     Oneliner = ?m_attr(value, oneliner, Attrs, ""),
     Type = ?m_attr(value, type, Attrs),
     Default =

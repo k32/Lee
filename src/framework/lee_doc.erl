@@ -9,7 +9,6 @@
         , refer_value/4
         , docbook/1
         , check_docstrings/1
-        , validate_doc_root/4
         ]).
 
 -include("lee_internal.hrl").
@@ -43,6 +42,7 @@ simplesect(Title, Doc0) ->
           end,
     {para, [{emphasis, [Title]} | Doc]}.
 
+
 %% @doc Generate a link to the description of a value
 -spec xref_key(lee:key()) -> doc().
 xref_key(Key) ->
@@ -67,7 +67,7 @@ refer_value(Key, Metatype, Title, MNode) ->
 %% ```
 %% lee_doc:docbook("<para>Some text</para>
 %%                  <para>More text</para>")'''
--spec docbook(string()) -> [doc()].
+-spec docbook(iolist()) -> [doc()].
 docbook([]) ->
     [];
 docbook(String) ->
@@ -94,15 +94,6 @@ check_docstrings(Attrs) ->
                end,
     lee_lib:compose_checks([CheckOneliner, CheckDoc]).
 
-%% @private Meta-validation of doc root
--spec validate_doc_root(lee:model(), _, lee:key(), #mnode{}) ->
-                               lee_lib:check_result().
-validate_doc_root(_, _, Key, #mnode{metaparams = Attrs}) ->
-    Fun = fun(#{app_name := _}) -> {[], []};
-             (_)                -> {["Missing `app_name' parameter"], []}
-          end,
-    lee_lib:perform_checks(Key, Attrs, [fun check_docstrings/1, Fun]).
-
 %% @private
 -spec make_file(atom(), doc(), string()) -> file:filename().
 make_file(Top, Data, Id) ->
@@ -126,28 +117,34 @@ make_file(Top, Data, Id) ->
                    , lee:model()
                    ) -> [doc()].
 metatype_docs(Metatype, Model) ->
-    case lee_metatype:doc_chapter_title(Metatype, Model) of
+    case lee_metatype:description_title(Metatype, Model) of
         undefined ->
             [];
         Title ->
             #model{meta_class_idx = Idx} = Model,
+            Descr = lee_metatype:description(Model, Metatype),
             Keys = maps:get(Metatype, Idx, []),
-            Content =
+            NodesDescr =
                 lists:filtermap( fun(Key) ->
                                          document_node(Metatype, Model, Key)
                                  end
                                , Keys
                                ),
             [{chapter, [{id, atom_to_list(Metatype)}]
-             , [{title, [Title]} | Content]
+             , [{title, [Title]} | Descr ++ NodesDescr]
              }]
     end.
 
 document_node(Metatype, Model, Key) ->
     MNode = lee_model:get(Key, Model),
     case lists:member(undocumented, MNode#mnode.metatypes) of
-        false -> {true, lee_metatype:doc_gen(Metatype, Model, Key, MNode)};
-        true  -> false
+        false ->
+            case lee_metatype:description_node(Metatype, Model, Key, MNode) of
+                [] -> false;
+                Val -> {true, Val}
+            end;
+        true ->
+            false
     end.
 
 -spec make_docs(lee:model(), doc_options()) -> ok.
@@ -156,9 +153,10 @@ make_docs(Model, Options) ->
     case lee_model:get_metatype_index(doc_root, Model) of
         [DocRoot] ->
             #mnode{metaparams = Attrs} = lee_model:get(DocRoot, Model),
-            BookTitle = lee_metatype:doc_chapter_title(doc_root, Model),
+            BookTitle = lee_metatype:description_title(doc_root, Model),
             Chapters = lists:flatten([metatype_docs(MT, Model) || MT <- [doc_root|Metatypes]]),
-            Book = [{title, [BookTitle]} | Chapters],
+            Book = [{title, [BookTitle]} |
+                    Chapters],
             Top = make_file(book, Book, BookTitle),
             case maps:get(run_pandoc, Options, false) of
                 true ->

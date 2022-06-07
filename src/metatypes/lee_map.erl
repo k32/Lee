@@ -21,7 +21,7 @@
 -export([]).
 
 %% behavior callbacks:
--export([create/1, names/1, description/1, meta_validate_node/4]).
+-export([create/1, names/1, meta_validate_node/4]).
 
 -include("../framework/lee_internal.hrl").
 
@@ -34,9 +34,6 @@ create(_) ->
 
 names(_) ->
     [map].
-
-description(map) ->
-    "<para>All maps.</para>".
 
 -spec meta_validate_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) ->
                             lee_lib:check_result().

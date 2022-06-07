@@ -16,8 +16,9 @@
 -module(lee_metatype).
 
 %% API:
--export([create/1, create/2, description/2, get_module/2, is_implemented/3,
-         validate_node/5, meta_validate_node/4, doc_chapter_title/2, doc_gen/4,
+-export([create/1, create/2, get_module/2, is_implemented/3,
+         validate_node/5, meta_validate_node/4,
+         description_title/2, description_node/4, description/2,
          read_patch/2, post_patch/5]).
 
 -export_types([cooked_metatype/0]).
@@ -32,22 +33,22 @@
 
 -callback create(map()) -> [{lee:key(), term()}].
 
--callback description(lee:metatype()) -> string() | lee_doc:doc().
-
 -callback validate_node(lee:metatype(), lee:model(), lee:data(), lee:key(), #mnode{}) -> lee_lib:check_result().
 
 -callback meta_validate_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) -> lee_lib:check_result().
 
--callback doc_chapter_title(lee:metatype(), lee:model()) -> string() | undefined.
+-callback description_title(lee:metatype(), lee:model()) -> string() | undefined.
 
--callback doc_gen(lee:metatype(), lee:model(), lee:key(), #mnode{}) -> lee_doc:doc().
+-callback description(lee:metatype(), lee:model()) -> string() | lee_doc:doc().
+
+-callback description_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) -> lee_doc:doc().
 
 -callback read_patch(lee:metatype(), lee:model()) -> {integer(), lee:patch()}.
 
 -callback post_patch(lee:metatype(), lee:model(), lee:data(), #mnode{}, lee_storage:patch_op(term())) -> ok.
 
--optional_callbacks([validate_node/5, meta_validate_node/4, doc_chapter_title/2,
-                     doc_gen/4, read_patch/2, post_patch/5]).
+-optional_callbacks([validate_node/5, meta_validate_node/4, description_title/2,
+                     description_node/4, read_patch/2, post_patch/5, description/2]).
 
 %%================================================================================
 %% Type declarations
@@ -55,7 +56,7 @@
 
 -type cooked_metatype() :: {module(), [atom()], [{lee:key(), term()}]}.
 
--type callback() :: validate_node | meta_validate_node | doc_chapter_title | doc_gen
+-type callback() :: validate_node | meta_validate_node | description_title | description_node
                   | read_patch | post_patch.
 
 %%================================================================================
@@ -79,10 +80,10 @@ create(M, Params) ->
 create(Module) ->
     create(Module, #{}).
 
--spec description(lee:model(), lee:metatype()) -> string() | lee_doc:doc().
+-spec description(lee:model(), lee:metatype()) -> lee_doc:doc().
 description(Model, Metatype) ->
-    Mod = get_module(Model, Metatype),
-    Mod:description(Metatype).
+    Module = get_module(Model, Metatype),
+    Module:?FUNCTION_NAME(Metatype, Model).
 
 -spec get_module(lee:model(), lee:metatype()) -> module().
 get_module(#model{metamodules = Modules}, Metatype) ->
@@ -109,18 +110,21 @@ meta_validate_node(Metatype, Model, Key, MNode) ->
         false -> {[], []}
     end.
 
--spec doc_chapter_title(lee:metatype(), lee:model()) -> string() | undefined.
-doc_chapter_title(Metatype, Model) ->
+-spec description_title(lee:metatype(), lee:model()) -> string() | undefined.
+description_title(Metatype, Model) ->
     Module = get_module(Model, Metatype),
     case ?is_implemented(Module) of
-        true  -> Module:doc_chapter_title(Metatype, Model);
+        true  -> Module:description_title(Metatype, Model);
         false -> undefined
     end.
 
--spec doc_gen(lee:metatype(), lee:model(), lee:key(), #mnode{}) -> lee_doc:doc().
-doc_gen(Metatype, Model, Key, MNode) ->
-    M = get_module(Model, Metatype),
-    M:doc_gen(Metatype, Model, Key, MNode).
+-spec description_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) -> lee_doc:doc().
+description_node(Metatype, Model, Key, MNode) ->
+    Module = get_module(Model, Metatype),
+    case ?is_implemented(Module) of
+        true  -> Module:?FUNCTION_NAME(Metatype, Model, Key, MNode);
+        false -> []
+    end.
 
 -spec read_patch(lee:metatype(), lee:model()) -> lee:patch().
 read_patch(Metatype, Model) ->
@@ -147,9 +151,9 @@ callback_arity(validate_node) ->
     5;
 callback_arity(meta_validate_node) ->
     4;
-callback_arity(doc_chapter_title) ->
+callback_arity(description_title) ->
     2;
-callback_arity(doc_gen) ->
+callback_arity(description_node) ->
     4;
 callback_arity(read_patch) ->
     2;

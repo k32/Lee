@@ -23,13 +23,13 @@
 %% API
 -export([ read/2
         , read_to/3
-        , doc_gen/2
         ]).
 
 %% behavior callbacks
 -export([ create/1
         , names/1
-        , description/1
+        , description_title/2
+        , description/2
         , meta_validate_node/4
         , read_patch/2
         ]).
@@ -209,9 +209,6 @@ create(Attrs) ->
 names(_) ->
     [cli_param, cli_action, cli_positional].
 
-description(_) ->
-    "".
-
 meta_validate_node(cli_param, Model, Key, MNode) ->
     meta_validate_param(Model, Key, MNode);
 meta_validate_node(cli_action, Model, Key, MNode) ->
@@ -226,7 +223,10 @@ read_patch(cli_action, Model) ->
 read_patch(_, _) ->
     {0, []}.
 
-doc_gen(Model, Config) ->
+description_title(MetaType, Model) ->
+    "CLI arguments".
+
+description(MetaType, Model) ->
     [{global, Global}|Scopes] = lists:sort(maps:to_list(mk_index(Model))),
     GlobalDoc = [{section, make_scope_docs(Global, Model)}],
     ActionDocs =

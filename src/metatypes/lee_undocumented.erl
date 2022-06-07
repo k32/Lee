@@ -18,7 +18,7 @@
 -behavior(lee_metatype).
 
 %% behavior callbacks:
--export([create/1, names/1, description/1]).
+-export([create/1, names/1]).
 
 -include("../framework/lee_internal.hrl").
 
@@ -31,9 +31,6 @@ create(_) ->
 
 names(_Conf) ->
     [undocumented].
-
-description(undocumented) ->
-    "<para>Undocumented values</para>".
 
 %%================================================================================
 %% Internal functions

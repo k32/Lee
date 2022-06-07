@@ -26,15 +26,15 @@
 
 -behavior(lee_metatype).
 
--export([name/0, meta_validate/4, doc_chapter_title/2, doc_gen/2]).
+-export([name/0, meta_validate/4, description_title/2, description_node/2]).
 
 -export([ metamodel/0
         , read/2
         , read/3
         , read_to/3
         , read_to/4
-        , doc_chapter_title/2
-        , doc_gen/2
+        , description_title/2
+        , description_node/2
         , meta_validate/4
         ]).
 
@@ -68,8 +68,8 @@
 metamodel() ->
     #{ metatype =>
            #{ ?consult => {[metatype, documented]
-                          , #{ doc_chapter_title => fun ?MODULE:doc_chapter_title/2
-                             , doc_gen => fun ?MODULE:doc_gen/2
+                          , #{ description_title => fun ?MODULE:description_title/2
+                             , description_node => fun ?MODULE:description_node/2
                              , meta_validate => fun ?MODULE:meta_validate/4
                              }
                           }
@@ -145,10 +145,10 @@ read_val(Model, Predicate, Terms, Key, Acc) ->
             Acc
     end.
 
--spec doc_gen(lee:model(), doc_config() | undefined) -> lee:doc().
-doc_gen(Model, undefined) ->
-    doc_gen(Model, default_doc_config());
-doc_gen(Model, Config) ->
+-spec description_node(lee:model(), doc_config() | undefined) -> lee:doc().
+description_node(Model, undefined) ->
+    description_node(Model, default_doc_config());
+description_node(Model, Config) ->
     #{filter := Filter} = Config,
     Predicate = predicate(Filter),
     Intro = "<para>
@@ -184,10 +184,10 @@ or map form:
           end,
     lee_doc:docbook(Intro) ++ lists:filtermap(Fun, Keys).
 
--spec doc_chapter_title(lee:model(), doc_config() | undefined) -> string().
-doc_chapter_title(Model, undefined) ->
-    doc_chapter_title(Model, default_doc_config());
-doc_chapter_title(_Model, Config) ->
+-spec description_title(lee:model(), doc_config() | undefined) -> string().
+description_title(Model, undefined) ->
+    description_title(Model, default_doc_config());
+description_title(_Model, Config) ->
     #{config_name := ConfigName } = Config,
     "Configuration file: " ++ ConfigName.
 

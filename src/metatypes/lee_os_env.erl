@@ -11,11 +11,12 @@
 -behavior(lee_metatype).
 
 -export([ names/1
-        , description/1
         , create/1
         , meta_validate_node/4
-        , doc_chapter_title/2
-        , doc_gen/4
+
+        , description_title/2
+        , description/2
+        , description_node/4
 
         , read_patch/2
         , read_to/2
@@ -38,11 +39,19 @@ create(Conf) ->
 names(_) ->
     [?metatype].
 
-description(?metatype) ->
-    "<para>The following OS environment variables are used to
-     set configuration values. Values of type string() are
-     taken from OS environment variables verbatim, other types
-     are parsed as Erlang terms.</para>".
+description_title(?metatype, _) ->
+    "OS Environment Variables".
+
+description(?metatype, Model) ->
+    {ok, Prio} = lee_model:get_meta(?prio_key, Model),
+    [{para,
+      ["The following OS environment variables are used to
+       set configuration values. Values of type string() are
+       taken from OS environment variables verbatim, other types
+       are parsed as Erlang terms."]},
+     {para,
+      ["Priority: ", integer_to_list(Prio)]}
+     ].
 
 %% @private
 meta_validate_node(?metatype, _, Key, MNode) ->
@@ -53,12 +62,10 @@ meta_validate_node(?metatype, _, Key, MNode) ->
                                          , MNode
                                          )).
 
-doc_chapter_title(?metatype, _) ->
-    "OS Environment Variables".
-
-doc_gen(os_env, _Model, Key, MNode) ->
+description_node(os_env, Model, Key, MNode) ->
     #mnode{metaparams = Attrs} = MNode,
-    EnvVar = ?m_attr(?metatype, os_env, Attrs),
+    {ok, Prefix} = lee_model:get_meta(?prefix_key, Model),
+    EnvVar = Prefix ++ ?m_attr(?metatype, os_env, Attrs, make_default_key(Key)),
     lee_doc:refer_value(Key, ?metatype, EnvVar, MNode).
 
 %% @doc Make a patch from OS environment variables

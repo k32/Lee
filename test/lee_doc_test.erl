@@ -75,14 +75,14 @@ model() ->
                      , prog_name => "lee_test"
                      }}
              , foo =>
-                   {[value],
+                   {[value, os_env],
                     #{ oneliner => "This parameter controls fooing"
                      , type     => typerefl:string()
                      , default  => "foo"
                      , doc      => long_text()
                      }}
              , bar =>
-                   {[value],
+                   {[value, os_env],
                     #{ oneliner => "This parameter controls baring"
                      , type     => {typerefl:nonempty_list([]), typerefl:iolist()}
                      , os_env   => "BAR"
@@ -95,20 +95,21 @@ model() ->
                    {[value, foo],
                     #{ type     => integer()
                      , oneliner => "This value controls quuxing"
-                     , file_key => quux
                      }}
              , xizzy =>
                    {[value, bar],
                     #{ type     => float()
                      , oneliner => "This value controls xizzying"
-                     , file_key => xizzy
                      }}
-             %% , cli => lee_cli_tests:test_model_raw()
+             , cli => lee_cli_tests:test_model_raw()
              },
     {ok, Mod} = lee_model:compile( [ lee:base_metamodel()
-                                   %% , lee_os_env:metamodel()
+                                   , lee_metatype:create(lee_os_env, #{prefix => "TEST_"})
+                                   , lee_metatype:create(lee_config_file, #{ tag => conf_file
+                                                                           , file => "/etc/myapp.eterm"
+                                                                           })
                                    %% , lee_consult:metamodel()
-                                   %% , lee_cli:metamodel()
+                                   , lee_metatype:create(lee_cli)
                                    , lee_metatype:create(?MODULE)
                                    ]
                                  , [Model]
@@ -117,16 +118,16 @@ model() ->
 
 
 export_test() ->
-    MTs = [ %% os_env
-          %% , cli_param
-          %% , consult
+    MTs = [ cli_param
+          , os_env
+          , conf_file
           %% , {consult, #{ filter      => [foo]
           %%              , config_name => "foo.conf"
           %%              }}
           %% , {consult, #{ filter      => [bar]
           %%              , config_name => "bar.conf"
           %%              }}
-           value
+          , value
           ],
     Config = #{ metatypes => MTs
               , run_pandoc => true

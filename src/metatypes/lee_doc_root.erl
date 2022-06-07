@@ -21,7 +21,8 @@
 -export([]).
 
 %% behavior callbacks:
--export([create/1, names/1, description/1, meta_validate_node/4, doc_chapter_title/2, doc_gen/4]).
+-export([create/1, names/1, meta_validate_node/4,
+         description_title/2, description/2]).
 
 -include("../framework/lee_internal.hrl").
 
@@ -35,26 +36,25 @@ create(_) ->
 names(_) ->
     [doc_root].
 
-description(doc_root) ->
-    "".
-
 meta_validate_node(doc_root, _Model, Key, #mnode{metaparams = Attrs}) ->
     Fun = fun(#{app_name := _}) -> {[], []};
              (_)                -> {["Missing `app_name' parameter"], []}
           end,
     lee_lib:perform_checks(Key, Attrs, [fun lee_doc:check_docstrings/1, Fun]).
 
-doc_chapter_title(doc_root, Model) ->
+description_title(doc_root, Model) ->
     [Key] = lee_model:get_metatype_index(doc_root, Model),
     #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
     ?m_attr(doc_root, app_name, Attrs).
 
-doc_gen(doc_root, _Model, _Key, #mnode{metaparams = Attrs}) ->
+description(doc_root, Model) ->
+    [Key] = lee_model:get_metatype_index(doc_root, Model),
+    #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
     AppOneliner = ?m_attr(doc_root, oneliner, Attrs),
     AppDoc = lee_doc:docbook(?m_attr(doc_root, doc, Attrs, "")),
-    {chapter, [{id, "_intro"}]
-    , [{title, ["Introduction"]}, {para, [AppOneliner]} | AppDoc]
-    }.
+    [{chapter, [{id, "_intro"}]
+     , [{title, ["Introduction"]}, {para, [AppOneliner]} | AppDoc]
+     }].
 
 %%================================================================================
 %% Internal functions
