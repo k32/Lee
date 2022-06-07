@@ -29,7 +29,7 @@
 
 -callback names(_Config) -> [lee:metatype()].
 
--callback create(map()) -> _Config.
+-callback create(map()) -> [{lee:key(), term()}].
 
 -callback validate_node(lee:metatype(), lee:model(), lee:data(), lee:key(), #mnode{}) -> lee_lib:check_result().
 
@@ -45,9 +45,9 @@
 %% Type declarations
 %%================================================================================
 
--type cooked_metatype() :: {module(), [atom()], _Config}.
+-type cooked_metatype() :: {module(), [atom()], [{lee:key(), term()}]}.
 
--type callback() :: validate_node | meta_validate | doc_chapter_title | doc_gen.
+-type callback() :: validate_node | meta_validate_node | doc_chapter_title | doc_gen.
 
 %%================================================================================
 %% Macros

@@ -19,7 +19,7 @@
 
 %% Metamodel callbacks
 create(_) ->
-    #{}.
+    [].
 
 names(_) ->
     [t1, t2, bar].
@@ -63,6 +63,7 @@ merge_test() ->
                 ),
     %% ?assertMatch( {error, _}
     %%             , lee_model:compile([?metamodels, Model, Model], [])
+
     %%             ), TODO: Check metamodel merging
     ?assertMatch( {error, _}
                 , lee_model:compile([?metamodels], [Model, Model])

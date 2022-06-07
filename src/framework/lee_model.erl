@@ -8,7 +8,7 @@
         , fold/3
         , fold/4
         , get/2
-        , get_meta/2
+        , get_meta/3
         , get_metatype_index/2
         , match/2
         , get_model_key/1
@@ -42,7 +42,10 @@ compile(MetaModules0, Models0) ->
     MetaModules = lists:flatten(MetaModules0),
     ModuleLookup = maps:from_list([{Name, Module} || {Module, Names, _Conf} <- MetaModules,
                                                      Name <- Names]),
-    MetaConfig = maps:from_list([{Module, Conf} || {Module, _, Conf} <- MetaModules]),
+    MetaConfigPatch = ([{set, K, V} || {Module, _, Conf} <- MetaModules,
+                                       {K, V} <- Conf]),
+    MetaConfig0 = lee_storage:new(lee_map_storage),
+    MetaConfig = lee_storage:patch(MetaConfig0, MetaConfigPatch),
     Models = [compile_module(I) || I <- Models0],
     case merge(Models) of
         {ok, Model} ->
@@ -113,9 +116,14 @@ get(Id, Module) ->
     end.
 
 %% @doc Get a node from the metamodel, assuming that it is present
--spec get_meta(lee:model_key(), lee:model()) -> #mnode{}.
-get_meta(Id, #model{metaconfig = MetaConfig}) ->
-    get(Id, MetaConfig).
+-spec get_meta(lee:model_key(), lee:model(), Val) -> Val.
+get_meta(Id, #model{metaconfig = MetaConfig}, Default) ->
+	case lee_storage:get(Id, MetaConfig) of
+        {ok, Val} ->
+            Val;
+        _ ->
+            Default
+    end.
 
 %% @doc Apply a function to all nodes of a raw model module. Doesn't
 %% traverse into child nodes
