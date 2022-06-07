@@ -9,6 +9,7 @@
         , fold/4
         , get/2
         , get_meta/3
+        , get_meta/2
         , all_metatypes/1
         , get_metatype_index/2
         , match/2
@@ -116,7 +117,7 @@ get(Id, Module) ->
         _         -> error({bad_model_key, Id})
     end.
 
-%% @doc Get a node from the metamodel, assuming that it is present
+%% @doc Get a node from the metamodel
 -spec get_meta(lee:model_key(), lee:model(), Val) -> Val.
 get_meta(Id, #model{metaconfig = MetaConfig}, Default) ->
 	case lee_storage:get(Id, MetaConfig) of
@@ -125,6 +126,11 @@ get_meta(Id, #model{metaconfig = MetaConfig}, Default) ->
         _ ->
             Default
     end.
+
+%% @doc Get a node from the metamodel
+-spec get_meta(lee:model_key(), lee:model()) -> _Val.
+get_meta(Id, #model{metaconfig = MetaConfig}) ->
+	lee_storage:get(Id, MetaConfig).
 
 %% @doc Apply a function to all nodes of a raw model module. Doesn't
 %% traverse into child nodes

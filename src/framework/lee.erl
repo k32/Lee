@@ -141,10 +141,11 @@ get(Model, [Data|Rest], Key) ->
 
 -spec init_config(model(), data()) -> data().
 init_config(Model, Data) ->
-    Patch = lists:flatmap(fun(MT) ->
-                                  lee_metatype:read_patch(MT, Model)
-                          end,
-                          lee_model:all_metatypes(Model)),
+    Patches = lists:keysort( 1
+                           , [lee_metatype:read_patch(MT, Model)
+                              || MT <- lee_model:all_metatypes(Model)]
+                           ),
+    Patch = lists:flatmap(fun({_Prio, Data}) -> Data end, Patches),
     lee:patch(Model, Data, Patch).
 
 -spec patch(model(), data(), patch()) -> data().

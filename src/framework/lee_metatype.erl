@@ -42,7 +42,7 @@
 
 -callback doc_gen(lee:metatype(), lee:model(), lee:key(), #mnode{}) -> lee_doc:doc().
 
--callback read_patch(lee:metatype(), lee:model()) -> lee:patch().
+-callback read_patch(lee:metatype(), lee:model()) -> {integer(), lee:patch()}.
 
 -callback post_patch(lee:metatype(), lee:model(), lee:data(), #mnode{}, lee_storage:patch_op(term())) -> ok.
 
@@ -127,7 +127,7 @@ read_patch(Metatype, Model) ->
     Module = get_module(Model, Metatype),
     case ?is_implemented(Module) of
         true  -> Module:?FUNCTION_NAME(Metatype, Model);
-        false -> []
+        false -> {0, []}
     end.
 
 -spec post_patch(lee:metatype(), lee:model(), lee:data(), #mnode{}, lee_storage:patch_op(term())) -> ok.

@@ -24,12 +24,16 @@
 -include_lib("lee/src/framework/lee_internal.hrl").
 
 -define(prefix_key, [?MODULE, attr_prefix]).
+-define(prio_key, [?MODULE, priority]).
 
 -define(metatype, os_env).
 
 create(Conf) ->
     Prefix = maps:get(prefix, Conf, ""),
-    [{?prefix_key, Prefix}].
+    Priority = maps:get(priority, Conf, 10),
+    [ {?prefix_key, Prefix}
+    , {?prio_key, Priority}
+    ].
 
 names(_) ->
     [?metatype].
@@ -60,25 +64,26 @@ doc_gen(os_env, _Model, Key, MNode) ->
 %% @doc Make a patch from OS environment variables
 %% @throws {error, string()}
 read_patch(?metatype, Model) ->
+    {ok, Prio} = lee_model:get_meta(?prio_key, Model),
     EnvVars = lee_model:get_metatype_index(?metatype, Model),
-    lists:foldl( fun(Key, Acc) ->
-                         read_val(Model, Key, Acc)
-                 end
-               , []
-               , EnvVars).
+    {Prio, lists:foldl( fun(Key, Acc) ->
+                                read_val(Model, Key, Acc)
+                        end
+                      , []
+                      , EnvVars)}.
 
 %% @doc Make a patch from OS environment variables and apply it to
 %% data
 %% @throws {error, string()}
 -spec read_to(lee:model(), lee_storage:data()) -> lee_storage:data().
 read_to(Model, Data) ->
-    Patch = read_patch(?metatype, Model),
-    lee_storage:patch(Data, Patch).
+    {_Prio, Patch} = read_patch(?metatype, Model),
+    lee:patch(Model, Data, Patch).
 
 %% @private
 read_val(Model, Key, Acc) ->
     #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
-    Prefix = lee_model:get_meta(?prefix_key, Model, ""),
+    {ok, Prefix} = lee_model:get_meta(?prefix_key, Model),
     Default = Prefix ++ string:join(make_default_key(Key), "___"),
     EnvVar = ?m_attr(?metatype, os_env, Attrs, Default),
     case os:getenv(EnvVar) of

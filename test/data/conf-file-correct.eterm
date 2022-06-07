@@ -1,0 +1,7 @@
+%% -*- mode:erlang -*-
+#{ foo => "I am foo"
+ , bar => {"I am bar"}
+ , baz =>
+     #{ quux => 42
+      }
+ }.
