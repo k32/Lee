@@ -24,9 +24,8 @@ start_link() ->
 
 init([]) ->
     SupFlags = #{},
-    InitialData = [], %% TODO
     LeeServer = #{ id => lee_server
-                 , start => {lee_server, start_link, [InitialData]}
+                 , start => {lee_server, start_link, []}
                  },
     {ok, {SupFlags, [LeeServer]}}.
 

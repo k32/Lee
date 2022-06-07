@@ -39,7 +39,8 @@ read(Model, Filename) ->
             []
     end.
 
--spec read_to(lee:model(), lee:data(), file:filename()) -> lee:data().
+-spec read_to(lee:model(), lee:data(), file:filename()) ->
+          {ok, lee:data()} | {error, list(), list()} .
 read_to(Model, Data, Filename) ->
     Patch = read(Model, Filename),
     lee:patch(Model, Data, Patch).

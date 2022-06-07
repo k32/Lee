@@ -37,6 +37,7 @@ description(?metatype) ->
     "<para>Values that get mapped to Erlang application environemnt</para>".
 
 meta_validate_node(?metatype, _Model, Key, MNode) ->
+    %% TODO: Check that also a value. Also check transform type
     lee_lib:inject_error_location(
       Key,
       lee_lib:validate_meta_attr( app_env
@@ -44,16 +45,15 @@ meta_validate_node(?metatype, _Model, Key, MNode) ->
                                 , MNode
                                 )).
 
-post_patch(?metatype, Model, _Data, #mnode{metaparams = Attrs}, PatchOp) ->
+post_patch(?metatype, Model, Data, #mnode{metaparams = Attrs}, PatchOp) ->
     {App, Env} = ?m_attr(?metatype, app_env, Attrs),
     Transform = ?m_attr(?metatype, app_env_transform, Attrs, fun(A) -> A end),
     case PatchOp of
-        {set, _, V} ->
-            application:set_env(App, Env, Transform(V));
-        {rm, _} ->
-            application:unset_env(App, Env)
+        {set, Key, _} -> ok;
+        {rm, Key} -> ok
     end,
-    ok.
+    Val = lee:get(Model, Data, Key),
+    application:set_env(App, Env, Transform(Val)).
 
 %%================================================================================
 %% Internal exports

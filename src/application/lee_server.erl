@@ -5,8 +5,8 @@
 -include_lib("lee/src/framework/lee_internal.hrl").
 
 %% API
--export([ start_link/2
-        , start_link/1
+-export([ start_link/1
+        , start_link/0
         , patch/1
         , get_d/1
         , get/1
@@ -27,24 +27,24 @@
         , data  :: lee_storage:storage()
         }).
 
--type transaction() :: fun((lee:model(), lee:data()) -> {ok, lee:patch()} | abort).
+-type transaction() :: fun((lee:model(), lee:data()) -> lee:patch()).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
 
 %% @doc Starts the server
--spec start_link(lee:model(), lee:patch()) -> {ok, pid()}.
-start_link(Model, InitialData) ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [Model, InitialData], []).
+-spec start_link(lee:model()) -> {ok, pid()}.
+start_link(Model) ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [Model], []).
 
 %% @doc Starts the server with a model is gathered from "interface
 %% modules". List of interface modules is set via `interface_modules'
 %% environment variable of `lee' application. Interface modules should
 %% implement {@link lee_interface_module} behavior.
--spec start_link(lee:patch()) -> {ok, pid()}.
-start_link(InitialData) ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [InitialData], []).
+-spec start_link() -> {ok, pid()}.
+start_link() ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 %% @doc Safely apply a patch
 -spec patch(transaction()) -> ok | {error, term()}.
@@ -85,7 +85,7 @@ list(Pattern) ->
     Data = lee_mnesia_storage:from_table(?data_table),
     lee:list(Model, Data, Pattern).
 
-%% @doc Get a value via dirty mnesia read
+%% @doc Dump configuration
 -spec dump() -> lee:patch().
 dump() ->
     %% TODO: optimize these calls (should be constants)
@@ -109,12 +109,12 @@ run_t(Fun0) ->
 %%%===================================================================
 
 %% @private
-init([InitialData]) ->
+init([]) ->
     %% Collect model from the interface_modules:
     InterfaceModules = application:get_env(lee, interface_modules, []),
     Model = gather_model(InterfaceModules),
-    init([Model, InitialData]);
-init([Model0, InitialData]) ->
+    init([Model]);
+init([Model0]) ->
     MOpts = #{table_name => ?model_table},
     MMOpts = #{table_name => ?metamodel_table},
     lee_storage:new(lee_mnesia_storage, MOpts),
@@ -127,7 +127,10 @@ init([Model0, InitialData]) ->
                         end),
     Data = lee_storage:new( lee_mnesia_storage
                           , #{table_name => ?data_table}),
-    ok = do_patch(fun(_, _) -> {ok, InitialData} end, Model, Data),
+    {atomic, _} = mnesia:transaction(
+                    fun() ->
+                            lee:init_config(Model, Data)
+                    end),
     {ok, #s{ model = Model
            , data = Data
            }}.
@@ -167,17 +170,12 @@ format_status(_Opt, Status) ->
 do_patch(Fun, M, D) ->
     Ret = mnesia:transaction(
             fun() ->
-                    case Fun(M, D) of
-                        {ok, Patch} ->
-                            lee_storage:patch(D, Patch),
-                            case lee:validate(M, D) of
-                                {ok, _} ->
-                                    ok;
-                                {error, Err, Warn} ->
-                                    mnesia:abort({invalid_config, Err, Warn})
-                            end;
-                        abort ->
-                            mnesia:abort(user)
+                    Patch = Fun(M, D),
+                    case lee:patch(M, D, Patch) of
+                        {ok, _} ->
+                            ok;
+                        {error, Err, Warn} ->
+                            mnesia:abort({invalid_config, Err, Warn})
                     end
             end),
     case Ret of
@@ -188,7 +186,7 @@ do_patch(Fun, M, D) ->
 -spec gather_model([module()]) -> lee:model().
 gather_model(InterfaceModules) ->
     Models = gather_optional(InterfaceModules, model),
-    MetaModels = gather_optional(InterfaceModules, metamodel),
+    MetaModels = application:get_env(lee, metamodels, []),
     {ok, Model} = lee_model:compile( [lee:base_metamodel() | MetaModels]
                                    , Models
                                    ),

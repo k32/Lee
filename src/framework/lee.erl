@@ -140,22 +140,31 @@ get(Model, [Data|Rest], Key) ->
     end.
 
 -spec init_config(model(), data()) -> data().
-init_config(Model, Data) ->
+init_config(Model, Data0) ->
     Patches = lists:keysort( 1
                            , [lee_metatype:read_patch(MT, Model)
                               || MT <- lee_model:all_metatypes(Model)]
                            ),
-    Patch = lists:flatmap(fun({_Prio, Data}) -> Data end, Patches),
-    lee:patch(Model, Data, Patch).
-
--spec patch(model(), data(), patch()) -> data().
-patch(Model, Data0, Patch) ->
-    Data = lee_storage:patch(Data0, Patch),
-    lists:foreach(fun(PatchOp) ->
-                          process_patch_op(Model, Data, PatchOp)
-                  end,
-                  Patch),
+    Patch = lists:flatmap(fun({_Prio, Val}) -> Val end, Patches),
+    {ok, Data} = lee:patch(Model, Data0, Patch),
     Data.
+
+-spec patch(model(), data(), patch()) -> {ok, data()} | {error, list(), list()}.
+patch(Model, Data0, Patch) ->
+    %% TODO: Inefficient. Make an overlay storage
+    PendingData0 = lee_storage:clone(Data0, lee_map_storage, #{}),
+    PendingData = lee_storage:patch(PendingData0, Patch),
+    case lee:validate(Model, PendingData) of
+        {ok, _Warnings} ->
+            Data = lee_storage:patch(Data0, Patch),
+            lists:foreach(fun(PatchOp) ->
+                                  process_patch_op(Model, Data, PatchOp)
+                          end,
+                          Patch),
+            {ok, Data};
+        Err ->
+            Err
+    end.
 
 %% @doc List objects in `Data' that can match `Key'
 %%

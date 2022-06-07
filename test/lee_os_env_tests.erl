@@ -10,6 +10,7 @@ model() ->
                           }}
               , path => {[value, os_env, app_env],
                          #{ type => string()
+                          , default => "default"
                           , app_env => {lee, path}
                           , app_env_transform => fun list_to_binary/1
                           }}
@@ -34,7 +35,7 @@ osenv_test() ->
     ?assertEqual( {ok, list_to_binary(Path)}
                 , application:get_env(lee, path)
                 ),
-    _ = lee:patch(Model, Data, [{rm, [path]}]),
-    ?assertMatch( undefined
+    {ok, _Data} = lee:patch(Model, Data, [{rm, [path]}]),
+    ?assertMatch( {ok, <<"default">>}
                 , application:get_env(lee, path)
                 ).

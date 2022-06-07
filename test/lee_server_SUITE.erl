@@ -20,6 +20,7 @@ model() ->
      , foo =>
            {[value],
             #{ type => integer()
+             , default => 0
              }}
      , bar =>
            {[value],
@@ -27,9 +28,6 @@ model() ->
              , default => default
              }}
      }.
-
-metamodel() ->
-    lee_os_env:metamodel().
 
 initial_data() ->
     [ {set, [path], "initial"}
@@ -41,7 +39,7 @@ all() ->
 
 t_patch(_Config) ->
     %% Validate initial data
-    ?assertMatch("initial", lee_server:get_d([path])),
+    ?assertEqual(os:getenv("PATH"), lee_server:get_d([path])),
     ?assertMatch(0, lee_server:get_d([foo])),
     %% Validate the defaults:
     ?assertMatch(default, lee_server:get_d([bar])),
@@ -51,30 +49,26 @@ t_patch(_Config) ->
                     fun(Model, Data) ->
                             0 = lee:get(Model, Data, [foo]),
                             default = lee:get(Model, Data, [bar]),
-                            {ok, []}
+                            []
                     end)
                 ),
     %% Try invalid patch:
     ?assertMatch( {error, {invalid_config
-                          , ["[foo]: Mandatory value is missing in the config"]
+                          , ["[path]: Mandatory value is missing in the config"]
                           , []
                           }}
                 , lee_server:patch(
                     fun(_, _) ->
-                            {ok, [ {set, [path], "invalid"}
-                                 , {rm, [foo]}
-                                 ]}
+                            [{rm, [path]}]
                     end)
                 ),
     %% Verify that it didn't leave side effects:
-    ?assertMatch("initial", lee_server:get_d([path])),
+    ?assertEqual(os:getenv("PATH"), lee_server:get_d([path])),
     %% Apply a valid patch:
     ?assertMatch( ok
                 , lee_server:patch(
                     fun(Model, _) ->
-                            P1 = lee_os_env:read(Model),
-                            P2 = [{set, [foo], 3}],
-                            {ok, P1 ++ P2}
+                            [{set, [foo], 3}]
                     end)
                 ),
     %% Verify changes:
@@ -83,10 +77,9 @@ t_patch(_Config) ->
     ?assertMatch(default, lee_server:get_d([bar])).
 
 t_trans_read(_Config) ->
-    ?assertMatchT( {0, "initial", [[foo]]}
+    ?assertMatchT( {0}
                  , { lee_server:get([foo])
-                   , lee_server:get([path])
-                   , lee_server:list([foo])
+                   %, lee_server:list([foo]) %% TODO
                    }
                  ).
 
@@ -103,7 +96,10 @@ end_per_suite(_Config) ->
 init_per_testcase(_TestCase, Config) ->
     %% Start server:
     application:set_env(lee, interface_modules, [?MODULE]),
-    {ok, Pid} = lee_server:start_link(initial_data()),
+    application:set_env(lee, metamodels,
+                        [ lee_metatype:create(lee_os_env)
+                        ]),
+    {ok, Pid} = lee_server:start_link(),
     [{lee_server_pid, Pid} | Config].
 
 end_per_testcase(_TestCase, Config) ->

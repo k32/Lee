@@ -75,7 +75,8 @@ read_patch(?metatype, Model) ->
 %% @doc Make a patch from OS environment variables and apply it to
 %% data
 %% @throws {error, string()}
--spec read_to(lee:model(), lee_storage:data()) -> lee_storage:data().
+-spec read_to(lee:model(), lee_storage:data()) ->
+          {ok, lee_storage:data()} | {error, list(), list()}.
 read_to(Model, Data) ->
     {_Prio, Patch} = read_patch(?metatype, Model),
     lee:patch(Model, Data, Patch).
