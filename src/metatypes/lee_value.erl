@@ -21,7 +21,7 @@
 -export([create/1]).
 
 %% behavior callbacks:
--export([names/1, validate_node/5, meta_validate_node/4, doc_chapter_title/0, doc_gen/2]).
+-export([names/1, validate_node/5, meta_validate_node/4, doc_chapter_title/2, doc_gen/4]).
 
 -include("../framework/lee_internal.hrl").
 
@@ -66,26 +66,42 @@ validate_node(value, Model, Data, Key, #mnode{metaparams = Attrs}) ->
 -spec meta_validate_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) ->
                             lee_lib:check_result().
 meta_validate_node(value, Model, Key, #mnode{metaparams = Attrs}) ->
-    Results = lee_lib:compose_checks([ %lee_doc:check_docstrings(Attrs) TODO
-                                      check_type_and_default(Model, Attrs)
+    Results = lee_lib:compose_checks([ lee_doc:check_docstrings(Attrs)
+                                     , check_type_and_default(Model, Attrs)
                                      ]),
     lee_lib:inject_error_location(Key, Results).
 
-doc_chapter_title() ->
+doc_chapter_title(value, _) ->
     "Values".
 
-doc_gen(Model, _Config) ->
-    #model{meta_class_idx = Idx} = Model,
-    Keys = maps:get(value, Idx, []),
-    lists:filtermap( fun(Key) ->
-                             MNode = lee_model:get(Key, Model),
-                             case lists:member(undocumented, MNode#mnode.metatypes) of
-                                 false -> {true, document_value(Key, MNode)};
-                                 true  -> false
-                             end
-                     end
-                   , Keys
-                   ).
+doc_gen(value, Model, Key, #mnode{metaparams = Attrs}) ->
+    Oneliner = ?m_attr(value, oneliner, Attrs, ""),
+    Type = ?m_attr(value, type, Attrs),
+    Default =
+        case Attrs of
+            #{default := DefVal} ->
+                DefStr = io_lib:format("~p", [DefVal]),
+                [lee_doc:simplesect( "Default value:"
+                                   , [lee_doc:erlang_listing(DefStr)]
+                                   )];
+            _ ->
+                []
+        end,
+    Description =
+        case Attrs of
+            #{doc := DocString0} ->
+                DocString = ?m_valid(value, lee_doc:docbook(DocString0)),
+                [lee_doc:simplesect("Description:", DocString)];
+            _ ->
+                []
+        end,
+    Id = lee_lib:format("~p", [Key]),
+    { section, [{id, Id}]
+    , [ {title, [Id]}
+      , {para, [Oneliner]}
+      , lee_doc:simplesect("Type:", [lee_doc:erlang_listing(typerefl:print(Type))])
+      ] ++ Default ++ Description
+    }.
 
 %%================================================================================
 %% Internal functions
@@ -124,34 +140,3 @@ check_type_and_default(Model, Attrs) ->
         _ ->
             {["Missing `type' metaparameter"], []}
     end.
-
--spec document_value(lee:model_key(), #mnode{}) -> lee_doc:doc().
-document_value(Key, MNode) ->
-    #mnode{metaparams = Attrs} = MNode,
-    Oneliner = ?m_attr(value, oneliner, Attrs, ""),
-    Type = ?m_attr(value, type, Attrs),
-    Default =
-        case Attrs of
-            #{default := DefVal} ->
-                DefStr = io_lib:format("~p", [DefVal]),
-                [lee_doc:simplesect( "Default value:"
-                                   , [lee_doc:erlang_listing(DefStr)]
-                                   )];
-            _ ->
-                []
-        end,
-    Description =
-        case Attrs of
-            #{doc := DocString0} ->
-                DocString = ?m_valid(value, lee_doc:docbook(DocString0)),
-                [lee_doc:simplesect("Description:", DocString)];
-            _ ->
-                []
-        end,
-    Id = lee_lib:format("~p", [Key]),
-    { section, [{id, Id}]
-    , [ {title, [Id]}
-      , {para, [Oneliner]}
-      , lee_doc:simplesect("Type:", [lee_doc:erlang_listing(typerefl:print(Type))])
-      ] ++ Default ++ Description
-    }.

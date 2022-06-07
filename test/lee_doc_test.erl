@@ -1,5 +1,9 @@
 -module(lee_doc_test).
 
+-behavior(lee_metatype).
+
+-export([names/1, create/1]).
+
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("typerefl/include/types.hrl").
 
@@ -101,15 +105,11 @@ model() ->
                      }}
              %% , cli => lee_cli_tests:test_model_raw()
              },
-    FooBar = #{ metatype =>
-                    #{ foo => {[metatype], #{}}
-                     , bar => {[metatype], #{}}
-                     }},
     {ok, Mod} = lee_model:compile( [ lee:base_metamodel()
                                    %% , lee_os_env:metamodel()
                                    %% , lee_consult:metamodel()
                                    %% , lee_cli:metamodel()
-                                   , FooBar
+                                   , lee_metatype:create(?MODULE)
                                    ]
                                  , [Model]
                                  ),
@@ -132,3 +132,11 @@ export_test() ->
               , run_pandoc => true
               },
     lee_doc:make_docs(model(), Config).
+
+%% Metatype callbacks:
+
+create(_) ->
+    [].
+
+names(_) ->
+    [foo, bar].

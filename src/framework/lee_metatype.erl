@@ -17,7 +17,7 @@
 
 %% API:
 -export([create/1, create/2, get_module/2, is_implemented/3,
-         validate_node/5, meta_validate_node/4, doc_chapter_title/2, doc_gen/2]).
+         validate_node/5, meta_validate_node/4, doc_chapter_title/2, doc_gen/4]).
 
 -export_types([cooked_metatype/0]).
 
@@ -37,9 +37,9 @@
 
 -callback doc_chapter_title(lee:metatype(), lee:model()) -> string() | undefined.
 
--callback doc_gen(lee:metatype(), lee:model()) -> lee_doc:doc().
+-callback doc_gen(lee:metatype(), lee:model(), lee:key(), #mnode{}) -> lee_doc:doc().
 
--optional_callbacks([validate_node/5, meta_validate_node/4, doc_chapter_title/2, doc_gen/2]).
+-optional_callbacks([validate_node/5, meta_validate_node/4, doc_chapter_title/2, doc_gen/4]).
 
 %%================================================================================
 %% Type declarations
@@ -97,13 +97,16 @@ meta_validate_node(Metatype, Model, Key, MNode) ->
 
 -spec doc_chapter_title(lee:metatype(), lee:model()) -> string() | undefined.
 doc_chapter_title(Metatype, Model) ->
-    M = get_module(Model, Metatype),
-    M:doc_chapter_title(Metatype, Model).
+    Module = get_module(Model, Metatype),
+    case ?is_implemented(Module) of
+        true  -> Module:doc_chapter_title(Metatype, Model);
+        false -> undefined
+    end.
 
--spec doc_gen(lee:metatype(), lee:model()) -> lee_doc:doc().
-doc_gen(Metatype, Model) ->
+-spec doc_gen(lee:metatype(), lee:model(), lee:key(), #mnode{}) -> lee_doc:doc().
+doc_gen(Metatype, Model, Key, MNode) ->
     M = get_module(Model, Metatype),
-    M:doc_gen(Metatype, Model).
+    M:doc_gen(Metatype, Model, Key, MNode).
 
 %%================================================================================
 %% Internal functions
@@ -117,6 +120,6 @@ callback_arity(meta_validate_node) ->
 callback_arity(doc_chapter_title) ->
     2;
 callback_arity(doc_gen) ->
-    2;
+    4;
 callback_arity(CB) ->
     error({unknown_callback, CB}).

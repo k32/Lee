@@ -114,7 +114,7 @@ meta_validate_value_test() ->
                 , Compile(#{type => integer(), oneliner => foo})
                 ),
     %% Error in `doc':
-    ?assertMatch( {error, ["[foo]: `doc' attribute is not a valid docbook string"]}
+    ?assertMatch( {error, ["[foo]: `doc' attribute is not a valid docbook XML"]}
                 , Compile(#{type => integer(), doc => "<para>foo"})
                 ).
 

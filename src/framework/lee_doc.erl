@@ -1,7 +1,7 @@
 %% @doc Utilities for extracting documentation from the model
 -module(lee_doc).
 
--export([make_docs/2, document_values/2]).
+-export([make_docs/2]).
 
 -export([ simplesect/2
         , erlang_listing/1
@@ -87,7 +87,7 @@ check_docstrings(Attrs) ->
                        try docbook(Doc) of
                            _ -> {[], []}
                        catch
-                           _:_ -> {["`doc' attribute is not a valid docbook string"], []}
+                           _:_ -> {["`doc' attribute is not a valid docbook XML"], []}
                        end;
                    _ ->
                        {[], ["`doc' attribute is expected"]}
@@ -102,53 +102,6 @@ validate_doc_root(_, _, Key, #mnode{metaparams = Attrs}) ->
              (_)                -> {["Missing `app_name' parameter"], []}
           end,
     lee_lib:perform_checks(Key, Attrs, [fun check_docstrings/1, Fun]).
-
-%% @private
--spec document_value(lee:model_key(), #mnode{}) -> doc().
-document_value(Key, MNode) ->
-    #mnode{metaparams = Attrs} = MNode,
-    Oneliner = ?m_attr(value, oneliner, Attrs, ""),
-    Type = ?m_attr(value, type, Attrs),
-    Default =
-        case Attrs of
-            #{default := DefVal} ->
-                DefStr = io_lib:format("~p", [DefVal]),
-                [simplesect( "Default value:"
-                           , [erlang_listing(DefStr)]
-                           )];
-            _ ->
-                []
-        end,
-    Description =
-        case Attrs of
-            #{doc := DocString0} ->
-                DocString = ?m_valid(value, docbook(DocString0)),
-                [simplesect("Description:", DocString)];
-            _ ->
-                []
-        end,
-    Id = lee_lib:format("~p", [Key]),
-    { section, [{id, Id}]
-    , [ {title, [Id]}
-      , {para, [Oneliner]}
-      , simplesect("Type:", [erlang_listing(typerefl:print(Type))])
-      ] ++ Default ++ Description
-    }.
-
-%% @private
--spec document_values(lee:model(), _Config) -> doc().
-document_values(Model, _Config) ->
-    #model{meta_class_idx = Idx} = Model,
-    Keys = maps:get(value, Idx, []),
-    lists:filtermap( fun(Key) ->
-                             MNode = lee_model:get(Key, Model),
-                             case lists:member(undocumented, MNode#mnode.metatypes) of
-                                 false -> {true, document_value(Key, MNode)};
-                                 true  -> false
-                             end
-                     end
-                   , Keys
-                   ).
 
 %% @private
 -spec make_file(atom(), doc(), string()) -> file:filename().
@@ -169,36 +122,33 @@ make_file(Top, Data, Id) ->
     Filename.
 
 %% @private
--spec metatype_docs( lee:metatype() | {lee:metatype(), term()}
+-spec metatype_docs( lee:metatype()
                    , lee:model()
-                   ) -> doc().
-metatype_docs({MetaType, DocConfig}, Model) ->
-    lee_metatype:is_implemented(Model, MetaType, doc_chapter_title)
-        andalso
+                   ) -> [doc()].
+metatype_docs(Metatype, Model) ->
+    case lee_metatype:doc_chapter_title(Metatype, Model) of
+        undefined ->
+            [];
+        Title ->
+            #model{meta_class_idx = Idx} = Model,
+            Keys = maps:get(Metatype, Idx, []),
+            Content =
+                lists:filtermap( fun(Key) ->
+                                         document_node(Metatype, Model, Key)
+                                 end
+                               , Keys
+                               ),
+            [{chapter, [{id, atom_to_list(Metatype)}]
+             , [{title, [Title]} | Content]
+             }]
+    end.
 
-    #model{metamodel = Meta} = Model,
-    #mnode{metaparams = Attrs} = lee_model:get([metatype, MetaType], Meta),
-    Title0 = ?m_attr(documented, doc_chapter_title, Attrs),
-    Title = if is_function(Title0, 2) ->
-                    Title0(Model, DocConfig);
-               is_list(Title0) ->
-                    Title0
-            end,
-    GenDocs = ?m_attr(documented, doc_gen, Attrs),
-    Content = GenDocs(Model, DocConfig),
-    %% TODO: it's not the way
-    ChapterSuffix = case DocConfig of
-                        #{chapter_name := CN} ->
-                            [$-|CN];
-                        _ ->
-                            ""
-                    end,
-    SectionId = lee_lib:format("chapter-~p~s", [MetaType, ChapterSuffix]),
-    {chapter, [{id, SectionId}]
-    , [{title, [Title]} | Content]
-    };
-metatype_docs(MetaType, Model) ->
-    metatype_docs({MetaType, undefined}, Model).
+document_node(Metatype, Model, Key) ->
+    MNode = lee_model:get(Key, Model),
+    case lists:member(undocumented, MNode#mnode.metatypes) of
+        false -> {true, lee_metatype:doc_gen(Metatype, Model, Key, MNode)};
+        true  -> false
+    end.
 
 -spec make_docs(lee:model(), doc_options()) -> ok.
 make_docs(Model, Options) ->
@@ -206,11 +156,10 @@ make_docs(Model, Options) ->
     case lee_model:get_metatype_index(doc_root, Model) of
         [DocRoot] ->
             #mnode{metaparams = Attrs} = lee_model:get(DocRoot, Model),
-            AppName = ?m_attr(doc_root, app_name, Attrs),
-            Intro = make_intro_chapter(Attrs),
-            Chapters = [metatype_docs(MT, Model) || MT <- Metatypes],
-            Contents = [{title, [AppName]}, Intro | Chapters],
-            Top = make_file(book, Contents, AppName),
+            BookTitle = lee_metatype:doc_chapter_title(doc_root, Model),
+            Chapters = lists:flatten([metatype_docs(MT, Model) || MT <- [doc_root|Metatypes]]),
+            Book = [{title, [BookTitle]} | Chapters],
+            Top = make_file(book, Book, BookTitle),
             case maps:get(run_pandoc, Options, false) of
                 true ->
                     {0, _} = run_pandoc(Top, "html"),
@@ -220,15 +169,8 @@ make_docs(Model, Options) ->
                     ok
             end;
         _ ->
-            error("Only one doc root should be present in the model")
+            error("Exactly one doc root should be present in the model")
     end.
-
-make_intro_chapter(Attrs) ->
-    AppOneliner = ?m_attr(doc_root, oneliner, Attrs),
-    AppDoc = docbook(?m_attr(doc_root, doc, Attrs, "")),
-    {chapter, [{id, "intro"}]
-    , [{title, ["Introduction"]}, {para, [AppOneliner]} | AppDoc]
-    }.
 
 run_pandoc(SrcFile, OutFormat) ->
     %% TODO: this is sketchy and wrong
