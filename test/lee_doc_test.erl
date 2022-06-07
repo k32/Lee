@@ -78,7 +78,7 @@ model() ->
                      , doc      => long_text()
                      }}
              , bar =>
-                   {[value, os_env],
+                   {[value],
                     #{ oneliner => "This parameter controls baring"
                      , type     => {typerefl:nonempty_list([]), typerefl:iolist()}
                      , os_env   => "BAR"
@@ -88,27 +88,27 @@ model() ->
                     #{ type => {typerefl:nonempty_list([]), typerefl:iolist()}
                      }}
              , quux =>
-                   {[value, consult, foo],
+                   {[value, foo],
                     #{ type     => integer()
                      , oneliner => "This value controls quuxing"
                      , file_key => quux
                      }}
              , xizzy =>
-                   {[value, consult, bar],
+                   {[value, bar],
                     #{ type     => float()
                      , oneliner => "This value controls xizzying"
                      , file_key => xizzy
                      }}
-             , cli => lee_cli_tests:test_model_raw()
+             %% , cli => lee_cli_tests:test_model_raw()
              },
     FooBar = #{ metatype =>
                     #{ foo => {[metatype], #{}}
                      , bar => {[metatype], #{}}
                      }},
     {ok, Mod} = lee_model:compile( [ lee:base_metamodel()
-                                   , lee_os_env:metamodel()
-                                   , lee_consult:metamodel()
-                                   , lee_cli:metamodel()
+                                   %% , lee_os_env:metamodel()
+                                   %% , lee_consult:metamodel()
+                                   %% , lee_cli:metamodel()
                                    , FooBar
                                    ]
                                  , [Model]
@@ -117,16 +117,16 @@ model() ->
 
 
 export_test() ->
-    MTs = [ os_env
-          , cli_param
-          , consult
-          , {consult, #{ filter      => [foo]
-                       , config_name => "foo.conf"
-                       }}
-          , {consult, #{ filter      => [bar]
-                       , config_name => "bar.conf"
-                       }}
-          , value
+    MTs = [ %% os_env
+          %% , cli_param
+          %% , consult
+          %% , {consult, #{ filter      => [foo]
+          %%              , config_name => "foo.conf"
+          %%              }}
+          %% , {consult, #{ filter      => [bar]
+          %%              , config_name => "bar.conf"
+          %%              }}
+           value
           ],
     Config = #{ metatypes => MTs
               , run_pandoc => true

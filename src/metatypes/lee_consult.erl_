@@ -24,6 +24,10 @@
 %%  }'''
 -module(lee_consult).
 
+-behavior(lee_metatype).
+
+-export([name/0, meta_validate/4, doc_chapter_title/2, doc_gen/2]).
+
 -export([ metamodel/0
         , read/2
         , read/3
