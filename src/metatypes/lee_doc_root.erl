@@ -18,25 +18,25 @@
 -behavior(lee_metatype).
 
 %% API:
--export([create/1]).
+-export([]).
 
 %% behavior callbacks:
--export([names/1, meta_validate_node/4, doc_chapter_title/2, doc_gen/4]).
+-export([create/1, names/1, description/1, meta_validate_node/4, doc_chapter_title/2, doc_gen/4]).
 
 -include("../framework/lee_internal.hrl").
-
-%%================================================================================
-%% API funcions
-%%================================================================================
-create(_) ->
-    [].
 
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
 
+create(_) ->
+    [].
+
 names(_) ->
     [doc_root].
+
+description(doc_root) ->
+    "".
 
 meta_validate_node(doc_root, _Model, Key, #mnode{metaparams = Attrs}) ->
     Fun = fun(#{app_name := _}) -> {[], []};

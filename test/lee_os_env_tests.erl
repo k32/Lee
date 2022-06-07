@@ -9,19 +9,16 @@ model() ->
                           , type => string()
                           }}
               , path => {[value, os_env],
-                         #{ os_env => "PATH"
-                          , type => string()
+                         #{ type => string()
                           }}
               },
-    Meta = [lee:base_metamodel(), lee_os_env:metamodel()],
+    Meta = [lee:base_metamodel(), lee_metatype:create(lee_os_env)],
     {ok, Model} = lee_model:compile(Meta, [Model0]),
     Model.
 
 osenv_test() ->
     Model = model(),
-    Data = lee_os_env:read_to( Model
-                             , lee_storage:new(lee_map_storage, [])
-                             ),
+    Data = lee:init_config(Model, lee_storage:new(lee_map_storage)),
     Home = os:getenv("HOME"),
     Path = os:getenv("PATH"),
     ?assertMatch( Home

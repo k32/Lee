@@ -11,6 +11,7 @@
         , meta_validate/2
         , from_string/3
         , from_strings/3
+        , init_config/2
         ]).
 
 -export_type([ node_id/0
@@ -95,34 +96,6 @@ namespace(Key, M) ->
                ).
 
 %% @doc Model module containing basic metatypes:
-%%
-%% == value ==
-%%
-%% `value' is a leaf node, i.e. a concrete value.
-%%
-%% === Metaparameters ===
-%% <ul><li>`type' of type `typerefl:type()':
-%%     Type of the value
-%%     </li>
-%%     <li>`default' (optional):
-%%     Default value, if present</li>
-%%     <li>`oneliner' of type `string()' (optional, but highly desired):
-%%     One-sentence doc string</li>
-%%     <li>`doc' of type `string()' (optional, but highly desired):
-%%     Long description using <a href="https://docbook.org/">DocBook</a>
-%%     markup</li>
-%% </ul>
-%%
-%% == map ==
-%% `map' denotes a container node that groups multiple values together.
-%%
-%% <b>Metaparameters</b>:
-%% <ul><li>`key_elements' of type `[lee:key()]':
-%%     List of child element keys that identify the map. Optional,
-%%     defaults to `[]'
-%%     </li>
-%% </ul>
-%%
 -spec base_metamodel() -> [lee_metatype:cooked_metatype()].
 base_metamodel() ->
     [ lee_metatype:create(lee_value)
@@ -163,6 +136,14 @@ get(Model, [Data|Rest], Key) ->
         undefined ->
             get(Model, Rest, Key)
     end.
+
+-spec init_config(model(), data()) -> data().
+init_config(Model, Data) ->
+    Patch = lists:flatmap(fun(MT) ->
+                                  lee_metatype:read_patch(MT, Model)
+                          end,
+                          lee_model:all_metatypes(Model)),
+    lee_storage:patch(Data, Patch).
 
 %% @doc List objects in `Data' that can match `Key'
 %%

@@ -18,26 +18,26 @@
 -behavior(lee_metatype).
 
 %% API:
--export([create/1]).
+-export([]).
 
 %% behavior callbacks:
--export([names/1, validate_node/5, meta_validate_node/4, doc_chapter_title/2, doc_gen/4]).
+-export([create/1, names/1, description/1, validate_node/5, meta_validate_node/4,
+         doc_chapter_title/2, doc_gen/4]).
 
 -include("../framework/lee_internal.hrl").
-
-%%================================================================================
-%% API funcions
-%%================================================================================
-
-create(_) ->
-    [].
 
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
 
+create(_) ->
+    [].
+
 names(_) ->
     [value].
+
+description(value) ->
+    "<para>All configurable values.</para>".
 
 %% Validate nodes of `value' metatype
 -spec validate_node(lee:metatype(), lee:model(), lee:data(), lee:key(), #mnode{}) ->

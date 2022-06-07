@@ -9,6 +9,7 @@
         , fold/4
         , get/2
         , get_meta/3
+        , all_metatypes/1
         , get_metatype_index/2
         , match/2
         , get_model_key/1
@@ -204,6 +205,10 @@ full_split_key(Key) ->
               (_)                  -> true
            end,
     lee_lib:splitl(Pred, Key).
+
+-spec all_metatypes(lee:model()) -> [lee:metatype()].
+all_metatypes(#model{metamodules = MM}) ->
+    maps:keys(MM).
 
 %% @doc Get an index of mnodes belonging to metatypes
 -spec get_metatype_index(lee:metatype(), lee:model()) ->

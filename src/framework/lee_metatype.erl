@@ -16,8 +16,9 @@
 -module(lee_metatype).
 
 %% API:
--export([create/1, create/2, get_module/2, is_implemented/3,
-         validate_node/5, meta_validate_node/4, doc_chapter_title/2, doc_gen/4]).
+-export([create/1, create/2, description/2, get_module/2, is_implemented/3,
+         validate_node/5, meta_validate_node/4, doc_chapter_title/2, doc_gen/4,
+         read_patch/2]).
 
 -export_types([cooked_metatype/0]).
 
@@ -31,6 +32,8 @@
 
 -callback create(map()) -> [{lee:key(), term()}].
 
+-callback description(lee:metatype()) -> string() | lee_doc:doc().
+
 -callback validate_node(lee:metatype(), lee:model(), lee:data(), lee:key(), #mnode{}) -> lee_lib:check_result().
 
 -callback meta_validate_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) -> lee_lib:check_result().
@@ -39,7 +42,10 @@
 
 -callback doc_gen(lee:metatype(), lee:model(), lee:key(), #mnode{}) -> lee_doc:doc().
 
--optional_callbacks([validate_node/5, meta_validate_node/4, doc_chapter_title/2, doc_gen/4]).
+-callback read_patch(lee:metatype(), lee:model()) -> lee:patch().
+
+-optional_callbacks([validate_node/5, meta_validate_node/4, doc_chapter_title/2,
+                     doc_gen/4, read_patch/2]).
 
 %%================================================================================
 %% Type declarations
@@ -47,7 +53,8 @@
 
 -type cooked_metatype() :: {module(), [atom()], [{lee:key(), term()}]}.
 
--type callback() :: validate_node | meta_validate_node | doc_chapter_title | doc_gen.
+-type callback() :: validate_node | meta_validate_node | doc_chapter_title | doc_gen
+                  | read_patch.
 
 %%================================================================================
 %% Macros
@@ -69,6 +76,11 @@ create(M, Params) ->
 -spec create(module()) -> cooked_metatype().
 create(Module) ->
     create(Module, #{}).
+
+-spec description(lee:model(), lee:metatype()) -> string() | lee_doc:doc().
+description(Model, Metatype) ->
+    Mod = get_module(Model, Metatype),
+    Mod:description(Metatype).
 
 -spec get_module(lee:model(), lee:metatype()) -> module().
 get_module(#model{metamodules = Modules}, Metatype) ->
@@ -108,6 +120,14 @@ doc_gen(Metatype, Model, Key, MNode) ->
     M = get_module(Model, Metatype),
     M:doc_gen(Metatype, Model, Key, MNode).
 
+-spec read_patch(lee:metatype(), lee:model()) -> lee:patch().
+read_patch(Metatype, Model) ->
+    Module = get_module(Model, Metatype),
+    case ?is_implemented(Module) of
+        true  -> Module:?FUNCTION_NAME(Metatype, Model);
+        false -> []
+    end.
+
 %%================================================================================
 %% Internal functions
 %%================================================================================
@@ -121,5 +141,7 @@ callback_arity(doc_chapter_title) ->
     2;
 callback_arity(doc_gen) ->
     4;
+callback_arity(read_patch) ->
+    2;
 callback_arity(CB) ->
     error({unknown_callback, CB}).
