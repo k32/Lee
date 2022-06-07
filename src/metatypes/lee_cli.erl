@@ -20,14 +20,20 @@
 %% TODO: This module is experimental; it's too convoluted and it needs
 %% some serious refactoring
 
--export([ metamodel/0
-        , read/2
+%% API
+-export([ read/2
         , read_to/3
         , doc_gen/2
-        , meta_validate_param/4
-        , meta_validate_positional/4
-        , meta_validate_action/4
         ]).
+
+%% behavior callbacks
+-export([ create/1
+        , names/1
+        , description/1
+        , meta_validate_node/4
+        , read_patch/2
+        ]).
+
 
 -ifdef(TEST).
 -export([tokenize/2]).
@@ -37,6 +43,8 @@
 -include("lee.hrl").
 
 -define(sigil, $@).
+-define(cli_opts_key, [?MODULE, cli_opts]).
+-define(prio_key, [?MODULE, priority]).
 
 %%====================================================================
 %% Types
@@ -68,7 +76,7 @@
 %% API
 %%====================================================================
 
-%% @doc Metamodel module containing definitions of CLI-related metatypes:
+%% Metamodel module containing definitions of CLI-related metatypes:
 %%
 %% == cli_param ==
 %% `cli_param' denotes a regular CLI argument.
@@ -152,28 +160,6 @@
 %%        , cli_arg_position => rest
 %%        }}
 %%  }'''
--spec metamodel() -> lee:module().
-metamodel() ->
-    #{metatype =>
-          #{ cli_param =>
-                 {[metatype, documented]
-                 , #{ doc_chapter_title => "CLI Arguments"
-                    , doc_gen => fun ?MODULE:doc_gen/2
-                    , meta_validate => fun ?MODULE:meta_validate_param/4
-                    }
-                 }
-           , cli_action =>
-                 {[metatype]
-                 , #{ meta_validate => fun ?MODULE:meta_validate_action/4
-                    }
-                 }
-           , cli_positional =>
-                 {[metatype]
-                 , #{ meta_validate => fun ?MODULE:meta_validate_positional/4
-                    }
-                 }
-           }
-     }.
 
 %% @doc Read CLI arguments and create a configuration patch
 %% @throws {error, string()}
@@ -205,20 +191,41 @@ read(Model, Args) ->
 
 %% @doc Read CLI arguments and apply the changes to the storage
 %% @throws {error, string()}
--spec read_to(lee:model(), [string()], lee_storage:data()) ->
+-spec read_to(lee:model(), lee_storage:data(), [string()]) ->
                      lee_storage:data().
-read_to(Model, Args, Data) ->
+read_to(Model, Data, Args) ->
     Patch = read(Model, Args),
     lee_storage:patch(Data, Patch).
 
-%% @private
--spec tokenize(char(), [string()]) -> [token()].
-tokenize(Sigil, L) ->
-    Tokens = [I || I <- tokenize_(Sigil, L), I /= []],
-    group_tokens(Tokens).
+%%====================================================================
+%% Behavior callbacks
+%%====================================================================
 
-%% @private Extract documentation from the model
--spec doc_gen(lee:model(), doc_config()) -> lee_doc:doc().
+create(Attrs) ->
+    [ {?cli_opts_key, maps:get(cli_opts, Attrs, [])}
+    , {?prio_key, maps:get(priority, Attrs, 100)}
+    ].
+
+names(_) ->
+    [cli_param, cli_action, cli_positional].
+
+description(_) ->
+    "".
+
+meta_validate_node(cli_param, Model, Key, MNode) ->
+    meta_validate_param(Model, Key, MNode);
+meta_validate_node(cli_action, Model, Key, MNode) ->
+    meta_validate_action(Model, Key, MNode);
+meta_validate_node(cli_positional, Model, Key, MNode) ->
+    meta_validate_positional(Model, Key, MNode).
+
+read_patch(cli_action, Model) ->
+    {ok, Args} = lee_model:get_meta(?cli_opts_key, Model),
+    {ok, Prio} = lee_model:get_meta(?prio_key, Model),
+    {Prio, read(Model, Args)};
+read_patch(_, _) ->
+    {0, []}.
+
 doc_gen(Model, Config) ->
     [{global, Global}|Scopes] = lists:sort(maps:to_list(mk_index(Model))),
     GlobalDoc = [{section, make_scope_docs(Global, Model)}],
@@ -228,23 +235,27 @@ doc_gen(Model, Config) ->
          || {Name, I} <- Scopes],
     GlobalDoc ++ ActionDocs.
 
--spec meta_validate_positional(lee:model(), _, lee:key(), #mnode{}) ->
+%%====================================================================
+%% Internal functions
+%%====================================================================
+
+-spec meta_validate_positional(lee:model(), lee:key(), #mnode{}) ->
                             lee_lib:check_result().
-meta_validate_positional(_, _, Key, MNode) ->
+meta_validate_positional(_, Key, MNode) ->
     lee_lib:inject_error_location(
       Key,
       lee_lib:validate_meta_attr(cli_arg_position, position(), MNode)).
 
--spec meta_validate_action(lee:model(), _, lee:key(), #mnode{}) ->
+-spec meta_validate_action(lee:model(), lee:key(), #mnode{}) ->
                             lee_lib:check_result().
-meta_validate_action(_, _, Key, MNode) ->
+meta_validate_action(_, Key, MNode) ->
     lee_lib:inject_error_location(
       Key,
       lee_lib:validate_meta_attr(cli_operand, string(), MNode)).
 
--spec meta_validate_param(lee:model(), _, lee:key(), #mnode{}) ->
+-spec meta_validate_param(lee:model(), lee:key(), #mnode{}) ->
                             lee_lib:check_result().
-meta_validate_param(_, _, Key, MNode) ->
+meta_validate_param(_, Key, MNode) ->
     Presense = case MNode#mnode.metaparams of
                    #{cli_operand := _} ->
                        {[], []};
@@ -260,10 +271,6 @@ meta_validate_param(_, _, Key, MNode) ->
         , lee_lib:validate_optional_meta_attr(cli_short, char(), MNode)
         , Presense
         ])).
-
-%%====================================================================
-%% Internal functions
-%%====================================================================
 
 -spec split_commands([token()]) -> [[token()]].
 split_commands(Tokens) ->
@@ -479,3 +486,9 @@ make_scope_docs(#sc{ short = Short
 document_param(Name, Key, Model) ->
     MNode = lee_model:get(Key, Model),
     lee_doc:refer_value(Key, cli_param, Name, MNode).
+
+%% @private
+-spec tokenize(char(), [string()]) -> [token()].
+tokenize(Sigil, L) ->
+    Tokens = [I || I <- tokenize_(Sigil, L), I /= []],
+    group_tokens(Tokens).

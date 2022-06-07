@@ -112,7 +112,7 @@ test_model_raw() ->
 test_model() ->
     MF = test_model_raw(),
     {ok, M} = lee_model:compile( [ lee:base_metamodel()
-                                 , lee_cli:metamodel()
+                                 , lee_metatype:create(lee_cli)
                                  ]
                                , [MF]
                                ),
@@ -169,7 +169,7 @@ tokenize_test() ->
 
 read_cli(String) ->
     Args = string:tokens(String, " "),
-    try lee_cli:read_to(test_model(), Args, lee_storage:new(lee_map_storage)) of
+    try lee_cli:read_to(test_model(), lee_storage:new(lee_map_storage), Args) of
         Data ->
             {ok, Data}
     catch
@@ -314,4 +314,4 @@ validate_positional_test() ->
                 ).
 
 compile(Module) ->
-    lee_model:compile([lee:base_metamodel(), lee_cli:metamodel()], [Module]).
+    lee_model:compile([lee:base_metamodel(), lee_metatype:create(lee_cli)], [Module]).
