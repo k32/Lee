@@ -19,6 +19,7 @@
 
 -export_type([ data/1
              , data/0
+             , patch_op/1
              , patch/1
              ]).
 
@@ -30,7 +31,9 @@
 
 -type storage(_A) :: term().
 
--type patch(A) :: [{set, lee:key(), A} | {rm, lee:key()}].
+-type patch_op(A) :: {set, lee:key(), A} | {rm, lee:key()}.
+
+-type patch(A) :: [patch_op(A)].
 
 -type rose_tree() :: #{lee:key() => rose_tree()}.
 

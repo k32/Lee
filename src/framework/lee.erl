@@ -11,6 +11,8 @@
         , meta_validate/2
         , from_string/3
         , from_strings/3
+
+        , patch/3
         , init_config/2
         ]).
 
@@ -143,7 +145,16 @@ init_config(Model, Data) ->
                                   lee_metatype:read_patch(MT, Model)
                           end,
                           lee_model:all_metatypes(Model)),
-    lee_storage:patch(Data, Patch).
+    lee:patch(Model, Data, Patch).
+
+-spec patch(model(), data(), patch()) -> data().
+patch(Model, Data0, Patch) ->
+    Data = lee_storage:patch(Data0, Patch),
+    lists:foreach(fun(PatchOp) ->
+                          process_patch_op(Model, Data, PatchOp)
+                  end,
+                  Patch),
+    Data.
 
 %% @doc List objects in `Data' that can match `Key'
 %%
@@ -304,3 +315,15 @@ validate_node(Model, Data, NodeId, ValidateFun) ->
                , {[], []}
                , Instances
                ).
+
+process_patch_op(Model, Data, PatchOp) ->
+    case PatchOp of
+        {set, Key, _} -> ok;
+        {rm, Key} -> ok
+    end,
+    MNode = lee_model:get(lee_model:get_model_key(Key), Model),
+    #mnode{metatypes = MTs} = MNode,
+    lists:foreach(fun(MT) ->
+                          lee_metatype:post_patch(MT, Model, Data, MNode, PatchOp)
+                  end,
+                  MTs).

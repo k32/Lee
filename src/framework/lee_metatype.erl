@@ -18,7 +18,7 @@
 %% API:
 -export([create/1, create/2, description/2, get_module/2, is_implemented/3,
          validate_node/5, meta_validate_node/4, doc_chapter_title/2, doc_gen/4,
-         read_patch/2]).
+         read_patch/2, post_patch/5]).
 
 -export_types([cooked_metatype/0]).
 
@@ -44,8 +44,10 @@
 
 -callback read_patch(lee:metatype(), lee:model()) -> lee:patch().
 
+-callback post_patch(lee:metatype(), lee:model(), lee:data(), #mnode{}, lee_storage:patch_op(term())) -> ok.
+
 -optional_callbacks([validate_node/5, meta_validate_node/4, doc_chapter_title/2,
-                     doc_gen/4, read_patch/2]).
+                     doc_gen/4, read_patch/2, post_patch/5]).
 
 %%================================================================================
 %% Type declarations
@@ -54,7 +56,7 @@
 -type cooked_metatype() :: {module(), [atom()], [{lee:key(), term()}]}.
 
 -type callback() :: validate_node | meta_validate_node | doc_chapter_title | doc_gen
-                  | read_patch.
+                  | read_patch | post_patch.
 
 %%================================================================================
 %% Macros
@@ -128,6 +130,14 @@ read_patch(Metatype, Model) ->
         false -> []
     end.
 
+-spec post_patch(lee:metatype(), lee:model(), lee:data(), #mnode{}, lee_storage:patch_op(term())) -> ok.
+post_patch(Metatype, Model, Data, MNode, PatchOp) ->
+    Module = get_module(Model, Metatype),
+    case ?is_implemented(Module) of
+        true  -> Module:?FUNCTION_NAME(Metatype, Model, Data, MNode, PatchOp);
+        false -> ok
+    end.
+
 %%================================================================================
 %% Internal functions
 %%================================================================================
@@ -143,5 +153,7 @@ callback_arity(doc_gen) ->
     4;
 callback_arity(read_patch) ->
     2;
+callback_arity(post_patch) ->
+    5;
 callback_arity(CB) ->
     error({unknown_callback, CB}).

@@ -170,7 +170,7 @@ fold(Fun, Acc, Scope, Model) -> %% Fold over cooked module
 -spec get_model_key(lee:key()) -> lee:model_key().
 get_model_key([]) ->
     [];
-get_model_key([{_} | T]) ->
+get_model_key([Tup | T]) when is_tuple(Tup) ->
     [?children | get_model_key(T)];
 get_model_key([A|T]) ->
     [A | get_model_key(T)].

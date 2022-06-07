@@ -13,17 +13,15 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%--------------------------------------------------------------------
--module(lee_doc_root).
-
--behavior(lee_metatype).
-
-%% API:
--export([]).
+-module(lee_app_env).
 
 %% behavior callbacks:
--export([create/1, names/1, description/1, meta_validate_node/4, doc_chapter_title/2, doc_gen/4]).
+-export([create/1, names/1, description/1, meta_validate_node/4, post_patch/5]).
 
--include("../framework/lee_internal.hrl").
+-include_lib("lee/src/framework/lee_internal.hrl").
+-include_lib("typerefl/include/types.hrl").
+
+-define(metatype, app_env).
 
 %%================================================================================
 %% behavior callbacks
@@ -33,28 +31,33 @@ create(_) ->
     [].
 
 names(_) ->
-    [doc_root].
+    [?metatype].
 
-description(doc_root) ->
-    "".
+description(?metatype) ->
+    "<para>Values that get mapped to Erlang application environemnt</para>".
 
-meta_validate_node(doc_root, _Model, Key, #mnode{metaparams = Attrs}) ->
-    Fun = fun(#{app_name := _}) -> {[], []};
-             (_)                -> {["Missing `app_name' parameter"], []}
-          end,
-    lee_lib:perform_checks(Key, Attrs, [fun lee_doc:check_docstrings/1, Fun]).
+meta_validate_node(?metatype, _Model, Key, MNode) ->
+    lee_lib:inject_error_location(
+      Key,
+      lee_lib:validate_meta_attr( app_env
+                                , {atom(), atom()}
+                                , MNode
+                                )).
 
-doc_chapter_title(doc_root, Model) ->
-    [Key] = lee_model:get_metatype_index(doc_root, Model),
-    #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
-    ?m_attr(doc_root, app_name, Attrs).
+post_patch(?metatype, Model, _Data, #mnode{metaparams = Attrs}, PatchOp) ->
+    {App, Env} = ?m_attr(?metatype, app_env, Attrs),
+    Transform = ?m_attr(?metatype, app_env_transform, Attrs, fun(A) -> A end),
+    case PatchOp of
+        {set, _, V} ->
+            application:set_env(App, Env, Transform(V));
+        {rm, _} ->
+            application:unset_env(App, Env)
+    end,
+    ok.
 
-doc_gen(doc_root, _Model, _Key, #mnode{metaparams = Attrs}) ->
-    AppOneliner = ?m_attr(doc_root, oneliner, Attrs),
-    AppDoc = lee_doc:docbook(?m_attr(doc_root, doc, Attrs, "")),
-    {chapter, [{id, "_intro"}]
-    , [{title, ["Introduction"]}, {para, [AppOneliner]} | AppDoc]
-    }.
+%%================================================================================
+%% Internal exports
+%%================================================================================
 
 %%================================================================================
 %% Internal functions
