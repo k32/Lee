@@ -45,7 +45,7 @@ model() ->
 
 read_test() ->
     Model = model(),
-    Data = lee:init_config(Model, lee_storage:new(lee_map_storage)),
+    {ok, Data, _} = lee:init_config(Model, lee_storage:new(lee_map_storage)),
     ?assertMatch( "I am foo"
                 , lee:get(Model, Data, [foo])
                 ),

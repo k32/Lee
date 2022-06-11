@@ -21,7 +21,7 @@
 -export([]).
 
 %% behavior callbacks:
--export([create/1, names/1, description/2, validate_node/5, meta_validate_node/4,
+-export([names/1, description/2, validate_node/5, meta_validate_node/4,
          description_title/2, description_node/4]).
 
 -include("../framework/lee_internal.hrl").
@@ -29,9 +29,6 @@
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
-
-create(_) ->
-    [].
 
 names(_) ->
     [value].
@@ -41,7 +38,7 @@ description(value, _Model) ->
 
 %% Validate nodes of `value' metatype
 -spec validate_node(lee:metatype(), lee:model(), lee:data(), lee:key(), #mnode{}) ->
-                            lee_lib:check_result().
+                           lee_lib:check_result().
 validate_node(value, Model, Data, Key, #mnode{metaparams = Attrs}) ->
     Type = ?m_attr(value, type, Attrs),
     HasDefault = case Attrs of
@@ -52,8 +49,10 @@ validate_node(value, Model, Data, Key, #mnode{metaparams = Attrs}) ->
     case lee_storage:get(Key, Data) of
         {ok, Term} ->
             Result = case typerefl:typecheck(Type, Term) of
-                         ok           -> {[], []};
-                         {error, Err} -> {[Err], []}
+                         ok ->
+                             {[], []};
+                         {error, Err} ->
+                             {[lee_lib:format_typerefl_error(Err)], []}
                      end,
             lee_lib:inject_error_location(Key, Result);
         undefined when HasDefault ->
@@ -80,9 +79,13 @@ description_node(value, Model, Key, #mnode{metaparams = Attrs}) ->
     Default =
         case Attrs of
             #{default := DefVal} ->
-                DefStr = io_lib:format("~p", [DefVal]),
-                [lee_doc:simplesect( "Default value:"
+                DefStr = typerefl:pretty_print_value(Type, DefVal),
+                [lee_doc:simplesect( "Default value: "
                                    , [lee_doc:erlang_listing(DefStr)]
+                                   )];
+            #{default_ref := Ref} ->
+                [lee_doc:simplesect( "Default value: "
+                                   , [{para, ["See ", lee_doc:xref_key(Ref)]}]
                                    )];
             _ ->
                 []
@@ -114,7 +117,8 @@ check_type_and_default(Model, Attrs) ->
                 ok ->
                     {[], []};
                 {error, Err} ->
-                    Str = lee_lib:format("Mistyped default value: ~s", [Err]),
+                    Str = "Mistyped default value. " ++
+                        lee_lib:format_typerefl_error(Err),
                     {[Str], []}
             end;
         #{type := Type, default_ref := DefaultRef} ->
@@ -138,5 +142,5 @@ check_type_and_default(Model, Attrs) ->
             %% TODO: typerefl:is_type?
             {[], []};
         _ ->
-            {["Missing `type' metaparameter"], []}
+            {["Missing mandatory `type' metaparameter"], []}
     end.

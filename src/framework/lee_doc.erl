@@ -3,7 +3,11 @@
 
 -export([make_docs/2]).
 
--export([ simplesect/2
+-export([ p/1
+        , li/2
+        , href/2
+        , sect/3
+        , simplesect/2
         , erlang_listing/1
         , xref_key/1
         , refer_value/4
@@ -24,6 +28,22 @@
 
 -export_type([doc/0, doc_options/0]).
 
+-spec p(list()) -> doc().
+p(Content) ->
+    {para, [Content]}.
+
+-spec href(string(), string()) -> doc().
+href(To, Text) ->
+    {link, [{'xlink:href', To}],
+     [Text]}.
+
+-spec sect(string(), string(), list()) -> doc().
+sect(ID, Title, Content) ->
+    {section, [{id, ID}],
+     [ {title, [Title]}
+     | Content
+     ]}.
+
 %% @doc Represent text as Erlang code
 -spec erlang_listing(iolist()) -> doc().
 erlang_listing(Str) ->
@@ -41,6 +61,13 @@ simplesect(Title, Doc0) ->
                   Doc0
           end,
     {para, [{emphasis, [Title]} | Doc]}.
+
+li(Title, Contents) ->
+  {listitem,
+   [{para,
+     [ {emphasis, [Title]}, ": "
+     | Contents
+     ]}]}.
 
 
 %% @doc Generate a link to the description of a value
@@ -70,6 +97,8 @@ refer_value(Key, Metatype, Title, MNode) ->
 -spec docbook(iolist()) -> [doc()].
 docbook([]) ->
     [];
+docbook(Cooked = [Tup|_]) when is_tuple(Tup) -> %% TODO: make detection bete
+    Cooked;
 docbook(String) ->
     {Doc, Rest} = xmerl_scan:string(String, [{document, false}]),
     [Doc | docbook(Rest)].
@@ -98,6 +127,7 @@ check_docstrings(Attrs) ->
 -spec make_file(atom(), doc(), string()) -> file:filename().
 make_file(Top, Data, Id) ->
     RootAttrs = [ {xmlns, "http://docbook.org/ns/docbook"}
+                , {'xmlns:xlink', "http://www.w3.org/1999/xlink"}
                 , {version, "5.0"}
                 , {id, Id}
                 ],

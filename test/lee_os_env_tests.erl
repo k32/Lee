@@ -14,6 +14,11 @@ model() ->
                           , app_env => {lee, path}
                           , app_env_transform => fun list_to_binary/1
                           }}
+              , quux => {[value, app_env],
+                         #{ type => atom()
+                          , default => initial
+                          , app_env => {lee, quux}
+                          }}
               },
     Meta = [lee:base_metamodel(), lee_metatype:create(lee_os_env),
             lee_metatype:create(lee_app_env)],
@@ -22,8 +27,9 @@ model() ->
 
 osenv_test() ->
     ok = application:unset_env(lee, path),
+    ok = application:unset_env(lee, quux),
     Model = model(),
-    Data = lee:init_config(Model, lee_storage:new(lee_map_storage)),
+    {ok, Data, _} = lee:init_config(Model, lee_storage:new(lee_map_storage)),
     Home = os:getenv("HOME"),
     Path = os:getenv("PATH"),
     ?assertMatch( Home
@@ -35,7 +41,10 @@ osenv_test() ->
     ?assertEqual( {ok, list_to_binary(Path)}
                 , application:get_env(lee, path)
                 ),
-    {ok, _Data} = lee:patch(Model, Data, [{rm, [path]}]),
+    ?assertEqual( {ok, initial}
+                , application:get_env(lee, quux)
+                ),
+    {ok, _Data, _Warns} = lee:patch(Model, Data, [{rm, [path]}]),
     ?assertMatch( {ok, <<"default">>}
                 , application:get_env(lee, path)
                 ).

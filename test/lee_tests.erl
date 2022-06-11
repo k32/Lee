@@ -1,9 +1,12 @@
 -module(lee_tests).
 
+-compile([export_all]).
+
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("lee/include/lee.hrl").
 -include_lib("lee/src/framework/lee_internal.hrl").
 -include_lib("typerefl/include/types.hrl").
+-include_lib("snabbkaffe/include/snabbkaffe.hrl").
 
 -define(moc, {[], #{}, #{}}).
 
@@ -30,59 +33,97 @@ run_validate(Model, Config0) ->
                     )).
 
 validate_test() ->
-    Model0 = #{ foo => {[value]
-                       , #{type => typerefl:boolean()}
-                       }
-              , bar => {[value]
-                       , #{type => typerefl:integer(), default => 42}
-                       }
-              , barfoo => {[value]
-                          , #{type => typerefl:boolean(), default_ref => [foo]}
-                          }
-              , foobar => {[value]
-                          , #{type => typerefl:integer(), default_ref => [bar]}
-                          }
+    Model0 = #{ foo =>
+                    {[value],
+                     #{ type => typerefl:boolean()
+                      }}
+              , bar =>
+                    {[value],
+                     #{ type => typerefl:integer()
+                      , default => 42
+                      }}
+              , barfoo =>
+                    {[value],
+                     #{ type => typerefl:boolean()
+                      , default_ref => [foo]
+                      }}
+              , foobar =>
+                    {[value],
+                     #{ type => typerefl:integer()
+                      , default_ref => [bar]
+                      }}
               },
-    Model1 = Model0 #{ baz => {[map]
-                              , #{}
-                              , Model0
-                              }
-                     },
-    {ok, Model} = compile(Model1),
-    ?valid(#{[foo] => true}),
-    ?valid(#{[foo] => true, [bar] => 1}),
-    ?valid(#{[foo] => false, [bar] => -12}),
-    ?invalid(#{}),
-    ?invalid(#{[bar] => 1}),
-    ?invalid(#{[foo] => 1}),
-    ?invalid(#{[foo] => true, [bar] => 1.0}),
-    ?valid(#{ [baz, {1}, foo] => true
-            , [baz, {1}, bar] => 1
-            , [foo] => true
-            }),
-    ?valid(#{ [baz, {1}, foo] => false
-            , [foo] => true
-            }),
-    ?invalid(#{ [foo] => true
-              , [baz, {1}, baz] => foo
-              }),
-    ?invalid(#{ [baz, {1}, bar] => 1
-              , [foo] => true
-              }),
-    ?invalid(#{ [foobar] => true
-              , [foo] => true
-              }),
-    ?invalid(#{ [barfoo] => 1
-              , [foo] => true
-              }),
-    ok.
+    Model1 = Model0
+        #{ baz =>
+               {[map],
+                #{},
+                Model0
+               }
+         },
+    ?check_trace(
+       begin
+           {ok, Model} = compile(Model1),
+           Model
+       end,
+       [{"Check different data against the model",
+         fun(Model, Trace) ->
+                 ?valid(#{[foo] => true}),
+                 ?valid(#{[foo] => true, [bar] => 1}),
+                 ?valid(#{[foo] => false, [bar] => -12}),
+                 ?invalid(#{}),
+                 ?invalid(#{[bar] => 1}),
+                 ?invalid(#{[foo] => 1}),
+                 ?invalid(#{[foo] => true, [bar] => 1.0}),
+                 ?valid(#{ [baz, {1}, foo] => true
+                         , [baz, {1}, bar] => 1
+                         , [foo] => true
+                         }),
+                 ?valid(#{ [baz, {1}, foo] => false
+                         , [foo] => true
+                         }),
+                 ?invalid(#{ [foo] => true
+                           , [baz, {1}, baz] => foo
+                           }),
+                 ?invalid(#{ [baz, {1}, bar] => 1
+                           , [foo] => true
+                           }),
+                 ?invalid(#{ [foobar] => true
+                           , [foo] => true
+                           }),
+                 ?invalid(#{ [barfoo] => 1
+                           , [foo] => true
+                           })
+         end},
+        fun ?MODULE:validate_callback_spec/2
+       ]).
+
+validate_callback_spec(Model, Trace) ->
+    #model{ meta_class_idx = Idx
+          , metamodules    = Modules
+          } = Model,
+    maps:map(
+      fun(Metatype, Instances) ->
+              MyModule = maps:get(Metatype, Modules),
+              Validated = [Key || #{ ?snk_kind       := lee_mt_callback
+                                   , metatype        := MT
+                                   , callback_name   := meta_validate_node
+                                   , callback_module := MyModule
+                                   , arguments       := [Key]
+                                   } <- Trace, MT =:= Metatype],
+              ?assertEqual( lists:sort(Instances)
+                          , lists:sort(Validated)
+                          , {Metatype, MyModule, Idx}
+                          )
+      end,
+      Idx),
+    true.
 
 meta_validate_value_test() ->
     Compile = fun(Attrs) ->
                       compile(#{foo => {[value], Attrs}})
               end,
     %% Missing `type':
-    ?assertMatch( {error, ["[foo]: Missing `type' metaparameter"]}
+    ?assertMatch( {error, ["[foo]: Missing mandatory `type' metaparameter"]}
                 , Compile(#{})
                 ),
     %% Wrong type of `default':
@@ -125,21 +166,24 @@ meta_validate_map_test() ->
                 ),
     Model2 = #{foo => {[map], #{key_elements => []}}},
     ?assertMatch({ok, _}, compile(Model2)),
-    Model3 = #{foo => {[map], #{key_elements => [[foo]]}}},
-    ?assertMatch( {error, ["[foo]: [foo] is not a valid child key"]}
+    Model3 = #{foo => {[map], #{key_elements => [[bar]]}}},
+    ?assertMatch( {error, ["[foo]: missing key element [bar]"]}
                 , compile(Model3)
                 ),
     Model4 = #{foo => {[map],
                        #{key_elements => [bar]},
                        #{bar => {[value], #{}}}
                       }},
-    ?assertMatch( {error, ["[foo]: bar is not a valid child key"]}
+    ?assertMatch( {error, [ "[foo,{},bar]: Missing mandatory `type' metaparameter"
+                          , "[foo]: missing key element bar"
+                          ]}
                 , compile(Model4)
                 ),
-    Model5 = #{foo => {[map],
-                       #{key_elements => [[bar]]},
-                       #{bar => {[value], #{}}}
-                      }},
+    Model5 = #{foo =>
+                   {[map],
+                    #{key_elements => [[bar]]},
+                    #{bar => {[value], #{type => boolean()}}}
+                   }},
     ?assertMatch({ok, _}, compile(Model5)).
 
 get_test() ->
@@ -180,6 +224,7 @@ get_test() ->
 
     ?assertMatch(false, lee:get(Model, Config, [baz, {0}, baz, {42}, foo])),
     ?assertMatch(42, lee:get(Model, Config, [baz, {0}, baz, {42}, bar])),
+    %?assertMatch([[bar]], lee:list(Model, Config, [bar])),
     ok.
 
 overlay_test() ->

@@ -21,19 +21,18 @@
 -export([]).
 
 %% behavior callbacks:
--export([create/1, names/1, meta_validate_node/4]).
+-export([names/1, meta_validate_node/4, read_patch/2]).
 
 -include("../framework/lee_internal.hrl").
+
+-define(PRIO, -999999).
 
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
 
-create(_) ->
-    [].
-
 names(_) ->
-    [map].
+    [map, default_instance].
 
 -spec meta_validate_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) ->
                             lee_lib:check_result().
@@ -42,7 +41,7 @@ meta_validate_node(map, #model{model = Model}, Key, #mnode{metaparams = Params})
         fun(ChildKey) ->
                 case lee_storage:get(Key ++ [?children|ChildKey], Model) of
                     undefined ->
-                        Error = lee_lib:format( "~p: ~p is not a valid child key", [Key, ChildKey]),
+                        Error = lee_lib:format( "~p: missing key element ~p", [Key, ChildKey]),
                         {true, Error};
                     {ok, _} ->
                         false
@@ -57,8 +56,23 @@ meta_validate_node(map, #model{model = Model}, Key, #mnode{metaparams = Params})
               []
       end
     , []
-    }.
+    };
+meta_validate_node(default_instance, Model, Key, #mnode{metatypes = MTs, metaparams = Params}) ->
+    Errors = ["only maps can have a default instance" || not lists:member(map, MTs)] ++
+             check_all_defaults(Model, Key),
+    lee_lib:inject_error_location(Key, {Errors, []}).
+
+
+read_patch(map, _) ->
+    {ok, ?PRIO, []};
+read_patch(default_instance, Model) ->
+    Keys = lee_model:get_metatype_index(default_instance, Model),
+    {ok, ?PRIO, [OP || K  <- Keys,
+                       OP <- lee_lib:make_nested_patch(Model, K, #{})]}.
 
 %%================================================================================
 %% Internal functions
 %%================================================================================
+
+check_all_defaults(Model, Parent) ->
+    []. %% TODO

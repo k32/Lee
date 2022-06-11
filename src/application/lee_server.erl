@@ -127,10 +127,11 @@ init([Model0]) ->
                         end),
     Data = lee_storage:new( lee_mnesia_storage
                           , #{table_name => ?data_table}),
-    {atomic, _} = mnesia:transaction(
-                    fun() ->
-                            lee:init_config(Model, Data)
-                    end),
+    {atomic, {ok, _, _}} =
+        mnesia:transaction(
+          fun() ->
+                  lee:init_config(Model, Data)
+          end),
     {ok, #s{ model = Model
            , data = Data
            }}.
@@ -172,7 +173,7 @@ do_patch(Fun, M, D) ->
             fun() ->
                     Patch = Fun(M, D),
                     case lee:patch(M, D, Patch) of
-                        {ok, _} ->
+                        {ok, _, _} ->
                             ok;
                         {error, Err, Warn} ->
                             mnesia:abort({invalid_config, Err, Warn})
