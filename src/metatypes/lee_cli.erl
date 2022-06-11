@@ -30,6 +30,7 @@
         , names/1
         , description_title/2
         , description/2
+        , meta_validate/2
         , meta_validate_node/4
         , read_patch/2
         ]).
@@ -45,6 +46,7 @@
 -define(sigil, $@).
 -define(cli_opts_key, [?MODULE, cli_opts]).
 -define(prio_key, [?MODULE, priority]).
+-define(index_key, [?MODULE, index]).
 
 %%====================================================================
 %% Types
@@ -163,9 +165,9 @@
 
 %% @doc Read CLI arguments and create a configuration patch
 %% @throws {error, string()}
--spec read(lee:model(), [string()]) -> lee:patch().
+-spec read(lee:model(), [string()]) -> {ok, lee:patch()} | {error, [string()]}.
 read(Model, Args) ->
-    Scopes = mk_index(Model),
+    {ok, Scopes} = lee_model:get_meta(?index_key, Model),
     Tokens = tokenize(?sigil, Args),
     case split_commands(Tokens) of
         [[{command, _} | _] | _] = Commands ->
@@ -179,23 +181,23 @@ read(Model, Args) ->
     try
         Globals = parse_args(Model, maps:get(global, Scopes), Global),
         Acc0 = lee_lib:make_nested_patch(Model, [], Globals),
-        lists:foldl( fun(Tokns, Acc) ->
-                             parse_command(Model, Scopes, Tokns) ++ Acc
-                     end
-                   , Acc0
-                   , Commands)
+        {ok, lists:foldl( fun(Tokns, Acc) ->
+                                  parse_command(Model, Scopes, Tokns) ++ Acc
+                          end
+                        , Acc0
+                        , Commands)}
     catch
-        Error = {error, _} -> throw(Error);
-        Error -> throw({error, Error})
+        {error, Error} -> {error, ["cli: " ++ Error]};
+        Error -> {error, ["cli: " ++ Error]}
     end.
 
 %% @doc Read CLI arguments and apply the changes to the storage
 %% @throws {error, string()}
 -spec read_to(lee:model(), lee_storage:data(), [string()]) ->
-                     lee_storage:data().
+                     lee:patch_result().
 read_to(Model, Data, Args) ->
-    Patch = read(Model, Args),
-    lee_storage:patch(Data, Patch).
+    {ok, Patch} = read(Model, Args),
+    lee:patch(Model, Data, Patch).
 
 %%====================================================================
 %% Behavior callbacks
@@ -209,6 +211,11 @@ create(Attrs) ->
 names(_) ->
     [cli_param, cli_action, cli_positional].
 
+meta_validate(cli_param, Model) -> %% Run once
+    meta_validate_model(Model);
+meta_validate(_, _) ->
+    {[], [], []}.
+
 meta_validate_node(cli_param, Model, Key, MNode) ->
     meta_validate_param(Model, Key, MNode);
 meta_validate_node(cli_action, Model, Key, MNode) ->
@@ -217,17 +224,26 @@ meta_validate_node(cli_positional, Model, Key, MNode) ->
     meta_validate_positional(Model, Key, MNode).
 
 read_patch(cli_action, Model) ->
-    {ok, Args} = lee_model:get_meta(?cli_opts_key, Model),
+    {ok, Args0} = lee_model:get_meta(?cli_opts_key, Model),
     {ok, Prio} = lee_model:get_meta(?prio_key, Model),
-    {Prio, read(Model, Args)};
+    Args = if is_function(Args0) -> Args0();
+              true               -> Args0
+           end,
+    case read(Model, Args) of
+        {ok, Patch} ->
+            {ok, Prio, Patch};
+        Error = {error, _} ->
+            Error
+    end;
 read_patch(_, _) ->
-    {0, []}.
+    {ok, 0, []}.
 
 description_title(MetaType, Model) ->
     "CLI arguments".
 
 description(MetaType, Model) ->
-    [{global, Global}|Scopes] = lists:sort(maps:to_list(mk_index(Model))),
+    {ok, Index} = lee_model:get_meta(?index_key, Model),
+    [{global, Global}|Scopes] = lists:sort(maps:to_list(Index)),
     GlobalDoc = [{section, make_scope_docs(Global, Model)}],
     ActionDocs =
         [{section, [{id, "cli-command-" ++ Name}]
@@ -238,6 +254,12 @@ description(MetaType, Model) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+-spec meta_validate_model(lee:model()) -> lee_metatype:metavalidate_result().
+meta_validate_model(Model) ->
+    {Index, {Err, Warn}} = lee_lib:collect_errors(fun() -> mk_index(Model) end),
+    Patch = [{set, ?index_key, Index}],
+    {Err, Warn, Patch}.
 
 -spec meta_validate_positional(lee:model(), lee:key(), #mnode{}) ->
                             lee_lib:check_result().
@@ -397,6 +419,8 @@ zip_positionals(_, _, [_|_], []) ->
 zip_positionals(_, _, [], []) ->
     #{}.
 
+%% should be called inside lee_lib:collect_errors
+-spec mk_index(lee:model()) -> #{global | string() => #sc{}}.
 mk_index(Model) ->
     Scopes0 = lee_model:fold( fun mk_index/4
                             , #{global => #sc{}}
@@ -429,28 +453,50 @@ mk_index(Key, #mnode{metatypes = Meta, metaparams = Attrs}, Acc, Scope) ->
             SC = #sc{ name = NewScope
                     , parent = Key
                     },
-            {Acc #{NewScope => SC}, NewScope}
+            case Acc of
+                #{NewScope := #sc{parent = OldKey}} ->
+                    lee_lib:report_error( "~p: Action name @~s is already used by ~p"
+                                        , [Key, NewScope, OldKey]
+                                        );
+                _ ->
+                    ok
+            end,
+            {Acc #{NewScope => SC}, NewScope};
+        _ ->
+            lee_lib:report_error("~p: Illegal combination of CLI metatypes", [Key]),
+            {Acc, Scope}
     end.
 
 add_param(Key, Attrs, SC0) ->
     #sc{ long = Long0
        , short = Short0
        } = SC0,
-    Long = case Attrs of
-               #{cli_operand := L} ->
-                   Long0 #{L => Key};
-               _ ->
-                   Long0
-           end,
-    Short = case Attrs of
-                #{cli_short := S} ->
-                    Short0 #{S => Key};
-                _ ->
-                    Short0
-            end,
-    SC0#sc{ short = Short
-          , long = Long
-          }.
+    Long = ?m_attr(cli_param, cli_operand, Attrs, undefined),
+    Short = ?m_attr(cli_param, cli_short, Attrs, undefined),
+    SC1 = maybe_update_sc(SC0, #sc.long, Long, Key),
+    maybe_update_sc(SC1, #sc.short, Short, Key).
+
+maybe_update_sc(Record, _, undefined, _) ->
+    Record;
+maybe_update_sc(Record, ElemNumber, Key, Value) ->
+    OldMap = element(ElemNumber, Record),
+    case OldMap of
+        #{Key := OldValue} ->
+            lee_lib:report_error( "~p: CLI operand ~s is already used by ~p"
+                                , [Value, pretty_print_operand(Key), OldValue]
+                                ),
+            Record;
+        _ ->
+            erlang:insert_element( ElemNumber
+                                 , erlang:delete_element(ElemNumber, Record)
+                                 , OldMap#{Key => Value}
+                                 )
+    end.
+
+pretty_print_operand(Short) when is_integer(Short) ->
+    [$-, Short];
+pretty_print_operand(Long) ->
+    ["--"|Long].
 
 add_positional(Key, Attrs, SC0 = #sc{positional = Pos0}) ->
     %% Make key relative:

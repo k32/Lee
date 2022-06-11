@@ -2,6 +2,18 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+collect_errors_test() ->
+    Ret = lee_lib:collect_errors(
+            fun() ->
+                    lee_lib:report_error("error ~p", [1]),
+                    lee_lib:report_warning("warning ~p", [2]),
+                    my_return
+            end),
+    ?assertEqual( {my_return, {["error 1"], ["warning 2"]}}
+                , Ret
+                ).
+
+
 splitl_test() ->
     Pred = fun is_atom/1,
     ?assertMatch( []

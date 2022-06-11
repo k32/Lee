@@ -18,16 +18,11 @@
 -behavior(lee_metatype).
 
 %% behavior callbacks:
--export([create/1, names/1]).
-
--include("../framework/lee_internal.hrl").
+-export([names/1]).
 
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
-
-create(_) ->
-    [].
 
 names(_Conf) ->
     [undocumented].

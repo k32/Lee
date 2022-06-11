@@ -13,40 +13,50 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%--------------------------------------------------------------------
--module(lee_app_env).
+-module(lee_logger).
 
 %% behavior callbacks:
--export([create/1, names/1, meta_validate_node/4, post_patch/5]).
+-export([names/1, meta_validate_node/4, post_patch/5]).
 
 -include_lib("lee/src/framework/lee_internal.hrl").
 -include_lib("typerefl/include/types.hrl").
 
--define(metatype, app_env).
+-type level() :: debug | info | notice | warning | error | critical | alert.
+
+-reflect_type([level/0]).
 
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
 
-create(_) ->
-    [].
-
 names(_) ->
-    [?metatype].
+    [logger_level].
 
-meta_validate_node(?metatype, _Model, Key, MNode) ->
-    %% TODO: Check that also a value. Also check transform type
+meta_validate_node(logger_level, _Model, Key, MNode) ->
+    ExpectedType = level(),
     lee_lib:inject_error_location(
       Key,
-      lee_lib:validate_meta_attr( app_env
-                                , {atom(), atom()}
-                                , MNode
-                                )).
+      lee_lib:compose_checks(
+        [ lee_lib:validate_optional_meta_attr( logger_handler
+                                             , atom()
+                                             , MNode
+                                             )
+        , case MNode of
+              #mnode{metaparams = #{type := T}} when T =:= ExpectedType ->
+                  {[], []};
+              _ ->
+                  {["Type of logger level must be lee_logger:level()"], []}
+          end
+        ])).
 
-post_patch(?metatype, Model, Data, #mnode{metaparams = Attrs}, PatchOp) ->
-    {App, Env} = ?m_attr(?metatype, app_env, Attrs),
-    Transform = ?m_attr(?metatype, app_env_transform, Attrs, fun(A) -> A end),
+post_patch(logger_level, Model, Data, #mnode{metaparams = Attrs}, PatchOp) ->
     Val = lee:get(Model, Data, lee_lib:patch_key(PatchOp)),
-    application:set_env(App, Env, Transform(Val)).
+    case Attrs of
+        #{logger_handler := Handler} ->
+            logger:update_handler_config(Handler, level, Val);
+        _ ->
+            logger:set_primary_config(level, Val)
+    end.
 
 %%================================================================================
 %% Internal functions

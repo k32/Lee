@@ -73,27 +73,27 @@ description_node(os_env, Model, Key, MNode) ->
 read_patch(?metatype, Model) ->
     {ok, Prio} = lee_model:get_meta(?prio_key, Model),
     EnvVars = lee_model:get_metatype_index(?metatype, Model),
-    {Prio, lists:foldl( fun(Key, Acc) ->
-                                read_val(Model, Key, Acc)
-                        end
-                      , []
-                      , EnvVars)}.
+    {ok, Prio, lists:foldl( fun(Key, Acc) ->
+                                    read_val(Model, Key, Acc)
+                            end
+                          , []
+                          , EnvVars)}.
 
 %% @doc Make a patch from OS environment variables and apply it to
 %% data
 %% @throws {error, string()}
 -spec read_to(lee:model(), lee_storage:data()) ->
-          {ok, lee_storage:data()} | {error, list(), list()}.
+          lee:patch_result().
 read_to(Model, Data) ->
-    {_Prio, Patch} = read_patch(?metatype, Model),
+    {ok, _Prio, Patch} = read_patch(?metatype, Model),
     lee:patch(Model, Data, Patch).
 
 %% @private
 read_val(Model, Key, Acc) ->
     #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
     {ok, Prefix} = lee_model:get_meta(?prefix_key, Model),
-    Default = Prefix ++ string:join(make_default_key(Key), "___"),
-    EnvVar = ?m_attr(?metatype, os_env, Attrs, Default),
+    Default = make_default_key(Key),
+    EnvVar = Prefix ++ ?m_attr(?metatype, os_env, Attrs, Default),
     case os:getenv(EnvVar) of
         false ->
             Acc;
@@ -106,10 +106,13 @@ read_val(Model, Key, Acc) ->
             end
     end.
 
+make_default_key(Key) ->
+    lists:flatten(lists:join("__", make_default_key_(Key))).
+
 %-spec make_default_key(lee:key()) -> string().
-make_default_key([]) ->
-    "";
-make_default_key([Atom|Rest]) when is_atom(Atom) ->
-    [string:to_upper(atom_to_list(Atom))|make_default_key(Rest)];
-make_default_key([Tuple|Rest]) when is_tuple(Tuple) ->
+make_default_key_([]) ->
+    [];
+make_default_key_([Atom|Rest]) when is_atom(Atom) ->
+    [string:to_upper(atom_to_list(Atom))|make_default_key_(Rest)];
+make_default_key_([Tuple|_Rest]) when is_tuple(Tuple) ->
     error(sorry_not_supported).

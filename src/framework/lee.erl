@@ -6,9 +6,7 @@
         , get/3
         , list/3
         , validate/2
-        , validate/3
         , meta_validate/1
-        , meta_validate/2
         , from_string/3
         , from_strings/3
 
@@ -28,6 +26,7 @@
              , properties/0
              , data/0
              , patch/0
+             , patch_result/0
              ]).
 
 -include("lee_internal.hrl").
@@ -51,8 +50,8 @@
 -type validate_result() :: {ok, Warnings :: [string()]}
                          | {error, Errors :: [term()], Warnings :: [term()]}.
 
--type validate_callback() :: fun((model(), data(), key(), #mnode{}) ->
-                                        validate_result()).
+-type patch_result() :: {ok, data(), Warnings :: [string()]}
+                      | {error, Errors :: [term()], Warnings :: [term()]}.
 
 -type validation_type() :: validate_node | meta_validate.
 
@@ -139,29 +138,39 @@ get(Model, [Data|Rest], Key) ->
             get(Model, Rest, Key)
     end.
 
--spec init_config(model(), data()) -> data().
+-spec init_config(model(), data()) -> patch_result().
 init_config(Model, Data0) ->
-    Patches = lists:keysort( 1
-                           , [lee_metatype:read_patch(MT, Model)
-                              || MT <- lee_model:all_metatypes(Model)]
-                           ),
-    Patch = lists:flatmap(fun({_Prio, Val}) -> Val end, Patches),
-    {ok, Data} = lee:patch(Model, Data0, Patch),
-    Data.
+    Patches0 = [lee_metatype:read_patch(MT, Model)
+                || MT <- lee_model:all_metatypes(Model)],
+    Errors = [Err || {error, Errors} <- Patches0, Err <- Errors],
+    case Errors of
+        [] ->
+            Patches = lists:keysort(2, Patches0),
+            Patch = lists:flatmap(fun({ok, _Prio, Val}) -> Val end, Patches),
+            case lee:patch(Model, Data0, Patch) of
+                Ret = {ok, Data, _} ->
+                    post_init(Model, Data, Patch),
+                    Ret;
+                Err ->
+                    Err
+            end;
+        _ ->
+            {error, Errors, []}
+    end.
 
--spec patch(model(), data(), patch()) -> {ok, data()} | {error, list(), list()}.
+-spec patch(model(), data(), patch()) -> patch_result().
 patch(Model, Data0, Patch) ->
     %% TODO: Inefficient. Make an overlay storage
     PendingData0 = lee_storage:clone(Data0, lee_map_storage, #{}),
     PendingData = lee_storage:patch(PendingData0, Patch),
     case lee:validate(Model, PendingData) of
-        {ok, _Warnings} ->
+        {ok, Warnings} ->
             Data = lee_storage:patch(Data0, Patch),
             lists:foreach(fun(PatchOp) ->
                                   process_patch_op(Model, Data, PatchOp)
                           end,
                           Patch),
-            {ok, Data};
+            {ok, Data, Warnings};
         Err ->
             Err
     end.
@@ -173,8 +182,8 @@ patch(Model, Data0, Patch) ->
 %% ```[[foo, {1}], [foo, {2}]]''' when map `[foo]' contains
 %% two children with keys `1' and `2'.
 -spec list(model() | cooked_module(), data(), lee:key()) -> [lee:key()].
-list(_Model, Data, Key) when ?is_storage(Data) ->
-    %% TODO: Include default values in the list
+list(Model, Data, Key) when ?is_storage(Data) ->
+    %% TODO: get metatype index of value metatype and add it here as default?
     lee_storage:list(Key, Data);
 list(Model, Data, Pattern) when is_list(Data) ->
     lists:usort(lists:foldl( fun(I, Acc) ->
@@ -183,28 +192,48 @@ list(Model, Data, Pattern) when is_list(Data) ->
                            , []
                            , Data)).
 
-%% @equiv validate(all, Model, Data)
+%% @doc Validate `Data' against `Model'.
 -spec validate(lee:model(), data()) -> validate_result().
 validate(Model, Data) ->
-    validate(all, Model, Data).
+    PerNodeCallback =
+        fun(Metatype, Model, MKey, MNode) ->
+                do_validate_data(Metatype, Model, Data, MKey, MNode)
+        end,
+    PerMtCallback =
+        fun(Metatype, {ErrAcc, WarnAcc}) ->
+                {Err, Warn} = lee_metatype:validate(Metatype, Model, Data),
+                {Err ++ ErrAcc, Warn ++ WarnAcc}
+        end,
+    case validate_nodes(PerNodeCallback, Model) of
+        {[], Warn0} ->
+            case lee_model:fold_metatypes(PerMtCallback, {[], []}, Model) of
+                {[], Warn1} ->
+                    {ok, Warn1 ++ Warn0};
+                {Err, Warn1} ->
+                    {error, Err, Warn1 ++ Warn0}
+            end;
+        {Err, Warn} ->
+            {error, Err, Warn}
+    end.
 
-%% @doc Validate `Data' against `Model'. `MetaTypes' is a list of
-%% metatypes that should be validated, or atom `all'
--spec validate([metatype()] | all, lee:model(), data()) -> validate_result().
-validate(MetaTypes, Model, Data) ->
-    validate(validate_node, MetaTypes, Model, Data).
-
-%% @equiv meta_validate(all, Model)
--spec meta_validate(lee:model()) -> validate_result().
-meta_validate(Model) ->
-    meta_validate(all, Model).
-
-%% @doc Validate model itself against its metamodel. Useful for
+%% @doc Validate the `Model' itself against its metamodel. Useful for
 %% spotting bugs in the model definition
--spec meta_validate([metatype()] | all, lee:model()) -> validate_result().
-meta_validate(MetaTypes, Model) ->
-    Data = lee_storage:new(lee_map_storage), %% Mostly to make dialyzer happy
-    validate(meta_validate, MetaTypes, Model, Data).
+-spec meta_validate(lee:model()) -> lee_metatype:metavalidate_result().
+meta_validate(Model) ->
+    PerNodeCallback = fun lee_metatype:meta_validate_node/4,
+    PerMtCallback =
+        fun(Metatype, {ErrAcc, WarnAcc, PatchAcc}) ->
+                {Err, Warn, Patch} = lee_metatype:meta_validate(Metatype, Model),
+                {Err ++ ErrAcc, Warn ++ WarnAcc, Patch ++ PatchAcc}
+        end,
+    case validate_nodes(PerNodeCallback, Model) of
+        {[], Warn0} ->
+            {Err, Warn1, Patch} =
+                lee_model:fold_metatypes(PerMtCallback, {[], [], []}, Model),
+            {Err, Warn1 ++ Warn0, Patch};
+        {Err, Warn} ->
+            {Err, Warn, []}
+    end.
 
 -spec from_string(lee:model(), lee:model_key(), string()) ->
                          {ok, term()} | {error, string()}.
@@ -248,84 +277,6 @@ from_strings(Model, Key, Strings) ->
 %% Internal functions
 %%====================================================================
 
-%% Validate all instances of certain metatypes against the model
--spec validate(validation_type(), [metatype()] | all, lee:model(), data()) ->
-                      validate_result().
-validate(ValidationType, MetaTypes, Model, Data) ->
-    ModelIdx0 = Model#model.meta_class_idx,
-    ModelIdx = case MetaTypes of
-                   all -> ModelIdx0;
-                   L   -> maps:with(L, ModelIdx0)
-               end,
-    {Errors, Warnings} =
-        maps:fold( fun(MetaType, Nodes, {Err0, Warn0}) ->
-                           {Err1, Warn1} = validate_nodes( ValidationType
-                                                         , Model
-                                                         , Data
-                                                         , MetaType
-                                                         , Nodes
-                                                         ),
-                           {Err1 ++ Err0, Warn1 ++ Warn0}
-                   end
-                 , {[], []}
-                 , ModelIdx
-                 ),
-    case Errors of
-        [] ->
-            {ok, Warnings};
-        _ ->
-            {error, Errors, Warnings}
-    end.
-
-%% Validate all nodes belonging to a metatype
--spec validate_nodes( validation_type()
-                    , lee:model()
-                    , lee:data()
-                    , atom() | integer() | tuple()
-                    , ordsets:set(lee:model_key())
-                    ) -> lee_lib:check_result().
-validate_nodes(ValidationType, Model, Data, Metatype, Nodes) ->
-    ValidateFun =
-        case ValidationType of
-            validate_node ->
-                fun(Model, Data, Key, MNode) ->
-                        lee_metatype:validate_node(Metatype, Model, Data, Key, MNode)
-                end;
-            meta_validate ->
-                fun(Model, Data, Key, MNode) ->
-                        lee_metatype:meta_validate_node(Metatype, Model, Key, MNode)
-                end
-        end,
-    ordsets:fold( fun(NodeId, {E0, W0}) ->
-                          {E1, W1} = validate_node(Model, Data, NodeId, ValidateFun),
-                          {E1 ++ E0, W1 ++ W0}
-                  end
-                , {[], []}
-                , Nodes
-                ).
-
--spec validate_node( lee:model()
-                   , lee:data()
-                   , lee:key()
-                   , validate_callback()
-                   ) -> lee_lib:check_result().
-validate_node(Model, Data, NodeId, ValidateFun) ->
-    MNode = lee_model:get(NodeId, Model),
-    Instances = case lee_model:split_key(NodeId) of
-                    {[], _} ->
-                        [NodeId];
-                    {Base, Required} ->
-                        [I ++ Required || I <- lee_storage:list(Base, Data)]
-                end,
-    lists:foldl( fun(Id, {Err0, Warn0}) ->
-                         {Err1, Warn1} = ValidateFun(Model, Data, Id, MNode),
-
-                         {Err1 ++ Err0, Warn1 ++ Warn0}
-                 end
-               , {[], []}
-               , Instances
-               ).
-
 process_patch_op(Model, Data, PatchOp) ->
     case PatchOp of
         {set, Key, _} -> ok;
@@ -337,3 +288,61 @@ process_patch_op(Model, Data, PatchOp) ->
                           lee_metatype:post_patch(MT, Model, Data, MNode, PatchOp)
                   end,
                   MTs).
+
+post_init(Model, Data, Patch) ->
+    ModelIdx = Model#model.meta_class_idx,
+    PatchKeys = lists:map(fun lee_lib:patch_key/1, Patch),
+    Keys0 = maps:fold(
+              fun(MT, Keys, Acc) ->
+                      case lee_metatype:is_implemented(Model, MT, post_patch) of
+                          true ->
+                              Keys ++ Acc;
+                          false ->
+                              Acc
+                      end
+              end,
+              [],
+              ModelIdx),
+    Keys1 = lists:usort(Keys0) -- PatchKeys,
+    Keys = lists:filter(fun(K) -> not lists:member(?children, K) end, Keys1),
+    lists:foreach(
+      fun(Key) ->
+              try %% TODO: Ugly
+                  Val = get(Model, Data, Key),
+                  process_patch_op(Model, Data, {set, Key, Val})
+              catch
+                  _:_ -> ok
+              end
+      end,
+      Keys).
+
+%% Validate all instances of metatypes against the model
+-spec validate_nodes( fun((metatype(), model(), model_key(), #mnode{}) -> lee_lib:check_result())
+                       , lee:model()
+                       ) -> lee_lib:check_result().
+validate_nodes(Fun, Model) ->
+    lee_model:fold_mt_instances(
+      fun(MT, Instance, {ErrAcc, WarnAcc}) ->
+              MNode = lee_model:get(Instance, Model),
+              {Err, Warn} = Fun(MT, Model, Instance, MNode),
+              {Err ++ ErrAcc, Warn ++ WarnAcc}
+      end,
+      {[], []},
+      Model).
+
+-spec do_validate_data(metatype(), model(), data(), model_key(), #mnode{}) ->
+          lee_lib:check_result().
+do_validate_data(Metatype, Model, Data, MKey, MNode) ->
+    Instances = case lee_model:split_key(MKey) of
+                    {[], _} ->
+                        [MKey];
+                    {Optional, Required} ->
+                        [ParentMapKey ++ Required || ParentMapKey <- lee_storage:list(Optional, Data)]
+                end,
+    lists:foldl( fun(Key, {ErrAcc, WarnAcc}) ->
+                         {Err, Warn} = lee_metatype:validate_node(Metatype, Model, Data, Key, MNode),
+                         {Err ++ ErrAcc, Warn ++ WarnAcc}
+                 end
+               , {[], []}
+               , Instances
+               ).

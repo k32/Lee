@@ -5,6 +5,7 @@
 
 -export([ term_to_string/1
         , format/2
+        , patch_key/1
         , make_nested_patch/3
         , splitl/2
         , splitr/2
@@ -15,6 +16,10 @@
         , validate_optional_meta_attr/4
         , validate_optional_meta_attr/3
         , validate_meta_attr/3
+        , format_typerefl_error/1
+        , report_error/2
+        , report_warning/2
+        , collect_errors/1
         ]).
 
 -export_type([check_result/0]).
@@ -24,6 +29,12 @@
 -spec format(string(), [term()]) -> string().
 format(Fmt, Attrs) ->
     lists:flatten(io_lib:format(Fmt, Attrs)).
+
+-spec patch_key(lee:patch_op()) -> lee:key().
+patch_key({set, K, _}) ->
+    K;
+patch_key({rm, K}) ->
+    K.
 
 -spec make_nested_patch(lee:model(), lee:key(), #{lee:key() => term()}) ->
                                lee:patch().
@@ -44,7 +55,7 @@ make_nested_patch(Model, Parent, Children) ->
                             #{default := Default} ->
                                 Default;
                             _ ->
-                                throw({missing_key_element, K, Children})
+                                throw(lee_lib:format("missing key element ~p", [K]))
                         end
                 end
         end,
@@ -130,6 +141,34 @@ compose_checks(L) ->
     {Err, Warn} = lists:unzip(L),
     {lists:append(Err), lists:append(Warn)}.
 
+%% Should be called inside collect_errors
+-spec report_error(string(), list()) -> ok.
+report_error(Fmt, Args) ->
+    Str = format(Fmt, Args),
+    self() ! {get(lee_lib_collect_errors), {error, Str}},
+    ok.
+
+%% Should be called inside collect_errors
+-spec report_warning(string(), list()) -> ok.
+report_warning(Fmt, Args) ->
+    Str = format(Fmt, Args),
+    self() ! {get(lee_lib_collect_errors), {warning, Str}},
+    ok.
+
+-spec collect_errors(fun(() -> Ret)) -> {Ret, {Err, Warn}}
+              when Err :: [string()],
+                   Warn :: [string()].
+collect_errors(Fun) ->
+    PDKey = lee_lib_collect_errors,
+    Ref = make_ref(),
+    OldRef = put(PDKey, Ref),
+    Ret = Fun(),
+    case OldRef of
+        undefined -> erase(PDKey);
+        _         -> put(PDKey, OldRef)
+    end,
+    {Ret, receive_errors(Ref, [], [])}.
+
 -spec perform_checks(lee:key(), M, [fun((M) -> check_result())]) ->
                             check_result().
 perform_checks(Key, Attrs, CheckFuns) ->
@@ -174,9 +213,22 @@ validate_meta_attr(Attr, Type, Params) ->
                 ok ->
                     {[], []};
                 {error, Err} ->
-                    {[Err], []}
+                    {[format_typerefl_error(Err)], []}
             end;
         _ ->
             Err = format("Missing mandatory meta-parameter ~p", [Attr]),
             {[Err], []}
+    end.
+
+format_typerefl_error(#{expected := Expected, got := Got}) ->
+    format("Expected type: ~p~nGot value: ~p", [Expected, Got]).
+
+receive_errors(Ref, Err, Warn) ->
+    receive
+        {Ref, {error, A}} ->
+            receive_errors(Ref, [A|Err], Warn);
+        {Ref, {warning, A}} ->
+            receive_errors(Ref, Err, [A|Warn])
+    after 0 ->
+            {Err, Warn}
     end.

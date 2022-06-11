@@ -5,8 +5,12 @@
 -export([ compile/2
         , compile_module/1
         , map_vals/2
+
         , fold/3
         , fold/4
+        , fold_metatypes/3
+        , fold_mt_instances/3
+
         , get/2
         , get_meta/3
         , get_meta/2
@@ -47,19 +51,20 @@ compile(MetaModules0, Models0) ->
     MetaConfigPatch = ([{set, K, V} || {Module, _, Conf} <- MetaModules,
                                        {K, V} <- Conf]),
     MetaConfig0 = lee_storage:new(lee_map_storage),
-    MetaConfig = lee_storage:patch(MetaConfig0, MetaConfigPatch),
+    MetaConfig1 = lee_storage:patch(MetaConfig0, MetaConfigPatch),
     Models = [compile_module(I) || I <- Models0],
     case merge(Models) of
         {ok, Model} ->
-            Result = #model{ metaconfig     = MetaConfig
+            Result = #model{ metaconfig     = MetaConfig1
                            , model          = Model
                            , metamodules    = ModuleLookup
                            , meta_class_idx = mk_metatype_index(Model)
                            },
             case lee:meta_validate(Result) of
-                {ok, _} ->
-                    {ok, Result};
-                {error, Errs, _Warns} ->
+                {[], _Warn, Patch} ->
+                    MetaConfig = lee_storage:patch(MetaConfig1, Patch),
+                    {ok, Result#model{metaconfig = MetaConfig}};
+                {Errs, _Warns, _Patch} ->
                     {error, Errs}
             end;
         T ->
@@ -117,7 +122,7 @@ get(Id, Module) ->
         _         -> error({bad_model_key, Id})
     end.
 
-%% @doc Get a node from the metamodel
+%% @doc Get a value from the metaconfig
 -spec get_meta(lee:model_key(), lee:model(), Val) -> Val.
 get_meta(Id, #model{metaconfig = MetaConfig}, Default) ->
 	case lee_storage:get(Id, MetaConfig) of
@@ -128,22 +133,17 @@ get_meta(Id, #model{metaconfig = MetaConfig}, Default) ->
     end.
 
 %% @doc Get a node from the metamodel
--spec get_meta(lee:model_key(), lee:model()) -> _Val.
+-spec get_meta(lee:model_key(), lee:model()) -> {ok, _Val} | undefined.
 get_meta(Id, #model{metaconfig = MetaConfig}) ->
 	lee_storage:get(Id, MetaConfig).
 
 %% @doc Apply a function to all nodes of a raw model module. Doesn't
 %% traverse into child nodes
--spec map_vals( fun((lee:mnode()) -> lee:mnode())
+-spec map_vals( fun((lee:model_key(), lee:mnode()) -> lee:mnode())
               , lee:module()
               ) -> lee:module().
 map_vals(Fun, Model) ->
-    maps:map( fun(_, Val) when is_map(Val) ->
-                      map_vals(Fun, Val);
-                 (_, Node) ->
-                      Fun(Node)
-              end
-            , Model).
+    do_map_vals(Fun, Model, []).
 
 %% @doc Recursion schema for model fold
 -spec fold( fun((lee:model_key(), #mnode{}, Acc) -> Acc)
@@ -175,6 +175,8 @@ fold(Fun, Acc, Scope, Model) -> %% Fold over cooked module
 %% @doc Transform instance key to model key
 -spec get_model_key(lee:key()) -> lee:model_key().
 get_model_key([]) ->
+    [];
+get_model_key([Tup]) when is_tuple(Tup) ->
     [];
 get_model_key([Tup | T]) when is_tuple(Tup) ->
     [?children | get_model_key(T)];
@@ -229,9 +231,38 @@ clone(M0 = #model{metaconfig = A, model = B}, Backend, BO1, BO2) ->
             , model = lee_storage:clone(B, Backend, BO2)
             }.
 
+%% @doc Iterate through all metatypes
+-spec fold_metatypes(fun((lee:metatype(), Acc) -> Acc), Acc, lee:model()) -> Acc.
+fold_metatypes(Fun, Acc, #model{metamodules = M}) ->
+    lists:foldl(Fun, Acc, maps:keys(M)).
+
+%% @doc Iterate through all metatype instances
+-spec fold_mt_instances( fun((lee:metatype(), lee:model_key(), Acc) -> Acc)
+                       , Acc
+                       , lee:model()
+                       ) -> Acc.
+fold_mt_instances(Fun, Acc0, #model{meta_class_idx = Idx}) ->
+    maps:fold(
+      fun(MT, Instances, Acc1) ->
+              ordsets:fold( fun(Instance, Acc) -> Fun(MT, Instance, Acc) end
+                          , Acc1
+                          , Instances
+                          )
+      end,
+      Acc0,
+      Idx).
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+do_map_vals(Fun, Model, Parent) ->
+    maps:map( fun(K, Val) when is_map(Val) ->
+                      do_map_vals(Fun, Val, [K|Parent]);
+                 (K, Node) ->
+                      Fun(lists:reverse([K|Parent]), Node)
+              end
+            , Model).
 
 -spec compile_module(lee:module() | lee:cooked_module()) -> lee:cooked_module().
 compile_module(Module) when is_map(Module) ->

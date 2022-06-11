@@ -2,7 +2,7 @@
 
 -behavior(lee_metamodel).
 
--export([create/1, names/1]).
+-export([names/1]).
 
 -include_lib("lee/include/lee.hrl").
 -include_lib("lee/src/framework/lee_internal.hrl").
@@ -18,9 +18,6 @@
 -define(mnode, #mnode{metatypes = _}).
 
 %% Metamodel callbacks
-create(_) ->
-    [].
-
 names(_) ->
     [t1, t2, bar].
 
@@ -223,15 +220,19 @@ full_split_key_test() ->
 
 map_vals_test() ->
     M0 = #{ foo => {[], 0}
-          , bar => #{ baz => {[], 1}
-                    }
+          , bar =>
+                #{ baz =>
+                       {[], 1}
+                 }
           },
-    Fun = fun({MT, N}) ->
-                  {[a|MT], N+1}
+    Fun = fun(K, {MT, N}) ->
+                  {[a|MT], N+1, K}
           end,
-    ?assertEqual( #{ foo => {[a], 1}
-                   , bar => #{ baz => {[a], 2}
-                             }
+    ?assertEqual( #{ foo =>
+                         {[a], 1, [foo]}
+                   , bar =>
+                         #{ baz => {[a], 2, [bar, baz]}
+                          }
                    }
                 , lee_model:map_vals(Fun, M0)
                 ).

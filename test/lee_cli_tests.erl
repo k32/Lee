@@ -92,7 +92,7 @@ test_positional_args2() ->
      }.
 
 test_model_raw() ->
-    #{ foo => test_cli_params()
+    #{ global => test_cli_params()
      , action_1 =>
            test_cli_action("action_1", [[short], [long]]
                           , [test_cli_params()])
@@ -169,95 +169,76 @@ tokenize_test() ->
 
 read_cli(String) ->
     Args = string:tokens(String, " "),
-    try lee_cli:read_to(test_model(), lee_storage:new(lee_map_storage), Args) of
-        Data ->
-            {ok, Data}
-    catch
-        Err -> Err
-    end.
+    lee_cli:read(test_model(), Args).
+
+ok_patch(String, ExpectedPatch) ->
+    {ok, Patch} = read_cli(String),
+    ?assertEqual( lists:sort(ExpectedPatch)
+                , lists:sort(Patch)
+                , String
+                ).
 
 simple_long_test() ->
-    {ok, Data1} = read_cli("--long foo"),
-    ?assertMatch( {ok, "foo"}
-                , lee_storage:get([foo, long], Data1)
-                ).
+    ok_patch( "--long foo"
+            , [{set, [global, long], "foo"}]
+            ).
 
 simple_short_test() ->
-    {ok, Data1} = read_cli("-s 1"),
-    ?assertMatch( {ok, 1}
-                , lee_storage:get([foo, short], Data1)
-                ).
+    ok_patch( "-s 1"
+            , [{set, [global, short], 1}]
+            ).
 
 simple_both_test() ->
-    {ok, Data1} = read_cli("-b {foo,1}"),
-    ?assertMatch( {ok, {foo, 1}}
-                , lee_storage:get([foo, both], Data1)
-                ),
-    {ok, Data2} = read_cli("--both {foo,2}"),
-    ?assertMatch( {ok, {foo, 2}}
-                , lee_storage:get([foo, both], Data2)
-                ).
+    ok_patch( "-b {foo,1}"
+            , [{set, [global, both], {foo, 1}}]
+            ),
+    ok_patch( "--both {foo,2}"
+            , [{set, [global, both], {foo, 2}}]
+            ).
 
 global_flags_test() ->
-    {ok, Data1} = read_cli("-fgs1"),
-    ?assertMatch( {ok, true}
-                , lee_storage:get([foo, flag1], Data1)
-                ),
-    ?assertMatch( {ok, true}
-                , lee_storage:get([foo, flag2], Data1)
-                ),
-    ?assertMatch( undefined
-                , lee_storage:get([foo, flag3], Data1)
-                ),
-    ?assertMatch( {ok, 1}
-                , lee_storage:get([foo, short], Data1)
-                ).
+    ok_patch( "-fgs1"
+            , [ {set, [global, flag1], true}
+              , {set, [global, flag2], true}
+              , {set, [global, short], 1}
+              ]
+            ).
 
 children_test() ->
-    {ok, Data} = read_cli("@action_1 -fgs1 --long foo @action_2 foo bar"),
-    %% List children
-    ?assertMatch( [[action_1, {1, "foo"}]]
-                , lee_storage:list([action_1, {}], Data)
-                ),
-    ?assertMatch( [[action_2, {"foo"}]]
-                , lee_storage:list([action_2, {}], Data)
-                ),
-    ?assertMatch( {ok, true}
-                , lee_storage:get([action_1, {1, "foo"}, flag1], Data)
-                ),
-    ?assertMatch( {ok, "foo"}
-                , lee_storage:get([action_1, {1, "foo"}, long], Data)
-                ),
-    ?assertMatch( {ok, "foo"}
-                , lee_storage:get([action_2, {"foo"}, posn_1], Data)
-                ),
-    ?assertMatch( {ok, "bar"}
-                , lee_storage:get([action_2, {"foo"}, posn_2], Data)
-                ).
+    ok_patch( "@action_1 -fgs1 --long heyhey @action_2 foo bar"
+            , [ {set, [action_1, {1,"heyhey"}],        []}
+              , {set, [action_1, {1,"heyhey"}, flag1], true}
+              , {set, [action_1, {1,"heyhey"}, flag2], true}
+              , {set, [action_1, {1,"heyhey"}, long],  "heyhey"}
+              , {set, [action_1, {1,"heyhey"}, short], 1}
+              , {set, [action_2, {"foo"}],             []}
+              , {set, [action_2, {"foo"}, posn_1],     "foo"}
+              , {set, [action_2, {"foo"}, posn_2],     "bar"}
+              ]
+            ).
 
 rest1_test() ->
-    {ok, Data} = read_cli("@action_3 foo quux 1"),
-    ?assertMatch( {ok, [foo, quux, '1']}
-                , lee_storage:get([action_3, {}, posn_n], Data)
-                ).
+    ok_patch( "@action_3 foo quux 1"
+            , [ {set, [action_3, {}],  []}
+              , {set, [action_3, {}, posn_n], [foo, quux, '1']}
+              ]
+            ).
 
 rest2_test() ->
-    {ok, Data} = read_cli("@action_4 1 2 foo bar"),
-    ?assertMatch( {ok, "1"}
-                , lee_storage:get([action_4, {"1"}, posn_1], Data)
-                ),
-    ?assertMatch( {ok, "2"}
-                , lee_storage:get([action_4, {"1"}, posn_2], Data)
-                ),
-    ?assertMatch( {ok, [foo, bar]}
-                , lee_storage:get([action_4, {"1"}, posn_n], Data)
-                ).
+    ok_patch( "@action_4 1 2 foo bar"
+            , [ {set, [action_4, {"1"}], []}
+              , {set, [action_4, {"1"}, posn_1], "1"}
+              , {set, [action_4, {"1"}, posn_2], "2"}
+              , {set, [action_4, {"1"}, posn_n], [foo, bar]}
+              ]
+            ).
 
 default_key_test() ->
-    {ok, Data} = read_cli("@action_1 -s 42"),
-    ?assertMatch( [[action_1, {42, "default"}]]
-                , lee_storage:list([action_1, ?children], Data)
-                ).
+    ok_patch( "@action_1 -s 42"
+            , [ {set, [action_1, {42, "default"}], []}
+              , {set, [action_1, {42, "default"}, short], 42}
+              ]
+            ).
 
 no_key_test() ->
     ?assertMatch( {error, _}
@@ -265,15 +246,41 @@ no_key_test() ->
                 ).
 
 rest_empty_list_test() ->
-    {ok, Data} = read_cli("@action_3"),
-    ?assertMatch( {ok, []}
-                , catch lee_storage:get([action_3, {}, posn_n], Data)
+    ok_patch( "@action_3"
+            , [ {set, [action_3, {}], []}
+              , {set, [action_3, {}, posn_n], []}
+              ]
+            ).
+
+err_compile(ExpectedErrors, Model) ->
+    {error, Errors} = compile(Model),
+    ?assertEqual( lists:sort(ExpectedErrors)
+                , lists:sort(Errors)
                 ).
+
+validate_illegal_combinatio_test() ->
+    M1 = #{ foo => {[cli_param, cli_action],
+                    #{ cli_operand => "op"
+                     }}
+          },
+    err_compile( ["[foo]: Illegal combination of CLI metatypes"]
+               , M1
+               ),
+    M2 = #{ foo => {[cli_positional, cli_param],
+                    #{ cli_operand => "op"
+                     , cli_arg_position => 1
+                     }}
+          },
+    err_compile( ["[foo]: Illegal combination of CLI metatypes"]
+               , M2
+               ).
 
 validate_param_test() ->
     M1 = #{ foo => {[cli_param], #{}}
           },
-    ?assertMatch({error, ["[foo]: Missing" ++ _]}, compile(M1)),
+    err_compile( ["[foo]: Missing `cli_operand' or `cli_short' attributes"]
+               , M1
+               ),
     M2 = #{ foo => {[cli_param],
                     #{ cli_short => a
                      }}
@@ -301,6 +308,18 @@ validate_action_test() ->
                 , compile(M2)
                 ).
 
+validate_duplicate_action_test() ->
+    M1 = #{ foo => {[cli_action],
+                    #{ cli_operand => "duplicate"
+                     }}
+          , bar => {[cli_action],
+                    #{ cli_operand => "duplicate"
+                     }}
+          },
+    err_compile( ["[foo]: Action name @duplicate is already used by [bar]"]
+               , M1
+               ).
+
 validate_positional_test() ->
     M1 = #{ foo => {[cli_positional], #{}}
           },
@@ -312,6 +331,23 @@ validate_positional_test() ->
     ?assertMatch( {error, ["[foo]: Expected type" ++ _]}
                 , compile(M2)
                 ).
+
+
+validate_duplicate_long_test() ->
+    M1 = #{ foo => {[cli_param], #{cli_operand => "long"}}
+          , bar => {[cli_param], #{cli_operand => "long"}}
+          },
+    err_compile( ["[foo]: CLI operand --long is already used by [bar]"]
+               , M1
+               ).
+
+validate_duplicate_short_test() ->
+    M1 = #{ foo => {[cli_param], #{cli_short => $s}}
+          , bar => {[cli_param], #{cli_short => $s}}
+          },
+    err_compile( ["[foo]: CLI operand -s is already used by [bar]"]
+               , M1
+               ).
 
 compile(Module) ->
     lee_model:compile([lee:base_metamodel(), lee_metatype:create(lee_cli)], [Module]).

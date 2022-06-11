@@ -97,6 +97,12 @@ patch(D0 = #lee_tree{backend = Backend, data = Data0}, Patch0) ->
 %% @doc List instances that can match the pattern
 -spec list(lee:key(), data(_)) -> [lee:key()].
 list(Pattern, #lee_tree{backend = Backend, data = Data}) ->
+    %% case Backend:get(?rose_tree, Data) of
+    %%     {ok, Keys} ->
+    %%         list(Keys, [], Pattern);
+    %%     undefined ->
+    %%         []
+    %% end.
     {ok, Keys} = Backend:get(?rose_tree, Data),
     list(Keys, [], Pattern).
 

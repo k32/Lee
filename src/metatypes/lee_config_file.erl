@@ -31,19 +31,22 @@
 %% API
 %%================================================================================
 
--spec read(lee:model(), file:filename()) -> lee:patch().
+-spec read(lee:model(), file:filename()) -> {ok, lee:patch()} | {error, [string()]}.
 read(Model, Filename) ->
     case file:consult(Filename) of
         {ok, [Term]} ->
-            make_patch([], Model, Term, []);
+            {ok, make_patch([], Model, Term, [])};
         {error, enoent} ->
-            []
+            {ok, []};
+        {error, Err} ->
+            Msg = lee_lib:format("Can't read file ~p: ~p", [Filename, Err]),
+            {error, [Msg]}
     end.
 
 -spec read_to(lee:model(), lee:data(), file:filename()) ->
-          {ok, lee:data()} | {error, list(), list()} .
+          lee:patch_result().
 read_to(Model, Data, Filename) ->
-    Patch = read(Model, Filename),
+    {ok, Patch} = read(Model, Filename),
     lee:patch(Model, Data, Patch).
 
 %%================================================================================
@@ -81,7 +84,12 @@ description(Tag, Model) ->
 read_patch(Tag, Model) ->
     {ok, Filename} = lee_model:get_meta(?filename_key(Tag), Model),
     {ok, Prio} = lee_model:get_meta(?prio_key(Tag), Model),
-    {Prio, read(Model, Filename)}.
+    case read(Model, Filename) of
+        {ok, Patch} ->
+            {ok, Prio, Patch};
+        {error, Err} ->
+            {error, [Err]}
+    end.
 
 %%================================================================================
 %% Internal functions
