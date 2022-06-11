@@ -12,6 +12,8 @@
         , xref_key/1
         , refer_value/4
         , docbook/1
+        , from_file/1
+        , from_file/2
         , check_docstrings/1
         ]).
 
@@ -97,11 +99,27 @@ refer_value(Key, Metatype, Title, MNode) ->
 -spec docbook(iolist()) -> [doc()].
 docbook([]) ->
     [];
-docbook(Cooked = [Tup|_]) when is_tuple(Tup) -> %% TODO: make detection bete
+docbook(Cooked = [Tup|_]) when is_tuple(Tup) -> %% TODO: make detection better
     Cooked;
 docbook(String) ->
     {Doc, Rest} = xmerl_scan:string(String, [{document, false}]),
     [Doc | docbook(Rest)].
+
+%% @doc Read docbook XML from a file.
+from_file(Filename) ->
+    case xmerl_scan:file(Filename, [{document, false}]) of
+        {error, Error} ->
+            error(Error);
+        {Doc, Rest} ->
+            [Doc | docbook(Rest)]
+    end.
+
+%% @doc Read docbook XML from a file located in the docs directory of
+%% an Erlang application
+-spec from_file(application:application(), string()) -> [doc()].
+from_file(Application, Filename) ->
+    Path = filename:join([code:priv_dir(Application), Filename]),
+    from_file(Path).
 
 %% @private Meta-validation of docstrings
 -spec check_docstrings(lee:parameters()) -> lee_lib:check_result().
