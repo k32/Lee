@@ -221,7 +221,7 @@ validate_meta_attr(Attr, Type, Params) ->
     end.
 
 format_typerefl_error(#{expected := Expected, got := Got}) ->
-    format("Expected type: ~p~nGot value: ~p", [Expected, Got]).
+    format("Type mismatch.~nExpected type: ~s~nGot value: ~p", [Expected, Got]).
 
 receive_errors(Ref, Err, Warn) ->
     receive

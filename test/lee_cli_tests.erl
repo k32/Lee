@@ -285,14 +285,14 @@ validate_param_test() ->
                     #{ cli_short => a
                      }}
           },
-    ?assertMatch( {error, ["[foo]: Expected type" ++ _]}
+    ?assertMatch( {error, ["[foo]: Type mismatch." ++ _]}
                 , compile(M2)
                 ),
     M3 = #{ foo => {[cli_param],
                     #{ cli_operand => a
                      }}
           },
-    ?assertMatch( {error, ["[foo]: Expected type" ++ _]}
+    ?assertMatch( {error, ["[foo]: Type mismatch." ++ _]}
                 , compile(M3)
                 ).
 
@@ -304,7 +304,7 @@ validate_action_test() ->
                     #{ cli_operand => a
                      }}
           },
-    ?assertMatch( {error, ["[foo]: Expected type" ++ _]}
+    ?assertMatch( {error, ["[foo]: Type mismatch." ++ _]}
                 , compile(M2)
                 ).
 
@@ -328,7 +328,7 @@ validate_positional_test() ->
                     #{ cli_arg_position => a
                      }}
           },
-    ?assertMatch( {error, ["[foo]: Expected type" ++ _]}
+    ?assertMatch( {error, ["[foo]: Type mismatch." ++ _]}
                 , compile(M2)
                 ).
 

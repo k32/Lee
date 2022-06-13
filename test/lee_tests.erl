@@ -151,7 +151,7 @@ meta_validate_value_test() ->
                            })
                 ),
     %% Wrong type of `oneliner':
-    ?assertMatch( {error, ["[foo]: Expected type:" ++ _]}
+    ?assertMatch( {error, ["[foo]: Type mismatch." ++ _]}
                 , Compile(#{type => integer(), oneliner => foo})
                 ),
     %% Error in `doc':
