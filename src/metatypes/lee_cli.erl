@@ -520,18 +520,27 @@ make_scope_docs(#sc{ short = Short
                    , long = Long
                    , positional = Positional
                    }, Model) ->
-    LongDoc = [document_param("--" ++ L, Key, Model)
-               || {L, Key} <- maps:to_list(Long)],
-    ShortDoc = [document_param([$-, S], Key, Model)
-                || {S, Key} <- maps:to_list(Short)],
+    NamedDocs = merge_operands(Model, lists:keysort(2, maps:to_list(Long) ++ maps:to_list(Short))),
     PositionalDocs =
         [document_param(lee_lib:format("Position: ~p", [P]), Key, Model)
          || {P, Key} <- Positional],
-    LongDoc ++ ShortDoc ++ PositionalDocs.
+    NamedDocs ++ PositionalDocs.
+
+merge_operands(_Model, []) ->
+    [];
+merge_operands(Model, [{A, K}, {B, K} | Rest]) ->
+    Name = pretty_print_operand(A) ++ ", " ++ pretty_print_operand(B),
+    [document_param(Name, K, Model) | merge_operands(Model, Rest)];
+merge_operands(Model, [{A, K} | Rest]) ->
+    Name = pretty_print_operand(A),
+    [document_param(Name, K, Model) | merge_operands(Model, Rest)].
 
 document_param(Name, Key, Model) ->
     MNode = lee_model:get(Key, Model),
     lee_doc:refer_value(Key, cli_param, Name, MNode).
+
+format_singleton(Operand, K) ->
+    {K, pretty_print_operand(Operand)}.
 
 %% @private
 -spec tokenize(char(), [string()]) -> [token()].
