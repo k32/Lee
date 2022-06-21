@@ -287,9 +287,9 @@ like in the following example:
 #+END_SRC
 
 =oneliner= is a one sentence summary. =doc= is a more elaborate
-description formatted using [[https://docbook.org/][DocBook]] markup. Also element with key
-=['$doc_root']= should be added to the model, it contains general
-information about the application:
+description formatted using [[https://docbook.org/][DocBook]] markup. Also element with
+=[doc_root]= metatype should be added to the model, that contains
+information about the documentation root:
 
 #+BEGIN_SRC erlang
 #{ '$doc_root' =>
