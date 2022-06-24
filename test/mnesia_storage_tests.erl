@@ -29,6 +29,7 @@ patch2() ->
 get_test() ->
     application:ensure_all_started(mnesia),
     Data = lee_storage:new(lee_mnesia_storage, #{table_name => ?FUNCTION_NAME}),
+    ?assertEqual(Data, ?lee_mnesia_storage(?FUNCTION_NAME)),
     ?assertMatchT(_, lee_storage:patch(Data, patch())),
     ?assertMatchT({ok, 1}, lee_storage:get([foo, bar], Data)),
     ?assertMatchT({ok, 2}, lee_storage:get([bar, baz], Data)),
@@ -57,6 +58,7 @@ get_dirty_test() ->
     Data0 = lee_storage:new(lee_mnesia_storage, #{table_name => ?FUNCTION_NAME}),
     ?assertMatchT(_, lee_storage:patch(Data0, patch())),
     Data = lee_dirty_mnesia_storage:from_table(?FUNCTION_NAME),
+    ?assertEqual(Data, ?lee_dirty_mnesia_storage(?FUNCTION_NAME)),
     ?assertMatch({ok, 1}, lee_storage:get([foo, bar], Data)),
     ?assertMatch({ok, 2}, lee_storage:get([bar, baz], Data)),
     ?assertMatch({ok, 11}, lee_storage:get([quux, {1}, foo, {1}], Data)),

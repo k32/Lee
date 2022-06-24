@@ -57,7 +57,7 @@ meta_validate_node(map, #model{model = Model}, Key, #mnode{metaparams = Params})
       end
     , []
     };
-meta_validate_node(default_instance, Model, Key, #mnode{metatypes = MTs, metaparams = Params}) ->
+meta_validate_node(default_instance, Model, Key, #mnode{metatypes = MTs}) ->
     Errors = ["only maps can have a default instance" || not lists:member(map, MTs)] ++
              check_all_defaults(Model, Key),
     lee_lib:inject_error_location(Key, {Errors, []}).
@@ -74,5 +74,5 @@ read_patch(default_instance, Model) ->
 %% Internal functions
 %%================================================================================
 
-check_all_defaults(Model, Parent) ->
+check_all_defaults(_Model, _Parent) ->
     []. %% TODO

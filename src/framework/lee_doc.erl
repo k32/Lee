@@ -1,7 +1,7 @@
 %% @doc Utilities for extracting documentation from the model
 -module(lee_doc).
 
--export([make_docs/2]).
+-export([make_docs/2, get_description/3, get_oneliner/3]).
 
 -export([ p/1
         , li/2
@@ -25,10 +25,13 @@
 -type doc_options() ::
         #{ metatypes    := [lee:metatype() | {lee:metatype(), term()}]
          , output_dir   => file:filename()
+         , doc_xml      => file:filename()
          , run_pandoc   => boolean()
          }.
 
 -export_type([doc/0, doc_options/0]).
+
+-define(external_doc, [?MODULE, external_doc]).
 
 -spec p(list()) -> doc().
 p(Content) ->
@@ -114,7 +117,7 @@ from_file(Filename) ->
             [Doc | docbook(Rest)]
     end.
 
-%% @doc Read docbook XML from a file located in the docs directory of
+%% @doc Read docbook XML from a file located in the priv directory of
 %% an Erlang application
 -spec from_file(application:application(), string()) -> [doc()].
 from_file(Application, Filename) ->
@@ -196,11 +199,11 @@ document_node(Metatype, Model, Key) ->
     end.
 
 -spec make_docs(lee:model(), doc_options()) -> ok.
-make_docs(Model, Options) ->
+make_docs(Model0, Options) ->
+    Model = maybe_inject_docs(Model0, Options),
     #{metatypes := Metatypes} = Options,
     case lee_model:get_metatype_index(doc_root, Model) of
-        [DocRoot] ->
-            #mnode{metaparams = Attrs} = lee_model:get(DocRoot, Model),
+        [_] ->
             BookTitle = lee_metatype:description_title(doc_root, Model),
             Chapters = lists:flatten([metatype_docs(MT, Model) || MT <- [doc_root|Metatypes]]),
             Book = [{title, [BookTitle]} |
@@ -218,12 +221,52 @@ make_docs(Model, Options) ->
             error("Exactly one doc root should be present in the model")
     end.
 
+-spec get_description(lee:model(), lee:model_key(), #mnode{}) -> list().
+get_description(Model, Key, #mnode{metaparams = Attrs}) ->
+    External = case lee_model:get_meta(?external_doc, Model) of
+                   undefined ->
+                       [];
+                   {ok, XML} ->
+                       doc_xml_selector(XML, Key)
+               end,
+    case External of
+        [] ->
+            case Attrs of
+                #{doc := DocString0} ->
+                    DocString = ?m_valid(value, lee_doc:docbook(DocString0)),
+                    [lee_doc:simplesect("Description:", DocString)];
+                _ ->
+                    []
+            end;
+        _ ->
+            External
+    end.
+
+-spec get_oneliner(lee:model(), lee:model_key(), #mnode{}) -> list().
+get_oneliner(_Model, _Key, #mnode{metaparams = Attrs}) ->
+    maps:get(oneliner, Attrs, ""). %% TODO: lookup from XML
+
+%% Inject docs from an external source, if needed.
+maybe_inject_docs(Model, Options) ->
+    case Options of
+        #{doc_xml := Filename} ->
+            {XML, _} = xmerl_scan:file(Filename),
+            lee_model:patch_meta(Model, [ {set, ?external_doc, XML}
+                                        ]);
+        _ ->
+            Model
+    end.
+
+doc_xml_selector(XML, Key) ->
+    KeyStr = key_str(Key),
+    xmerl_xpath:string("/lee/node[@id = \"" ++ KeyStr ++ "\"]/doc/*", XML).
+
+key_str(Key) ->
+    lists:flatten(lists:join("/", [io_lib:format("~p", [I]) || I <- Key])).
+
 run_pandoc(SrcFile, OutFormat) ->
     %% TODO: this is sketchy and wrong
     OutName = filename:rootname(SrcFile) ++ [$.|OutFormat],
-    Cmd = lee_lib:format( "pandoc -o '~s' -f docbook -t ~s '~s'"
-                        , [OutName, OutFormat, SrcFile]
-                        ),
     lee_lib:run_cmd("pandoc", [ "--toc", "-s", "-f", "docbook", "-t", OutFormat, "-o"
                               , OutName, SrcFile
                               ]).

@@ -53,8 +53,6 @@
 -type patch_result() :: {ok, data(), Warnings :: [string()]}
                       | {error, Errors :: [term()], Warnings :: [term()]}.
 
--type validation_type() :: validate_node | meta_validate.
-
 -type metatype() :: atom().
 
 -type node_id() :: atom() %% Should not begin with `$', these are reserved
@@ -182,7 +180,7 @@ patch(Model, Data0, Patch) ->
 %% ```[[foo, {1}], [foo, {2}]]''' when map `[foo]' contains
 %% two children with keys `1' and `2'.
 -spec list(model() | cooked_module(), data(), lee:key()) -> [lee:key()].
-list(Model, Data, Key) when ?is_storage(Data) ->
+list(_Model, Data, Key) when ?is_storage(Data) ->
     %% TODO: get metatype index of value metatype and add it here as default?
     lee_storage:list(Key, Data);
 list(Model, Data, Pattern) when is_list(Data) ->
@@ -196,8 +194,8 @@ list(Model, Data, Pattern) when is_list(Data) ->
 -spec validate(lee:model(), data()) -> validate_result().
 validate(Model, Data) ->
     PerNodeCallback =
-        fun(Metatype, Model, MKey, MNode) ->
-                do_validate_data(Metatype, Model, Data, MKey, MNode)
+        fun(Metatype, Model1, MKey, MNode) ->
+                do_validate_data(Metatype, Model1, Data, MKey, MNode)
         end,
     PerMtCallback =
         fun(Metatype, {ErrAcc, WarnAcc}) ->

@@ -14,6 +14,7 @@
         , get/2
         , get_meta/3
         , get_meta/2
+        , patch_meta/2
         , all_metatypes/1
         , get_metatype_index/2
         , match/2
@@ -48,7 +49,7 @@ compile(MetaModules0, Models0) ->
     MetaModules = lists:flatten(MetaModules0),
     ModuleLookup = maps:from_list([{Name, Module} || {Module, Names, _Conf} <- MetaModules,
                                                      Name <- Names]),
-    MetaConfigPatch = ([{set, K, V} || {Module, _, Conf} <- MetaModules,
+    MetaConfigPatch = ([{set, K, V} || {_Module, _, Conf} <- MetaModules,
                                        {K, V} <- Conf]),
     MetaConfig0 = lee_storage:new(lee_map_storage),
     MetaConfig1 = lee_storage:patch(MetaConfig0, MetaConfigPatch),
@@ -62,14 +63,18 @@ compile(MetaModules0, Models0) ->
                            },
             case lee:meta_validate(Result) of
                 {[], _Warn, Patch} ->
-                    MetaConfig = lee_storage:patch(MetaConfig1, Patch),
-                    {ok, Result#model{metaconfig = MetaConfig}};
+                    {ok, patch_meta(Result, Patch)};
                 {Errs, _Warns, _Patch} ->
                     {error, Errs}
             end;
         T ->
             {error, [Err || {error, Err} <- [T]]}
     end.
+
+-spec patch_meta(lee:model(), lee:patch()) -> lee:model().
+patch_meta(M = #model{metaconfig = MC0}, Patch) ->
+    MC = lee_storage:patch(MC0, Patch),
+    M#model{metaconfig = MC}.
 
 %% @doc Merge multiple Lee model modules into a single module
 -spec merge([M]) -> {ok, lee:cooked_module()} | {error, term()}
@@ -152,11 +157,11 @@ map_vals(Fun, Model) ->
           ) -> Acc
       when Acc   :: term()
          , Model :: lee:model() | lee:module().
-fold(Fun0, Acc, Data) ->
+fold(Fun0, Acc0, Data) ->
     Fun = fun(Key, Val, Acc, _) ->
                   {Fun0(Key, Val, Acc), ?unused}
           end,
-    fold(Fun, Acc, ?unused, Data).
+    fold(Fun, Acc0, ?unused, Data).
 
 %% @doc Recursion schema for model fold with scope
 -spec fold( fun((lee:model_key(), #mnode{}, Acc, Scope) -> {Acc, Scope})
