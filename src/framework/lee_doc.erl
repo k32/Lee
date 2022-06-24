@@ -203,8 +203,7 @@ make_docs(Model0, Options) ->
     Model = maybe_inject_docs(Model0, Options),
     #{metatypes := Metatypes} = Options,
     case lee_model:get_metatype_index(doc_root, Model) of
-        [DocRoot] ->
-            #mnode{metaparams = Attrs} = lee_model:get(DocRoot, Model),
+        [_] ->
             BookTitle = lee_metatype:description_title(doc_root, Model),
             Chapters = lists:flatten([metatype_docs(MT, Model) || MT <- [doc_root|Metatypes]]),
             Book = [{title, [BookTitle]} |
@@ -244,8 +243,8 @@ get_description(Model, Key, #mnode{metaparams = Attrs}) ->
     end.
 
 -spec get_oneliner(lee:model(), lee:model_key(), #mnode{}) -> list().
-get_oneliner(Model, Key, #mnode{metaparams = Attrs}) ->
-    maps:get(oneliner, Attrs, "").
+get_oneliner(_Model, _Key, #mnode{metaparams = Attrs}) ->
+    maps:get(oneliner, Attrs, ""). %% TODO: lookup from XML
 
 %% Inject docs from an external source, if needed.
 maybe_inject_docs(Model, Options) ->
@@ -268,9 +267,6 @@ key_str(Key) ->
 run_pandoc(SrcFile, OutFormat) ->
     %% TODO: this is sketchy and wrong
     OutName = filename:rootname(SrcFile) ++ [$.|OutFormat],
-    Cmd = lee_lib:format( "pandoc -o '~s' -f docbook -t ~s '~s'"
-                        , [OutName, OutFormat, SrcFile]
-                        ),
     lee_lib:run_cmd("pandoc", [ "--toc", "-s", "-f", "docbook", "-t", OutFormat, "-o"
                               , OutName, SrcFile
                               ]).

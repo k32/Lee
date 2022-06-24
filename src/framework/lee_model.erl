@@ -49,7 +49,7 @@ compile(MetaModules0, Models0) ->
     MetaModules = lists:flatten(MetaModules0),
     ModuleLookup = maps:from_list([{Name, Module} || {Module, Names, _Conf} <- MetaModules,
                                                      Name <- Names]),
-    MetaConfigPatch = ([{set, K, V} || {Module, _, Conf} <- MetaModules,
+    MetaConfigPatch = ([{set, K, V} || {_Module, _, Conf} <- MetaModules,
                                        {K, V} <- Conf]),
     MetaConfig0 = lee_storage:new(lee_map_storage),
     MetaConfig1 = lee_storage:patch(MetaConfig0, MetaConfigPatch),
@@ -157,11 +157,11 @@ map_vals(Fun, Model) ->
           ) -> Acc
       when Acc   :: term()
          , Model :: lee:model() | lee:module().
-fold(Fun0, Acc, Data) ->
+fold(Fun0, Acc0, Data) ->
     Fun = fun(Key, Val, Acc, _) ->
                   {Fun0(Key, Val, Acc), ?unused}
           end,
-    fold(Fun, Acc, ?unused, Data).
+    fold(Fun, Acc0, ?unused, Data).
 
 %% @doc Recursion schema for model fold with scope
 -spec fold( fun((lee:model_key(), #mnode{}, Acc, Scope) -> {Acc, Scope})

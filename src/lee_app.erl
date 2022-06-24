@@ -13,7 +13,7 @@
 start(_StartType, _StartArgs) ->
     lee_sup:start_link().
 
-stop(Pid) ->
+stop(_Pid) ->
     ok.
 
 %%%===================================================================

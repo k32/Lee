@@ -63,8 +63,6 @@
         , parent = []      :: lee:key()
         }).
 
--type doc_config() :: #{prog_name := string()}.
-
 -type token() :: {long, string(), string()}
                | {short, char(), string()}
                | {positional, string()}
@@ -238,10 +236,10 @@ read_patch(cli_action, Model) ->
 read_patch(_, _) ->
     {ok, 0, []}.
 
-description_title(MetaType, Model) ->
+description_title(_MetaType, _Model) ->
     "CLI arguments".
 
-description(MetaType, Model) ->
+description(_MetaType, Model) ->
     {ok, Index} = lee_model:get_meta(?index_key, Model),
     [{global, Global}|Scopes] = lists:sort(maps:to_list(Index)),
     GlobalDoc = [{section, make_scope_docs(Global, Model)}],
@@ -379,7 +377,7 @@ parse_args( Model
           , #sc{ name = Name
                , positional = Specs
                , parent = Parent
-               } = Scope0
+               }
           , Positionals
           ) ->
     case zip_positionals(Model, Parent, Specs, Positionals) of
@@ -468,9 +466,6 @@ mk_index(Key, #mnode{metatypes = Meta, metaparams = Attrs}, Acc, Scope) ->
     end.
 
 add_param(Key, Attrs, SC0) ->
-    #sc{ long = Long0
-       , short = Short0
-       } = SC0,
     Long = ?m_attr(cli_param, cli_operand, Attrs, undefined),
     Short = ?m_attr(cli_param, cli_short, Attrs, undefined),
     SC1 = maybe_update_sc(SC0, #sc.long, Long, Key),

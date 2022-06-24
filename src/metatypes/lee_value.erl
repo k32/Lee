@@ -39,7 +39,7 @@ description(value, _Model) ->
 %% Validate nodes of `value' metatype
 -spec validate_node(lee:metatype(), lee:model(), lee:data(), lee:key(), #mnode{}) ->
                            lee_lib:check_result().
-validate_node(value, Model, Data, Key, #mnode{metaparams = Attrs}) ->
+validate_node(value, _Model, Data, Key, #mnode{metaparams = Attrs}) ->
     Type = ?m_attr(value, type, Attrs),
     HasDefault = case Attrs of
                      #{default     := _} -> true;
