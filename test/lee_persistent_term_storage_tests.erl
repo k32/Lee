@@ -10,6 +10,7 @@ patch() ->
 
 get_test() ->
     Storage = lee_storage:new(lee_persistent_term_storage, test),
+    ?assertEqual(Storage, ?lee_persistent_term_storage(test)),
     lee_storage:patch(Storage, patch()),
     ?assertMatch({ok, 1}, lee_storage:get([foo, bar], Storage)),
     ?assertMatch({ok, 2}, lee_storage:get([bar, baz], Storage)),

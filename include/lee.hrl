@@ -37,4 +37,9 @@
 %% Takes place of a configuration value for the lee map
 -define(lee_map_placeholder, []).
 
+%% Shortcuts for lee storages that use global data (so it can be created on the statically)
+-define(lee_persistent_term_storage(KEY), {lee_tree, lee_persistent_term_storage, KEY}).
+-define(lee_mnesia_storage(KEY), {lee_tree, lee_mnesia_storage, KEY}).
+-define(lee_dirty_mnesia_storage(KEY), {lee_tree, lee_dirty_mnesia_storage, KEY}).
+
 -endif.
