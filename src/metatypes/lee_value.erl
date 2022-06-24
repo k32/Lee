@@ -73,8 +73,7 @@ meta_validate_node(value, Model, Key, #mnode{metaparams = Attrs}) ->
 description_title(value, _) ->
     "Values".
 
-description_node(value, Model, Key, #mnode{metaparams = Attrs}) ->
-    Oneliner = ?m_attr(value, oneliner, Attrs, ""),
+description_node(value, Model, Key, MNode = #mnode{metaparams = Attrs}) ->
     Type = ?m_attr(value, type, Attrs),
     Default =
         case Attrs of
@@ -90,14 +89,8 @@ description_node(value, Model, Key, #mnode{metaparams = Attrs}) ->
             _ ->
                 []
         end,
-    Description =
-        case Attrs of
-            #{doc := DocString0} ->
-                DocString = ?m_valid(value, lee_doc:docbook(DocString0)),
-                [lee_doc:simplesect("Description:", DocString)];
-            _ ->
-                []
-        end,
+    Description = lee_doc:get_description(Model, Key, MNode),
+    Oneliner    = lee_doc:get_oneliner(Model, Key, MNode),
     Id = lee_lib:format("~p", [Key]),
     { section, [{id, Id}]
     , [ {title, [Id]}
@@ -109,6 +102,7 @@ description_node(value, Model, Key, #mnode{metaparams = Attrs}) ->
 %%================================================================================
 %% Internal functions
 %%================================================================================
+
 
 check_type_and_default(Model, Attrs) ->
     case Attrs of

@@ -1,0 +1,22 @@
+<lee>
+  <node id="foo">
+    <oneliner lang="en">
+      This parameter controls fooing (external)
+    </oneliner>
+    <doc lang="en">
+      <para>
+        This is a long description of foo taken from the external documention.
+      </para>
+      <para>
+        There is more stuff here
+      </para>
+    </doc>
+  </node>
+  <node id="cli/global/long">
+    <doc lang="en">
+      <para>
+        This is a description of the long parameter.
+      </para>
+    </doc>
+  </node>
+</lee>

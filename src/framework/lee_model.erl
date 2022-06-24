@@ -14,6 +14,7 @@
         , get/2
         , get_meta/3
         , get_meta/2
+        , patch_meta/2
         , all_metatypes/1
         , get_metatype_index/2
         , match/2
@@ -62,14 +63,18 @@ compile(MetaModules0, Models0) ->
                            },
             case lee:meta_validate(Result) of
                 {[], _Warn, Patch} ->
-                    MetaConfig = lee_storage:patch(MetaConfig1, Patch),
-                    {ok, Result#model{metaconfig = MetaConfig}};
+                    {ok, patch_meta(Result, Patch)};
                 {Errs, _Warns, _Patch} ->
                     {error, Errs}
             end;
         T ->
             {error, [Err || {error, Err} <- [T]]}
     end.
+
+-spec patch_meta(lee:model(), lee:patch()) -> lee:model().
+patch_meta(M = #model{metaconfig = MC0}, Patch) ->
+    MC = lee_storage:patch(MC0, Patch),
+    M#model{metaconfig = MC}.
 
 %% @doc Merge multiple Lee model modules into a single module
 -spec merge([M]) -> {ok, lee:cooked_module()} | {error, term()}

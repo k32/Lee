@@ -510,9 +510,9 @@ make_relative(Key0, Parent) ->
     Key.
 
 make_cli_action_docs(Scope = #sc{parent = Parent}, Model) ->
-    #mnode{metaparams = ParentAttrs} = lee_model:get(Parent, Model),
-    Oneliner = maps:get(oneliner, ParentAttrs, ""),
-    Doc = lee_doc:docbook(maps:get(doc, ParentAttrs, "")),
+    MNode = lee_model:get(Parent, Model),
+    Oneliner = lee_doc:get_oneliner(Model, Parent, MNode),
+    Doc = lee_doc:get_description(Model, Parent, MNode),
     Preamble = [{para, [Oneliner]}|Doc],
     Preamble ++ make_scope_docs(Scope, Model).
 
@@ -538,9 +538,6 @@ merge_operands(Model, [{A, K} | Rest]) ->
 document_param(Name, Key, Model) ->
     MNode = lee_model:get(Key, Model),
     lee_doc:refer_value(Key, cli_param, Name, MNode).
-
-format_singleton(Operand, K) ->
-    {K, pretty_print_operand(Operand)}.
 
 %% @private
 -spec tokenize(char(), [string()]) -> [token()].

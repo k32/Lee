@@ -76,7 +76,8 @@ export_test() ->
           , value
           ],
     Config = #{ metatypes => MTs
-              , run_pandoc => true
+              , run_pandoc => false
+              , doc_xml => "test/data/external_doc.xml"
               },
     lee_doc:make_docs(model(), Config).
 
