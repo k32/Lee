@@ -91,7 +91,7 @@ description_node(value, Model, Key, MNode = #mnode{metaparams = Attrs}) ->
         end,
     Description = lee_doc:get_description(Model, Key, MNode),
     Oneliner    = lee_doc:get_oneliner(Model, Key, MNode),
-    Id = lee_lib:format("~p", [Key]),
+    Id = lee_doc:format_key(Key),
     { section, [{id, Id}]
     , [ {title, [Id]}
       , {para, [Oneliner]}

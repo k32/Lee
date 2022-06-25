@@ -1,7 +1,7 @@
 %% @doc Utilities for extracting documentation from the model
 -module(lee_doc).
 
--export([make_docs/2, get_description/3, get_oneliner/3]).
+-export([make_docs/2, get_description/3, get_oneliner/3, format_key/1]).
 
 -export([ p/1
         , li/2
@@ -56,6 +56,11 @@ erlang_listing(Str) ->
     , [Str]
     }.
 
+%% @doc Get string representation of the key
+-spec format_key(lee:model_key()) -> string().
+format_key(Key) ->
+    lists:flatten(lists:join("/", [io_lib:format("~p", [I]) || I <- Key])).
+
 %% @doc Make a simple subsection
 -spec simplesect(string(), iolist() | [doc()]) -> doc().
 simplesect(Title, Doc0) ->
@@ -78,7 +83,7 @@ li(Title, Contents) ->
 %% @doc Generate a link to the description of a value
 -spec xref_key(lee:key()) -> doc().
 xref_key(Key) ->
-    Node = lee_lib:format("~p", [Key]),
+    Node = format_key(Key),
     {xref, [{linkend, Node}], []}.
 
 %% @doc Generate a section that contains short description of a value
@@ -258,11 +263,8 @@ maybe_inject_docs(Model, Options) ->
     end.
 
 doc_xml_selector(XML, Key) ->
-    KeyStr = key_str(Key),
+    KeyStr = format_key(Key),
     xmerl_xpath:string("/lee/node[@id = \"" ++ KeyStr ++ "\"]/doc/*", XML).
-
-key_str(Key) ->
-    lists:flatten(lists:join("/", [io_lib:format("~p", [I]) || I <- Key])).
 
 run_pandoc(SrcFile, OutFormat) ->
     %% TODO: this is sketchy and wrong

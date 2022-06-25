@@ -21,7 +21,9 @@
 -export([]).
 
 %% behavior callbacks:
--export([names/1, meta_validate_node/4, read_patch/2]).
+-export([ names/1, meta_validate_node/4, read_patch/2
+        , description/2, description_title/2, description_node/4
+        ]).
 
 -include("../framework/lee_internal.hrl").
 
@@ -69,6 +71,33 @@ read_patch(default_instance, Model) ->
     Keys = lee_model:get_metatype_index(default_instance, Model),
     {ok, ?PRIO, [OP || K  <- Keys,
                        OP <- lee_lib:make_nested_patch(Model, K, #{})]}.
+
+description_title(map, _Model) ->
+    "Maps".
+
+description(map, _) ->
+    [{para, ["This section lists all maps."]}].
+
+description_node(map, Model, Key, MNode = #mnode{metaparams = Attrs}) ->
+    KeyAttr = ?m_attr(map, key_elements, Attrs, []),
+    Description = lee_doc:get_description(Model, Key, MNode),
+    Oneliner    = lee_doc:get_oneliner(Model, Key, MNode),
+    Id = lee_doc:format_key(Key),
+    KeyElems =  [{orderedlist,
+                  [{listitem,
+                    [{para,
+                      [ {link, [{linkend, lee_doc:format_key(Key ++ [?children|I])}],
+                         [lee_doc:format_key(I)]}
+                      ]}]}
+                   || I <- KeyAttr]}
+                ],
+    { section, [{id, Id}]
+    , [ {title, [Id]}
+      , {para, [Oneliner]}
+      , lee_doc:simplesect("Key elements:", KeyElems)
+      ] ++ Description
+    }.
+
 
 %%================================================================================
 %% Internal functions
