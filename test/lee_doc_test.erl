@@ -73,6 +73,7 @@ export_test() ->
           %% , {consult, #{ filter      => [bar]
           %%              , config_name => "bar.conf"
           %%              }}
+          , map
           , value
           ],
     Config = #{ metatypes => MTs

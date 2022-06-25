@@ -509,7 +509,10 @@ make_cli_action_docs(Scope = #sc{parent = Parent}, Model) ->
     Oneliner = lee_doc:get_oneliner(Model, Parent, MNode),
     Doc = lee_doc:get_description(Model, Parent, MNode),
     Preamble = [{para, [Oneliner]}|Doc],
-    Preamble ++ make_scope_docs(Scope, Model).
+    Preamble ++ [{section,
+                  [ {title, ["CLI arguments"]}
+                  | make_scope_docs(Scope, Model)
+                  ]}].
 
 make_scope_docs(#sc{ short = Short
                    , long = Long
