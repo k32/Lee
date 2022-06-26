@@ -48,12 +48,12 @@ description_title(doc_root, Model) ->
     ?m_attr(doc_root, app_name, Attrs).
 
 description(doc_root, Model) ->
-    [Key] = lee_model:get_metatype_index(doc_root, Model),
-    #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
-    AppOneliner = ?m_attr(doc_root, oneliner, Attrs),
-    AppDoc = lee_doc:docbook(?m_attr(doc_root, doc, Attrs, "")),
+    [Key]       = lee_model:get_metatype_index(doc_root, Model),
+    MNode       = lee_model:get(Key, Model),
+    Description = lee_doc:get_description(Model, Key, MNode),
+    Oneliner    = lee_doc:get_oneliner(Model, Key, MNode),
     [{chapter, [{id, "_intro"}]
-     , [{title, ["Introduction"]}, {para, [AppOneliner]} | AppDoc]
+     , [{title, ["Introduction"]}, {para, [Oneliner]} | Description]
      }].
 
 %%================================================================================
