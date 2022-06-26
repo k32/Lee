@@ -59,7 +59,7 @@ erlang_listing(Str) ->
 %% @doc Get string representation of the key
 -spec format_key(lee:model_key()) -> string().
 format_key(Key) ->
-    lists:flatten(lists:join("/", [io_lib:format("~p", [I]) || I <- Key])).
+    lists:flatten(lists:join("-", [io_lib:format("~p", [I]) || I <- Key])).
 
 %% @doc Make a simple subsection
 -spec simplesect(string(), iolist() | [doc()]) -> doc().

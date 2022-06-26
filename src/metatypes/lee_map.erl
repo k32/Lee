@@ -18,7 +18,8 @@
 -behavior(lee_metatype).
 
 %% API:
--export([]).
+-export([ key_elements/2
+        ]).
 
 %% behavior callbacks:
 -export([ names/1, meta_validate_node/4, read_patch/2
@@ -28,6 +29,20 @@
 -include("../framework/lee_internal.hrl").
 
 -define(PRIO, -999999).
+
+%%================================================================================
+%% API
+%%================================================================================
+
+-spec key_elements(lee:model(), lee:model_key()) -> list(lee:model_key()).
+key_elements(Model, Key) ->
+    #mnode{metatypes = MTs, metaparams = MetaAttrs} = lee_model:get(Key, Model),
+    case MetaAttrs of
+        #{key_elements := KeyElems} ->
+            [Key ++ [{} | I] || I <- KeyElems];
+        #{} ->
+            []
+    end.
 
 %%================================================================================
 %% behavior callbacks
