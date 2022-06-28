@@ -36,7 +36,7 @@
 
 -spec key_elements(lee:model(), lee:model_key()) -> list(lee:model_key()).
 key_elements(Model, Key) ->
-    #mnode{metatypes = MTs, metaparams = MetaAttrs} = lee_model:get(Key, Model),
+    #mnode{metaparams = MetaAttrs} = lee_model:get(Key, Model),
     case MetaAttrs of
         #{key_elements := KeyElems} ->
             [Key ++ [{} | I] || I <- KeyElems];
