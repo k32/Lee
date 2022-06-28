@@ -277,6 +277,10 @@ meta_validate_action(_, Key, MNode) ->
                             lee_lib:check_result().
 meta_validate_param(_, Key, MNode) ->
     Presense = case MNode#mnode.metaparams of
+                   #{cli_operand := "no-" ++ _} ->
+                       Err = "CLI operands can't have `no-' prefix to "
+                             "avoid confusion with negation syntax",
+                       {[Err], []};
                    #{cli_operand := _} ->
                        {[], []};
                    #{cli_short := _} ->
@@ -301,12 +305,18 @@ split_commands(Tokens) ->
 
 tokenize_(_, []) ->
     [];
+tokenize_(Sigil, [[]|Rest]) ->
+    tokenize_(Sigil, Rest);
 tokenize_(_, ["--"|Rest]) ->
     [separator | [{positional, I} || I <- Rest]];
 tokenize_(Sigil, [[Sigil|Command] | Rest]) ->
     [{command, Command} | tokenize_(Sigil, Rest)];
+tokenize_(Sigil, ["--no-" ++ Long|Rest]) ->
+    [{long, Long, "false"} | tokenize_(Sigil, Rest)];
 tokenize_(Sigil, ["--" ++ Long|Rest]) ->
     [{long, Long, "true"} | tokenize_(Sigil, Rest)];
+tokenize_(Sigil, ["+" ++ Shorts | Rest]) ->
+    [{short, I, "false"} || I <- Shorts] ++ tokenize_(Sigil, Rest);
 tokenize_(Sigil, ["-" ++ [S1|Shorts] | Rest]) ->
     {Flags, Arg0} = lists:splitwith( fun(A) -> A < $0 orelse A > $9 end
                                    , Shorts
@@ -323,9 +333,9 @@ group_tokens([]) ->
     [];
 group_tokens([separator|Rest]) ->
     Rest;
-group_tokens([{short, S, _}, {positional, A} | Rest]) ->
+group_tokens([{short, S, "true"}, {positional, A} | Rest]) ->
     [{short, S, A} | group_tokens(Rest)];
-group_tokens([{long, L, _}, {positional, A} | Rest]) ->
+group_tokens([{long, L, "true"}, {positional, A} | Rest]) ->
     [{long, L, A} | group_tokens(Rest)];
 group_tokens([A|Rest]) ->
     [A|group_tokens(Rest)].

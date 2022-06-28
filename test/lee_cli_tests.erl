@@ -126,6 +126,7 @@ test_model() ->
 tokenize_test() ->
     ?tok("--foo", [{long, "foo", "true"}]),
     ?tok("-sj42", [{short, $s, "true"}, {short, $j, "42"}]),
+    ?tok("-sj foo", [{short, $s, "true"}, {short, $j, "foo"}]),
     ?tok("@foo", [{command, "foo"}]),
     ?tok( "--foo bar --bar foo"
         , [ {long, "foo", "bar"}
@@ -139,9 +140,6 @@ tokenize_test() ->
     ?tok( "--foo1 -- bar"
         , [ {long, "foo1", "true"}
           , {positional, "bar"}
-          ]),
-    ?tok( "-- --foo"
-        , [ {positional, "--foo"}
           ]),
     ?tok( "foo --bar 1 --baz --jobs 33 baz quux foo"
         , [ {positional, "foo"}
@@ -165,7 +163,30 @@ tokenize_test() ->
           , {command, "cmd"}
           , {positional, "foo"}
           , {positional, "@bar"}
-          ]).
+          ]),
+    %% Check separator:
+    ?tok("-- --foo", [{positional, "--foo"}]),
+    ?tok("-s -- foo", [{short, $s, "true"}, {positional, "foo"}]),
+    ?tok("--long -- foo", [{long, "long", "true"}, {positional, "foo"}]),
+    %% Check negation:
+    ?tok("--no-foo --no-bar baz", [ {long, "foo", "false"}
+                                  , {long, "bar", "false"}
+                                  , {positional, "baz"}
+                                  ]),
+    ?tok("--no-foo --bar baz", [ {long, "foo", "false"}
+                               , {long, "bar", "baz"}
+                               ]),
+    %% Short negation:
+    ?tok("+sf foo", [ {short, $s, "false"}
+                    , {short, $f, "false"}
+                    , {positional, "foo"}
+                    ]),
+    ?tok("--no-foo +9f8 foo", [ {long, "foo", "false"}
+                              , {short, $9, "false"}
+                              , {short, $f, "false"}
+                              , {short, $8, "false"}
+                              , {positional, "foo"}
+                              ]).
 
 read_cli(String) ->
     Args = string:tokens(String, " "),
@@ -294,6 +315,13 @@ validate_param_test() ->
           },
     ?assertMatch( {error, ["[foo]: Type mismatch." ++ _]}
                 , compile(M3)
+                ),
+    M4 = #{ foo => {[cli_param],
+                    #{ cli_operand => "no-foo"
+                     }}
+          },
+    ?assertMatch( {error, ["[foo]: CLI operands can't have `no-' prefix" ++ _]}
+                , compile(M4)
                 ).
 
 validate_action_test() ->
@@ -331,7 +359,6 @@ validate_positional_test() ->
     ?assertMatch( {error, ["[foo]: Type mismatch." ++ _]}
                 , compile(M2)
                 ).
-
 
 validate_duplicate_long_test() ->
     M1 = #{ foo => {[cli_param], #{cli_operand => "long"}}
