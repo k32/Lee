@@ -1,7 +1,5 @@
 -module(lee_model_tests).
 
--behavior(lee_metamodel).
-
 -export([names/1]).
 
 -include_lib("lee/include/lee.hrl").

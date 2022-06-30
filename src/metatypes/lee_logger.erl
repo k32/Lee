@@ -16,7 +16,7 @@
 -module(lee_logger).
 
 %% behavior callbacks:
--export([names/1, meta_validate_node/4, post_patch/5]).
+-export([names/1, metaparams/1, meta_validate_node/4, post_patch/5]).
 
 -include_lib("lee/src/framework/lee_internal.hrl").
 -include_lib("typerefl/include/types.hrl").
@@ -32,22 +32,17 @@
 names(_) ->
     [logger_level].
 
-meta_validate_node(logger_level, _Model, Key, MNode) ->
+metaparams(logger_level) ->
+    typerefl:map([{fuzzy, logger_handler, atom()}, {fuzzy, term(), term()}]).
+
+meta_validate_node(logger_level, _Model, _Key, MNode) ->
     ExpectedType = level(),
-    lee_lib:inject_error_location(
-      Key,
-      lee_lib:compose_checks(
-        [ lee_lib:validate_optional_meta_attr( logger_handler
-                                             , atom()
-                                             , MNode
-                                             )
-        , case MNode of
-              #mnode{metaparams = #{type := T}} when T =:= ExpectedType ->
-                  {[], []};
-              _ ->
-                  {["Type of logger level must be lee_logger:level()"], []}
-          end
-        ])).
+    case MNode of
+        #mnode{metaparams = #{type := T}} when T =:= ExpectedType ->
+            {[], []};
+        _ ->
+            {["Type of logger level must be lee_logger:level()"], []}
+    end.
 
 post_patch(logger_level, Model, Data, #mnode{metaparams = Attrs}, PatchOp) ->
     Val = lee:get(Model, Data, lee_lib:patch_key(PatchOp)),

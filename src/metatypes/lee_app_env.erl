@@ -16,7 +16,7 @@
 -module(lee_app_env).
 
 %% behavior callbacks:
--export([create/1, names/1, meta_validate_node/4, post_patch/5]).
+-export([create/1, names/1, metaparams/1, post_patch/5]).
 
 -include_lib("lee/src/framework/lee_internal.hrl").
 -include_lib("typerefl/include/types.hrl").
@@ -33,14 +33,8 @@ create(_) ->
 names(_) ->
     [?metatype].
 
-meta_validate_node(?metatype, _Model, Key, MNode) ->
-    %% TODO: Check that also a value. Also check transform type
-    lee_lib:inject_error_location(
-      Key,
-      lee_lib:validate_meta_attr( app_env
-                                , {atom(), atom()}
-                                , MNode
-                                )).
+metaparams(?metatype) ->
+    typerefl:map([{strict, app_env, {atom(), atom()}}, {fuzzy, term(), term()}]).
 
 post_patch(?metatype, Model, Data, #mnode{metaparams = Attrs}, PatchOp) ->
     {App, Env} = ?m_attr(?metatype, app_env, Attrs),

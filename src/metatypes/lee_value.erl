@@ -48,27 +48,24 @@ validate_node(value, _Model, Data, Key, #mnode{metaparams = Attrs}) ->
                  end,
     case lee_storage:get(Key, Data) of
         {ok, Term} ->
-            Result = case typerefl:typecheck(Type, Term) of
-                         ok ->
-                             {[], []};
-                         {error, Err} ->
-                             {[lee_lib:format_typerefl_error(Err)], []}
-                     end,
-            lee_lib:inject_error_location(Key, Result);
+            case typerefl:typecheck(Type, Term) of
+                ok ->
+                    {[], []};
+                {error, Err} ->
+                    {[lee_lib:format_typerefl_error(Err)], []}
+            end;
         undefined when HasDefault ->
             {[], []};
         undefined ->
-            Err = lee_lib:format("~p: Mandatory value is missing in the config", [Key]),
-            {[Err] , []}
+            {["Mandatory value is missing in the config"] , []}
     end.
 
 -spec meta_validate_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) ->
                             lee_lib:check_result().
-meta_validate_node(value, Model, Key, #mnode{metaparams = Attrs}) ->
-    Results = lee_lib:compose_checks([ lee_doc:check_docstrings(Attrs)
-                                     , check_type_and_default(Model, Attrs)
-                                     ]),
-    lee_lib:inject_error_location(Key, Results).
+meta_validate_node(value, Model, _Key, #mnode{metaparams = Attrs}) ->
+    lee_lib:compose_checks([ lee_doc:check_docstrings(Attrs)
+                           , check_type_and_default(Model, Attrs)
+                           ]).
 
 description_title(value, _) ->
     "Values".

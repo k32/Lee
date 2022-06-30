@@ -58,7 +58,7 @@ meta_validate_node(map, #model{model = Model}, Key, #mnode{metaparams = Params})
         fun(ChildKey) ->
                 case lee_storage:get(Key ++ [?children|ChildKey], Model) of
                     undefined ->
-                        Error = lee_lib:format( "~p: missing key element ~p", [Key, ChildKey]),
+                        Error = lee_lib:format("missing key element ~p", [ChildKey]),
                         {true, Error};
                     {ok, _} ->
                         false
@@ -68,7 +68,7 @@ meta_validate_node(map, #model{model = Model}, Key, #mnode{metaparams = Params})
           #{key_elements := KeyElems} when is_list(KeyElems) ->
               lists:filtermap(ValidateKey, KeyElems);
           #{key_elements := _}  ->
-              [lee_lib:format("~p: `key_elements' should be a list of valid child keys", [Key])];
+              ["`key_elements' should be a list of valid child keys"];
           _ ->
               []
       end
@@ -77,8 +77,7 @@ meta_validate_node(map, #model{model = Model}, Key, #mnode{metaparams = Params})
 meta_validate_node(default_instance, Model, Key, #mnode{metatypes = MTs}) ->
     Errors = ["only maps can have a default instance" || not lists:member(map, MTs)] ++
              check_all_defaults(Model, Key),
-    lee_lib:inject_error_location(Key, {Errors, []}).
-
+    {Errors, []}.
 
 read_patch(map, _) ->
     {ok, ?PRIO, []};

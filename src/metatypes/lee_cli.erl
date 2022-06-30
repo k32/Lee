@@ -26,15 +26,11 @@
         ]).
 
 %% behavior callbacks
--export([ create/1
-        , names/1
-        , description_title/2
-        , description/2
-        , meta_validate/2
-        , meta_validate_node/4
+-export([ create/1, names/1, metaparams/1
+        , description_title/2, description/2
+        , meta_validate/2, meta_validate_node/4
         , read_patch/2
         ]).
-
 
 -ifdef(TEST).
 -export([tokenize/2]).
@@ -209,6 +205,13 @@ create(Attrs) ->
 names(_) ->
     [cli_param, cli_action, cli_positional].
 
+metaparams(cli_param) ->
+    typerefl:map([{fuzzy, cli_operand, string()}, {fuzzy, cli_short, char()}, {fuzzy, term(), term()}]);
+metaparams(cli_action) ->
+    typerefl:map([{strict, cli_operand, string()}, {fuzzy, term(), term()}]);
+metaparams(cli_positional) ->
+    typerefl:map([{strict, cli_arg_position, position()}, {fuzzy, term(), term()}]).
+
 meta_validate(cli_param, Model) -> %% Run once
     meta_validate_model(Model);
 meta_validate(_, _) ->
@@ -216,10 +219,8 @@ meta_validate(_, _) ->
 
 meta_validate_node(cli_param, Model, Key, MNode) ->
     meta_validate_param(Model, Key, MNode);
-meta_validate_node(cli_action, Model, Key, MNode) ->
-    meta_validate_action(Model, Key, MNode);
-meta_validate_node(cli_positional, Model, Key, MNode) ->
-    meta_validate_positional(Model, Key, MNode).
+meta_validate_node(_, _Model, _Key, _MNode) ->
+    {[], []}.
 
 read_patch(cli_action, Model) ->
     {ok, Args0} = lee_model:get_meta(?cli_opts_key, Model),
@@ -259,42 +260,21 @@ meta_validate_model(Model) ->
     Patch = [{set, ?index_key, Index}],
     {Err, Warn, Patch}.
 
--spec meta_validate_positional(lee:model(), lee:key(), #mnode{}) ->
-                            lee_lib:check_result().
-meta_validate_positional(_, Key, MNode) ->
-    lee_lib:inject_error_location(
-      Key,
-      lee_lib:validate_meta_attr(cli_arg_position, position(), MNode)).
-
--spec meta_validate_action(lee:model(), lee:key(), #mnode{}) ->
-                            lee_lib:check_result().
-meta_validate_action(_, Key, MNode) ->
-    lee_lib:inject_error_location(
-      Key,
-      lee_lib:validate_meta_attr(cli_operand, string(), MNode)).
-
 -spec meta_validate_param(lee:model(), lee:key(), #mnode{}) ->
                             lee_lib:check_result().
-meta_validate_param(_, Key, MNode) ->
-    Presense = case MNode#mnode.metaparams of
-                   #{cli_operand := "no-" ++ _} ->
-                       Err = "CLI operands can't have `no-' prefix to "
-                             "avoid confusion with negation syntax",
-                       {[Err], []};
-                   #{cli_operand := _} ->
-                       {[], []};
-                   #{cli_short := _} ->
-                       {[], []};
-                   _ ->
-                       {["Missing `cli_operand' or `cli_short' attributes"], []}
-               end,
-    lee_lib:inject_error_location(
-      Key,
-      lee_lib:compose_checks(
-        [ lee_lib:validate_optional_meta_attr(cli_operand, string(), MNode)
-        , lee_lib:validate_optional_meta_attr(cli_short, char(), MNode)
-        , Presense
-        ])).
+meta_validate_param(_, _Key, MNode) ->
+    case MNode#mnode.metaparams of
+        #{cli_operand := "no-" ++ _} ->
+            Err = "CLI operands can't have `no-' prefix to "
+                  "avoid confusion with negation syntax",
+            {[Err], []};
+        #{cli_operand := _} ->
+            {[], []};
+        #{cli_short := _} ->
+            {[], []};
+        _ ->
+            {["Missing `cli_operand' or `cli_short' attributes"], []}
+    end.
 
 -spec split_commands([token()]) -> [[token()]].
 split_commands(Tokens) ->
