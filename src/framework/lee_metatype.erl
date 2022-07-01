@@ -65,7 +65,7 @@
 -callback names(_Config) -> [lee:metatype()].
 
 %% Type reflection of the metaparemeter fields
--callback metaparams(lee:metatype()) -> typerefl:type().
+-callback metaparams(lee:metatype()) -> typerefl:type() | [{strict | fuzzy, typerefl:type(), typerefl:type()}].
 
 %% Create configuration of the callback module, that can be accessed by `lee_model:get'
 -callback create(map()) -> [{lee:key(), term()}].
@@ -169,7 +169,10 @@ metaparams(MT, Model) ->
     Module = get_module(Model, MT),
     case ?is_implemented(Module) of
         true ->
-            Module:metaparams(MT);
+            case Module:metaparams(MT) of
+                L when is_list(L) -> typerefl:map(L ++ [{fuzzy, typerefl:term(), typerefl:term()}]);
+                Type              -> Type
+            end;
         false ->
             typerefl:map()
     end.
