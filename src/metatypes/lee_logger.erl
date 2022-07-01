@@ -33,7 +33,7 @@ names(_) ->
     [logger_level].
 
 metaparams(logger_level) ->
-    typerefl:map([{fuzzy, logger_handler, atom()}, {fuzzy, term(), term()}]).
+    [{optional, logger_handler, atom()}].
 
 meta_validate_node(logger_level, _Model, _Key, MNode) ->
     ExpectedType = level(),
