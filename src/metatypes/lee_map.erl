@@ -22,7 +22,7 @@
         ]).
 
 %% behavior callbacks:
--export([ names/1, meta_validate_node/4, read_patch/2
+-export([ names/1, meta_validate_node/4, read_patch/2, metaparams/1
         , description/2, description_title/2, description_node/4
         ]).
 
@@ -51,6 +51,11 @@ key_elements(Model, Key) ->
 names(_) ->
     [map, default_instance].
 
+metaparams(map) ->
+    [{optional, key_elements, typerefl:list(lee:model_key())}];
+metaparams(default_instance) ->
+    [].
+
 -spec meta_validate_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) ->
                             lee_lib:check_result().
 meta_validate_node(map, #model{model = Model}, Key, #mnode{metaparams = Params}) ->
@@ -64,16 +69,8 @@ meta_validate_node(map, #model{model = Model}, Key, #mnode{metaparams = Params})
                         false
                 end
         end,
-    { case Params of
-          #{key_elements := KeyElems} when is_list(KeyElems) ->
-              lists:filtermap(ValidateKey, KeyElems);
-          #{key_elements := _}  ->
-              ["`key_elements' should be a list of valid child keys"];
-          _ ->
-              []
-      end
-    , []
-    };
+    KeyElems = ?m_attr(map, key_elements, Params, []),
+    {lists:filtermap(ValidateKey, KeyElems), []};
 meta_validate_node(default_instance, Model, Key, #mnode{metatypes = MTs}) ->
     Errors = ["only maps can have a default instance" || not lists:member(map, MTs)] ++
              check_all_defaults(Model, Key),

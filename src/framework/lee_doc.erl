@@ -14,13 +14,16 @@
         , docbook/1
         , from_file/1
         , from_file/2
-        , check_docstrings/1
+        , documented/0
+        , is_docbook_xml/1
         ]).
 
 -include("lee_internal.hrl").
 -include_lib("typerefl/include/types.hrl").
 
--type doc() :: term().
+-type docbook_xml() :: term().
+-typerefl_verify({docbook_xml/0, ?MODULE, is_docbook_xml}).
+-reflect_type([docbook_xml/0]).
 
 -type doc_options() ::
         #{ metatypes    := [lee:metatype() | {lee:metatype(), term()}]
@@ -29,20 +32,21 @@
          , run_pandoc   => boolean()
          }.
 
--export_type([doc/0, doc_options/0]).
+
+-export_type([doc_options/0]).
 
 -define(external_doc, [?MODULE, external_doc]).
 
--spec p(list()) -> doc().
+-spec p(list()) -> docbook_xml().
 p(Content) ->
     {para, [Content]}.
 
--spec href(string(), string()) -> doc().
+-spec href(string(), string()) -> docbook_xml().
 href(To, Text) ->
     {link, [{'xlink:href', To}],
      [Text]}.
 
--spec sect(string(), string(), list()) -> doc().
+-spec sect(string(), string(), list()) -> docbook_xml().
 sect(ID, Title, Content) ->
     {section, [{id, ID}],
      [ {title, [Title]}
@@ -50,7 +54,7 @@ sect(ID, Title, Content) ->
      ]}.
 
 %% @doc Represent text as Erlang code
--spec erlang_listing(iolist()) -> doc().
+-spec erlang_listing(iolist()) -> docbook_xml().
 erlang_listing(Str) ->
     { programlisting, [{language, "erlang"}]
     , [Str]
@@ -62,7 +66,7 @@ format_key(Key) ->
     lists:flatten(lists:join("-", [io_lib:format("~p", [I]) || I <- Key])).
 
 %% @doc Make a simple subsection
--spec simplesect(string(), iolist() | [doc()]) -> doc().
+-spec simplesect(string(), iolist() | [docbook_xml()]) -> docbook_xml().
 simplesect(Title, Doc0) ->
     Doc = case io_lib:deep_char_list(Doc0) of
               true ->
@@ -81,7 +85,7 @@ li(Title, Contents) ->
 
 
 %% @doc Generate a link to the description of a value
--spec xref_key(lee:key()) -> doc().
+-spec xref_key(lee:key()) -> docbook_xml().
 xref_key(Key) ->
     Node = format_key(Key),
     {xref, [{linkend, Node}], []}.
@@ -89,7 +93,7 @@ xref_key(Key) ->
 %% @doc Generate a section that contains short description of a value
 %% and a link to the full description
 -spec refer_value(lee:model_key(), lee:metatype(), string(), #mnode{}) ->
-                         doc().
+                         docbook_xml().
 refer_value(Key, Metatype, Title, MNode) ->
     SectionId = lee_lib:format("~p", [{Metatype, Title}]),
     #mnode{metaparams = Attrs} = MNode,
@@ -104,7 +108,7 @@ refer_value(Key, Metatype, Title, MNode) ->
 %% ```
 %% lee_doc:docbook("<para>Some text</para>
 %%                  <para>More text</para>")'''
--spec docbook(iolist()) -> [doc()].
+-spec docbook(iolist()) -> docbook_xml().
 docbook([]) ->
     [];
 docbook(Cooked = [Tup|_]) when is_tuple(Tup) -> %% TODO: make detection better
@@ -112,6 +116,9 @@ docbook(Cooked = [Tup|_]) when is_tuple(Tup) -> %% TODO: make detection better
 docbook(String) ->
     {Doc, Rest} = xmerl_scan:string(String, [{document, false}]),
     [Doc | docbook(Rest)].
+
+is_docbook_xml(Thing) ->
+    is_list(catch docbook(Thing)).
 
 %% @doc Read docbook XML from a file.
 from_file(Filename) ->
@@ -124,33 +131,17 @@ from_file(Filename) ->
 
 %% @doc Read docbook XML from a file located in the priv directory of
 %% an Erlang application
--spec from_file(application:application(), string()) -> [doc()].
+-spec from_file(application:application(), string()) -> docbook_xml().
 from_file(Application, Filename) ->
     Path = filename:join([code:priv_dir(Application), Filename]),
     from_file(Path).
 
-%% @private Meta-validation of docstrings
--spec check_docstrings(lee:parameters()) -> lee_lib:check_result().
-check_docstrings(Attrs) ->
-    CheckOneliner = lee_lib:validate_optional_meta_attr( oneliner
-                                                       , printable_unicode_list()
-                                                       , Attrs
-                                                       , true
-                                                       ),
-    CheckDoc = case Attrs of
-                   #{doc := Doc} ->
-                       try docbook(Doc) of
-                           _ -> {[], []}
-                       catch
-                           _:_ -> {["`doc' attribute is not a valid docbook XML"], []}
-                       end;
-                   _ ->
-                       {[], ["`doc' attribute is expected"]}
-               end,
-    lee_lib:compose_checks([CheckOneliner, CheckDoc]).
+-spec documented() -> list().
+documented() ->
+    [{warn_if_missing, oneliner, string()}, {warn_if_missing, doc, docbook_xml()}].
 
 %% @private
--spec make_file(atom(), doc(), string()) -> file:filename().
+-spec make_file(atom(), docbook_xml(), string()) -> file:filename().
 make_file(Top, Data, Id) ->
     RootAttrs = [ {xmlns, "http://docbook.org/ns/docbook"}
                 , {'xmlns:xlink', "http://www.w3.org/1999/xlink"}
@@ -171,7 +162,7 @@ make_file(Top, Data, Id) ->
 %% @private
 -spec metatype_docs( lee:metatype()
                    , lee:model()
-                   ) -> [doc()].
+                   ) -> docbook_xml().
 metatype_docs(Metatype, Model) ->
     case lee_metatype:description_title(Metatype, Model) of
         undefined ->

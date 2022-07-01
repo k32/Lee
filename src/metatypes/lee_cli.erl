@@ -206,11 +206,11 @@ names(_) ->
     [cli_param, cli_action, cli_positional].
 
 metaparams(cli_param) ->
-    typerefl:map([{fuzzy, cli_operand, string()}, {fuzzy, cli_short, char()}, {fuzzy, term(), term()}]);
+    [{optional, cli_operand, string()}, {optional, cli_short, char()}];
 metaparams(cli_action) ->
-    typerefl:map([{strict, cli_operand, string()}, {fuzzy, term(), term()}]);
+    [{mandatory, cli_operand, string()}];
 metaparams(cli_positional) ->
-    typerefl:map([{strict, cli_arg_position, position()}, {fuzzy, term(), term()}]).
+    [{mandatory, cli_arg_position, position()}].
 
 meta_validate(cli_param, Model) -> %% Run once
     meta_validate_model(Model);

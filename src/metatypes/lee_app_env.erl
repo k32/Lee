@@ -34,7 +34,7 @@ names(_) ->
     [?metatype].
 
 metaparams(?metatype) ->
-    typerefl:map([{strict, app_env, {atom(), atom()}}, {fuzzy, term(), term()}]).
+    [{mandatory, app_env, {atom(), atom()}}].
 
 post_patch(?metatype, Model, Data, #mnode{metaparams = Attrs}, PatchOp) ->
     {App, Env} = ?m_attr(?metatype, app_env, Attrs),

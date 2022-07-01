@@ -123,7 +123,7 @@ meta_validate_value_test() ->
                       compile(#{foo => {[value], Attrs}})
               end,
     %% Missing `type':
-    ?assertMatch( {error, ["[foo]: Missing mandatory `type' metaparameter"]}
+    ?assertMatch( {error, ["[foo]: Metaparameters of value are invalid." ++ _]}
                 , Compile(#{})
                 ),
     %% Wrong type of `default':
@@ -151,17 +151,17 @@ meta_validate_value_test() ->
                            })
                 ),
     %% Wrong type of `oneliner':
-    ?assertMatch( {error, ["[foo]: Type mismatch." ++ _]}
+    ?assertMatch( {error, ["[foo]: Metaparameters of value are invalid." ++ _]}
                 , Compile(#{type => integer(), oneliner => foo})
                 ),
     %% Error in `doc':
-    ?assertMatch( {error, ["[foo]: `doc' attribute is not a valid docbook XML"]}
+    ?assertMatch( {error, ["[foo]: Metaparameters of value are invalid." ++ _]}
                 , Compile(#{type => integer(), doc => "<para>foo"})
                 ).
 
 meta_validate_map_test() ->
     Model1 = #{foo => {[map], #{key_elements => foo}}},
-    ?assertMatch( {error, ["[foo]: `key_elements' should be a list of valid child keys"]}
+    ?assertMatch( {error, ["[foo]: Metaparameters of map are invalid." ++ _]}
                 , compile(Model1)
                 ),
     Model2 = #{foo => {[map], #{key_elements => []}}},
@@ -171,11 +171,11 @@ meta_validate_map_test() ->
                 , compile(Model3)
                 ),
     Model4 = #{foo => {[map],
-                       #{key_elements => [bar]},
-                       #{bar => {[value], #{}}}
+                       #{key_elements => [[bar]]},
+                       #{foo => {[value], #{}}}
                       }},
-    ?assertMatch( {error, [ "[foo,{},bar]: Missing mandatory `type' metaparameter"
-                          , "[foo]: missing key element bar"
+    ?assertMatch( {error, [ "[foo,{},foo]: Metaparameters of value are invalid." ++ _
+                          , "[foo]: missing key element [bar]"
                           ]}
                 , compile(Model4)
                 ),

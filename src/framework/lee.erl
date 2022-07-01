@@ -29,6 +29,7 @@
              , patch_result/0
              ]).
 
+-include_lib("typerefl/include/types.hrl").
 -include("lee_internal.hrl").
 
 %%====================================================================
@@ -72,6 +73,8 @@
 -type mnode() :: {[metatype()], properties(), lee_module()}
                | {[metatype()], properties()} %% Shortcut for child-free MOs
                .
+
+-reflect_type([key/0, model_key/0]).
 
 %%====================================================================
 %% Macros
@@ -349,10 +352,16 @@ do_validate_data(Metatype, Model, Data, MKey, MNode) ->
 
 -spec meta_validate_node(metatype(), model(), key(), #mnode{}) -> lee_lib:check_result().
 meta_validate_node(MT, Model, Key, MNode = #mnode{metaparams = MP}) ->
-    {Err1, Warn} = lee_metatype:meta_validate_node(MT, Model, Key, MNode),
-    Err2 = case typerefl:typecheck(lee_metatype:metaparams(MT, Model), MP) of
-               ok           -> [];
-               {error, Err} -> [lee_lib:format("Metaparameters of ~p are invalid. ~s",
-                                               [MT, lee_lib:format_typerefl_error(Err)])]
-           end,
-    lee_lib:inject_error_location(Key, {Err2 ++ Err1, Warn}).
+    MPSpec = lee_metatype:metaparams(MT, Model),
+    Type = typerefl:map([{case Kind of
+                              mandatory -> strict;
+                              _         -> fuzzy
+                          end, Key, Val} || {Kind, Key, Val} <- MPSpec] ++ [{fuzzy, term(), term()}]),
+    Warnings = [lee_lib:format("Missing optional ~p metaparameter", [Key])
+                || {warn_if_missing, Key, _} <- MPSpec, not maps:is_key(Key, MP)],
+    {Errors, Warn} = case typerefl:typecheck(Type, MP) of
+                         ok           -> lee_metatype:meta_validate_node(MT, Model, Key, MNode);
+                         {error, Err} -> {[lee_lib:format("Metaparameters of ~p are invalid. ~s",
+                                                          [MT, lee_lib:format_typerefl_error(Err)])], []}
+                  end,
+    lee_lib:inject_error_location(Key, {Errors, Warnings ++ Warn}).

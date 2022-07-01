@@ -65,7 +65,7 @@
 -callback names(_Config) -> [lee:metatype()].
 
 %% Type reflection of the metaparemeter fields
--callback metaparams(lee:metatype()) -> typerefl:type().
+-callback metaparams(lee:metatype()) -> [{mandatory | optional | warn_if_missing, typerefl:type(), typerefl:type()}].
 
 %% Create configuration of the callback module, that can be accessed by `lee_model:get'
 -callback create(map()) -> [{lee:key(), term()}].
@@ -171,7 +171,7 @@ metaparams(MT, Model) ->
         true ->
             Module:metaparams(MT);
         false ->
-            typerefl:map()
+            []
     end.
 
 -spec create(module(), map()) -> cooked_metatype().

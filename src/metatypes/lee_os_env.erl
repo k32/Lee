@@ -33,7 +33,7 @@ names(_) ->
     [?metatype].
 
 metaparams(?metatype) ->
-    #{os_env => typerefl:printable_latin1_list(), typerefl:term() => typerefl:term()}.
+    [{optional, os_env, typerefl:printable_latin1_list()}].
 
 description_title(?metatype, _) ->
     "OS Environment Variables".

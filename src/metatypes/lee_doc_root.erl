@@ -21,7 +21,7 @@
 -export([]).
 
 %% behavior callbacks:
--export([create/1, names/1, meta_validate_node/4,
+-export([create/1, names/1, metaparams/1,
          description_title/2, description/2]).
 
 -include("../framework/lee_internal.hrl").
@@ -36,11 +36,8 @@ create(_) ->
 names(_) ->
     [doc_root].
 
-meta_validate_node(doc_root, _Model, Key, #mnode{metaparams = Attrs}) ->
-    Fun = fun(#{app_name := _}) -> {[], []};
-             (_)                -> {["Missing `app_name' parameter"], []}
-          end,
-    lee_lib:perform_checks(Key, Attrs, [fun lee_doc:check_docstrings/1, Fun]).
+metaparams(doc_root) ->
+    [{mandatory, app_name, typerefl:string()}] ++ lee_doc:documented().
 
 description_title(doc_root, Model) ->
     [Key] = lee_model:get_metatype_index(doc_root, Model),
