@@ -44,26 +44,24 @@ resolve(Model, Data, Key) ->
 names(_) ->
   [pointer].
 
-meta_validate_node(pointer, Model, Key, #mnode{metaparams = Attrs}) ->
-  Results =
-    try
-        Pointer = ?m_attr(pointer, target_node, Attrs),
-        MyType = ?m_attr(value, type, Attrs),
-        %% TODO: Currently only a single key is supported:
-        [KeyElem] = lee_map:key_elements(Model, Pointer),
-        #mnode{metaparams = #{type := KeyType}} = lee_model:get(KeyElem, Model),
-        KeyType = MyType, % assert
-        {[], []}
-    catch
-      _:_ ->
-        Err = "pointer must be also an instance of `value' metatype, "
-              "it must contain a `target_node' metaparameter, "
-              "that must be a key of an existing map, "
-              "and the type of the pointer must match the key "
-              "element of the map.",
-        {[Err], []}
-    end,
-  lee_lib:inject_error_location(Key, Results).
+meta_validate_node(pointer, Model, _Key, #mnode{metaparams = Attrs}) ->
+  try
+      Pointer = ?m_attr(pointer, target_node, Attrs),
+      MyType = ?m_attr(value, type, Attrs),
+      %% TODO: Currently only a single key is supported:
+      [KeyElem] = lee_map:key_elements(Model, Pointer),
+      #mnode{metaparams = #{type := KeyType}} = lee_model:get(KeyElem, Model),
+      KeyType = MyType, % assert
+      {[], []}
+  catch
+    _:_ ->
+      Err = "pointer must be also an instance of `value' metatype, "
+            "it must contain a `target_node' metaparameter, "
+            "that must be a key of an existing map, "
+            "and the type of the pointer must match the key "
+            "element of the map.",
+      {[Err], []}
+  end.
 
 validate_node(pointer, Model, Data, Key, #mnode{metaparams = #{target_node := Target}}) ->
     Instance = lee:get(Model, Data, Key),
@@ -71,8 +69,7 @@ validate_node(pointer, Model, Data, Key, #mnode{metaparams = #{target_node := Ta
         _ -> {[], []}
     catch
         _:_ ->
-            Err = lee_lib:format("instance `~p' of map ~p doesn't exist", [Instance, Target]),
-            lee_lib:inject_error_location(Key, {[Err], []})
+            {[lee_lib:format("instance `~p' of map ~p doesn't exist", [Instance, Target])], []}
     end.
 
 %%================================================================================

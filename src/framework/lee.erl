@@ -220,7 +220,7 @@ validate(Model, Data) ->
 %% spotting bugs in the model definition
 -spec meta_validate(lee:model()) -> lee_metatype:metavalidate_result().
 meta_validate(Model) ->
-    PerNodeCallback = fun lee_metatype:meta_validate_node/4,
+    PerNodeCallback = fun meta_validate_node/4,
     PerMtCallback =
         fun(Metatype, {ErrAcc, WarnAcc, PatchAcc}) ->
                 {Err, Warn, Patch} = lee_metatype:meta_validate(Metatype, Model),
@@ -340,9 +340,19 @@ do_validate_data(Metatype, Model, Data, MKey, MNode) ->
                         [ParentMapKey ++ Required || ParentMapKey <- lee_storage:list(Optional, Data)]
                 end,
     lists:foldl( fun(Key, {ErrAcc, WarnAcc}) ->
-                         {Err, Warn} = lee_metatype:validate_node(Metatype, Model, Data, Key, MNode),
+                         {Err, Warn} = lee_lib:inject_error_location(Key, lee_metatype:validate_node(Metatype, Model, Data, Key, MNode)),
                          {Err ++ ErrAcc, Warn ++ WarnAcc}
                  end
                , {[], []}
                , Instances
                ).
+
+-spec meta_validate_node(metatype(), model(), key(), #mnode{}) -> lee_lib:check_result().
+meta_validate_node(MT, Model, Key, MNode = #mnode{metaparams = MP}) ->
+    {Err1, Warn} = lee_metatype:meta_validate_node(MT, Model, Key, MNode),
+    Err2 = case typerefl:typecheck(lee_metatype:metaparams(MT, Model), MP) of
+               ok           -> [];
+               {error, Err} -> [lee_lib:format("Metaparameters of ~p are invalid. ~s",
+                                               [MT, lee_lib:format_typerefl_error(Err)])]
+           end,
+    lee_lib:inject_error_location(Key, {Err2 ++ Err1, Warn}).

@@ -299,21 +299,21 @@ validate_illegal_combinatio_test() ->
 validate_param_test() ->
     M1 = #{ foo => {[cli_param], #{}}
           },
-    err_compile( ["[foo]: Missing `cli_operand' or `cli_short' attributes"]
-               , M1
-               ),
+    ?assertMatch( {error, ["[foo]: Missing `cli_operand' or" ++ _]}
+                , compile(M1)
+                ),
     M2 = #{ foo => {[cli_param],
                     #{ cli_short => a
                      }}
           },
-    ?assertMatch( {error, ["[foo]: Type mismatch." ++ _]}
+    ?assertMatch( {error, ["[foo]: Metaparameters of cli_param are invalid. Type mismatch." ++ _]}
                 , compile(M2)
                 ),
     M3 = #{ foo => {[cli_param],
                     #{ cli_operand => a
                      }}
           },
-    ?assertMatch( {error, ["[foo]: Type mismatch." ++ _]}
+    ?assertMatch( {error, ["[foo]: Metaparameters of cli_param are invalid. Type mismatch." ++ _]}
                 , compile(M3)
                 ),
     M4 = #{ foo => {[cli_param],
@@ -327,12 +327,12 @@ validate_param_test() ->
 validate_action_test() ->
     M1 = #{ foo => {[cli_action], #{}}
           },
-    ?assertMatch({error, ["[foo]: Missing" ++ _]}, compile(M1)),
+    ?assertMatch({error, ["[foo]: Metaparameters of cli_action are invalid. Type mismatch." ++ _]}, compile(M1)),
     M2 = #{ foo => {[cli_action],
                     #{ cli_operand => a
                      }}
           },
-    ?assertMatch( {error, ["[foo]: Type mismatch." ++ _]}
+    ?assertMatch( {error, ["[foo]: Metaparameters of cli_action are invalid. Type mismatch." ++ _]}
                 , compile(M2)
                 ).
 
@@ -351,12 +351,12 @@ validate_duplicate_action_test() ->
 validate_positional_test() ->
     M1 = #{ foo => {[cli_positional], #{}}
           },
-    ?assertMatch({error, ["[foo]: Missing" ++ _]}, compile(M1)),
+    ?assertMatch({error, ["[foo]: Metaparameters of cli_positional are invalid. Type mismatch." ++ _]}, compile(M1)),
     M2 = #{ foo => {[cli_positional],
                     #{ cli_arg_position => a
                      }}
           },
-    ?assertMatch( {error, ["[foo]: Type mismatch." ++ _]}
+    ?assertMatch( {error, ["[foo]: Metaparameters of cli_positional are invalid. Type mismatch." ++ _]}
                 , compile(M2)
                 ).
 

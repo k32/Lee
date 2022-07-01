@@ -5,7 +5,6 @@
   {applications, [kernel, stdlib, mnesia, typerefl]},
   {env,[]},
   {modules, []},
-  {mod, {lee_app, []}},
 
   {licenses, ["public domain"]},
   {links, [{"Github","https://github.com/k32/Lee"}]}

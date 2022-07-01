@@ -18,6 +18,7 @@
 %% Callback wrappers:
 -export([create/1, create/2,
          pre_compile_mnode/4,
+         metaparams/2,
          validate/3, validate_node/5,
          meta_validate/2, meta_validate_node/4,
          description_title/2, description_node/4, description/2,
@@ -37,7 +38,7 @@
 
 -type cooked_metatype() :: {module(), [atom()], [{lee:key(), term()}]}.
 
--type callback() :: create | pre_compile_mnode
+-type callback() :: create | metaparams | pre_compile_mnode
                   | meta_validate | meta_validate_node
                   | validate | validate_node
                   | description_title | description | description_node
@@ -49,7 +50,7 @@
 %% Callback declarations
 %%================================================================================
 
--optional_callbacks([create/1, pre_compile_mnode/3,
+-optional_callbacks([metaparams/1, create/1, pre_compile_mnode/3,
                      validate/3, validate_node/5,
                      meta_validate/2, meta_validate_node/4,
                      description_title/2, description/2, description_node/4,
@@ -62,6 +63,9 @@
 
 %% (Mandatory) Names of the metatypes provided by the callback module
 -callback names(_Config) -> [lee:metatype()].
+
+%% Type reflection of the metaparemeter fields
+-callback metaparams(lee:metatype()) -> typerefl:type().
 
 %% Create configuration of the callback module, that can be accessed by `lee_model:get'
 -callback create(map()) -> [{lee:key(), term()}].
@@ -159,6 +163,16 @@ is_implemented(Model, Metatype, Callback) ->
 %%--------------------------------------------------------------------------------
 %% Compilation
 %%--------------------------------------------------------------------------------
+
+-spec metaparams(lee:metatype(), lee:model()) -> typerefl:type().
+metaparams(MT, Model) ->
+    Module = get_module(Model, MT),
+    case ?is_implemented(Module) of
+        true ->
+            Module:metaparams(MT);
+        false ->
+            typerefl:map()
+    end.
 
 -spec create(module(), map()) -> cooked_metatype().
 create(M, Params) ->
@@ -287,6 +301,8 @@ description_node(Metatype, Model, Key, MNode) ->
 
 -spec callback_arity(callback()) -> arity().
 callback_arity(create) ->
+    1;
+callback_arity(metaparams) ->
     1;
 callback_arity(pre_compile_mnode) ->
     3;

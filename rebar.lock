@@ -3,7 +3,7 @@
  {<<"snabbkaffe">>,{pkg,<<"snabbkaffe">>,<<"1.0.1">>},0},
  {<<"typerefl">>,
   {git,"https://github.com/ieQu1/typerefl.git",
-       {ref,"90c37b996cdee26ab2a024ab5b853b17e0f865d8"}},
+       {ref,"209c3dbfe157383f2e2306c5a9b642b48baaa326"}},
   0}]}.
 [
 {pkg_hash,[

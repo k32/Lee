@@ -10,16 +10,9 @@
 
 -behavior(lee_metatype).
 
--export([ names/1
-        , create/1
-        , meta_validate_node/4
-
-        , description_title/2
-        , description/2
-        , description_node/4
-
-        , read_patch/2
-        , read_to/2
+-export([ names/1, metaparams/1, create/1
+        , description_title/2, description/2, description_node/4
+        , read_patch/2, read_to/2
         ]).
 
 -include_lib("lee/src/framework/lee_internal.hrl").
@@ -39,6 +32,9 @@ create(Conf) ->
 names(_) ->
     [?metatype].
 
+metaparams(?metatype) ->
+    #{os_env => typerefl:printable_latin1_list(), typerefl:term() => typerefl:term()}.
+
 description_title(?metatype, _) ->
     "OS Environment Variables".
 
@@ -52,15 +48,6 @@ description(?metatype, Model) ->
      {para,
       ["Priority: ", integer_to_list(Prio)]}
      ].
-
-%% @private
-meta_validate_node(?metatype, _, Key, MNode) ->
-    lee_lib:inject_error_location(
-      Key,
-      lee_lib:validate_optional_meta_attr( os_env
-                                         , typerefl:printable_latin1_list()
-                                         , MNode
-                                         )).
 
 description_node(os_env, Model, Key, MNode) ->
     #mnode{metaparams = Attrs} = MNode,
