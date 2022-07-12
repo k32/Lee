@@ -2,66 +2,63 @@
 
 * User stories
 
-- As a power user I want to configure tools without looking into their
-  code. I want a useful error message instead of a BEAM dump when I
-  make an error in the config. I want documentation about all
-  configurable parameters, their purpose and type.
+- As a power user I want to configure tools without looking into their code.
+  I want a useful error message instead of a BEAM dump when I make an error in the config.
+  I want documentation about all configurable parameters, their purpose and type.
 
-- As a software designer I want to focus on the business logic instead
-  of dealing with the boring configuration-related stuff. I want to
-  have a =?magic:get(Key)= function that returns a value that is
-  guaranteed safe.
+- As a software designer I want to focus on the business logic instead of dealing with the boring configuration-related stuff.
+  I want to have a =?magic:get(Key)= function that returns a value that is guaranteed safe.
 
-- As a designer I want to work with native Erlang data types
+- As a software designer I want to work with native Erlang data types.
 
 There are a few approaches to this conflict:
 
 [[file:doc/images/explanation.png]]
 
-This library /does/ provide =?magic:get/1= function. The below
-document explains how. (If you just want to check what the API looks
-like, skip to [[#gathering-it-all-together][Gathering it all together]])
+This library /does/ provide =?magic:get/1= function.
+The below document explains how. (If you just want to check what the API looks like, skip to [[#gathering-it-all-together][Gathering it all together]])
+
+* Features
+
+- CLI arguments parser
+- Reading configuration from OS environment variables
+- Syncing configuration with the OTP application environment variables
+- Type checking of the runtime configuration using Dialyzer types
+- Consistent configuration changes
+- Documentation generation (HTML, Markdown, man, texinfo... via [[https:pandoc.org][pandoc]])
+- Configuration schema validation
+- Extensive plugin support (in fact, every feature mentioned above is implemented as a plugin)
+- ...All in [[https://github.com/k32/Lee/blob/master/support/linelimit][less than 3000 lines of code]]
 
 * Introduction
 
-/Lee/ helps creating type-safe, self-documenting configuration for
-Erlang applications. It is basically a data modeling DSL, vaguely
-inspired by [[https://tools.ietf.org/html/rfc7950][YANG]], however scaled down /a lot/.
+/Lee/ helps creating type-safe, self-documenting configuration for Erlang applications.
+It is basically a data modeling DSL, vaguely inspired by [[https://tools.ietf.org/html/rfc7950][YANG]], however scaled down /a lot/.
 
-Software configuration is a solved problem. The solution is to gather
-all information about the user-facing commands and parameters in one
-place called /data model/ and generate all kinds of code and
-documentation from it, instead of spending a lot of time trying to
-keep everything in sync and inevitably failing in the end.
+Software configuration is a solved problem.
+The solution is to gather all information about the user-facing commands and parameters in one place called /data model/ (or schema, if you prefer) and generate all kinds of code and documentation from it, instead of trying to keep everything in sync by hand and inevitably failing in the end.
 
-This approach has been widely used in telecom where the number of
-configurable parameters per device can easily reach
-thousands. Unfortunately the existing solutions are extremely heavy
-and difficult to deal with, also almost none of them is open
-source. One doesn't want to mess with YANG compilers and proprietary
-libraries for a mere small tool, and it's understandable. /Lee/
-attempts to implement a /reasonably useful/ data modeling embedded
-DSL, some bare-bones libraries for CLI and config file parsing,
-together with the model validation routines in under 3000 LOC or
-so. And be fully Erlang-native too.
+This approach has been widely used in telecom where the number of configurable parameters per device can easily reach thousands.
+Unfortunately the existing solutions are extremely heavy and difficult to deal with, also almost none of them is open source.
+One doesn't want to mess with YANG compilers and proprietary libraries for a mere small tool, and it's understandable.
+/Lee/ attempts to implement a /reasonably useful/ alternative to these tools as an embedded DSL.
+And be fully Erlang-native too.
 
 The below document explains Lee from the bottom-up.
 
 * Type reflections
 
-As advertized, Lee configuration is fully aware of the Dialyzer
-types. In order to make use of them to the runtime, Lee relies on
-[[https://github.com/k32/typerefl][typerefl]] library.
+As advertized, Lee configuration is fully aware of the Dialyzer types.
+In order to make use of them to the runtime, Lee relies on [[https://github.com/k32/typerefl][typerefl]] library.
 
 * Defining models
 
-/Model/ is the central concept in Lee. Generally speaking, Lee model
-can be seen as a schema of the configuration. The model is a tree-like
-structure where each node represent some entity.
+/Model/ is the central concept in Lee.
+Generally speaking, Lee model can be seen as a schema of the configuration.
+The model is a tree-like structure where each node represent some entity.
 
-Lee models are made of two basic building blocks: /namespaces/ and
-/mnodes/. Namespace is a regular Erlang map where values are either
-mnodes or other namespaces.
+Lee models are made of two basic building blocks: /namespaces/ and /mnodes/ (model nodes).
+Namespace is a regular Erlang map where values are either mnodes or other namespaces.
 
 Mnode is a tuple that looks like this:
 
@@ -82,24 +79,29 @@ or this:
 
 (The latter is just a shortcut where =Children= is an empty map.)
 
-=MetaTypes= is a list of /metatype/ IDs which are applicable to the
-mnode. Example metatypes:
+=MetaTypes= is a list of /metatype/ IDs which are applicable to the mnode.
+Meta types are the meat of Lee, as they define the behaviors associated with the mnodes.
+Every feature (such as CLI parsing) is handled by one of the metatypes.
+Metatypes are defined by the Erlang modules implementing =lee_metatype= behavior, defining a number of callbacks that are called during every operation with the configuration.
 
- - =value= metatype means the mnode denotes some runtime data
+Example metatypes:
 
- - =list= metatype denotes that mnode is a container for some data
+- =value= metatype means the mnode denotes a configurable value
 
-=MetaParameters= field contains data relevant to the metatypes
-assigned to the mnode. There are no strict rules about it. For
-example, =value= metatype requires =type= metaparameter and optional
-=default= one.
+- =map= metatype denotes that mnode is a container for the values
 
-Finally, =Children= field allows nesting of models.
+Multiple metatypes can be assigned to each mnode.
 
-Any mnode can be identified by /model key/. Model key is a list of
-namespace keys or =$children= atoms denoting mnode children.
+=MetaParameters= field contains data relevant to the metatypes assigned to the mnode.
+There are no strict rules about it.
+For example, =value= metatype requires =type= metaparameter and optional =default= parameter.
 
-The following example shows how to define a /Lee model module/:
+Finally, =Children= field allows nesting of mnodes.
+
+Any mnode is uniquely identified by the /model key/.
+Model key is a list of namespace keys or empty tuples (={}=) separating parent and child parts of the key.
+
+The following example shows how to define a Lee model:
 
 #+BEGIN_SRC erlang
 -spec model() -> lee:lee_module().
@@ -117,109 +119,96 @@ model() ->
                     , default => 42
                     }}
             , quux =>
-                  {[value],
-                   #{ type => nonempty_list(atom())
-                    , oneliner => "This value controls quuxing"
-                    , default => [foo]
+                  {[map],
+                   #{ oneliner => "This value controls quuxing"
+                    , key_elements => [[id]]
+                    , #{ id =>
+                           {[value],
+                            #{ type => boolean()
+                             }}
                     }}
             }
      }.
 #+END_SRC
 
-=[foo]=, =[bar, baz]= and =[bar, quux]= are valid /model keys/ in the
-above model.
+=[foo]=, =[bar, baz]=, =[bar, quux]= and =[bar, quux, {}, id]= are valid /model keys/ in the above model.
+Note the empty tuple in the last key: it separates the part of the key that belongs to the child mnode with key =[id]=.
 
-Model modules have a nice property: they are /composable/ as long as
-their keys do not clash. One or many model modules make up a
-/model/. Note: technically there is absolutely no difference between
-/model module/ and /model/. The latter term denotes something that is
-complete from the application point of view. Therefore in the rest of
-the document both terms are used interchangeably.
+Lee models have a nice property: they are /composable/ as long as their keys do not clash, so they can be merged together.
 
-Model modules should be merged and compiled to a machine-friendly form
-before use. =lee_model:compile/2= function does that. Note that it
-takes two arguments, both are lists of Lee models. The second argument
-is application model (or *the* model), and the first one is a
-/metamodel/, where all metatypes used in the application model are
-defined.
+Model modules should be compiled to a machine-friendly form before use using =lee_model:compile/2= function:
+
+#+begin_src erlang
+lee_model:compile( [lee:base_metamodel(), lee_metatype:create(lee_cli)]
+                 , [Model]
+                 )
+#+end_src
+
+It takes two arguments: the second argument is a list of "raw" models to be merged,
+and the first one is a list of =lee_metatype:create= calls for each callback module used by the model.
+Most commonly used metatypes such as =value= and =map= are gathered into =lee:base_metamodel()= function.
 
 * Data storage
 
-Now what about actual data described by the models? Lee provides an
-abstraction called =lee_storage= to keep track of it. Essentially any
-key-value storage (from proplist to a mnesia table) can serve as a
-=lee_storage=. There are a few prepackaged implementations:
+Lee provides an abstraction called =lee_storage= to keep track of the actual configuration data.
+Any key-value storage (from proplist to a mnesia table) can serve as a =lee_storage=.
+There are a few prepackaged implementations:
 
- - =lee_map_storage= the most basic one storing data in a regular map
- - =lee_mnesia_storage= uses mnesia as storage, reads are transactional
- - =lee_dirty_mnesia_storage= same, but reads are dirty
+- =lee_map_storage= the most basic backend keeping data in a regular map
+- =lee_persistent_term_storage= stores data in a persistent term tagged with a specified atom
+- =lee_mnesia_storage= uses mnesia as storage, reads are transactional
+- =lee_dirty_mnesia_storage= is the same, but reads are dirty (this storage is read-only)
 
-Storage contents can be modified via /patches/. The following example
-illustrates how to create a new storage and populate it with some
-data:
+The contents of the storage can be modified via /patches/.
+The following example illustrates how to create a new storage and populate it with some data:
 
 #+BEGIN_SRC erlang
--spec data() -> lee:data().
-data() ->
-    %% Create am empty storage:
-    Data0 = lee_storage:new(lee_map_storage),
-    %% Define a patch:
-    Patch = [ %% Set some values:
-              {set, [foo], false}
-            , {set, [bar, quux], [quux]}
-              %% Delete a value (if present):
-            , {rm, [bar, baz]}
-            ],
-    %% Apply the patch:
-    lee_storage:patch(Data0, Patch).
+%% Create am empty storage:
+Data0 = lee_storage:new(lee_map_storage),
+%% Define a patch:
+Patch = [ %% Set some values:
+          {set, [foo], false}
+        , {set, [bar, quux], [quux]}
+          %% Delete a value (if present):
+        , {rm, [bar, baz]}
+        ],
+%% Apply the patch:
+lee:patch(Model, Data0, Patch)
 #+END_SRC
+
+=lee:patch= function first applies the patch to a temporary storage, validates its consistency, and only then transfers the data to the active configuration.
 
 ** Data validation
-It is possible to verify the entire storage of data against a model:
-
-#+BEGIN_SRC erlang
-main() ->
-    {ok, Model} = lee_model:compile( [lee:base_metamodel()]
-                                   , [model()]
-                                   ),
-    Data = data(),
-    {ok, _Warnings} = lee:validate(Model, Data),
-    ...
-#+END_SRC
 
 Successful validation ensures the following properties of =Data=:
 
- - All values described in the model are either present in =Data=, or
-   =Model= declares their default values
- - All values present in =Data= have correct types
+- All values described in the model are either present in =Data=, or =Model= declares their default values
+- All values present in =Data= have correct types
+- Any additional properties declared by the metatypes
 
 ** Getting the data
 
-Now when we know that data is complete and type-safe, getting values
-becomes extremely simple:
+Now when we know that data is complete and type-safe, getting values becomes extremely simple:
 
 #+BEGIN_SRC erlang
-    [quux] = lee:get(Model, Data, [bar, quux]),
-    false = lee:get(Model, Data, [foo]),
+    [quux] = lee:get(Data, [bar, quux]),
+    false = lee:get(Data, [foo]),
 #+END_SRC
 
-Note that =lee:get= returns plain values rather than something like
-={ok, Value} | undefined=. This is perfectly safe, as long as the data
-is validated using =lee:validate=.
+Note that =lee:get= returns plain values rather than something like ={ok, Value} | undefined=.
+
+This is perfectly safe, as long as the data is validated using =lee:validate=.
 
 Complete code of the example can be found [[file:doc/example/example_model.erl][here]].
 
-* Creating patches
+* Creating patches and initializing the configuration
 
-Creating patches can be model-driven too. Lee comes with a few modules
-for reading data:
+Lee comes with a few modules for reading data:
 
- - =lee_cli= read data by parsing CLI arguments
- - =lee_consult= read data from files via =file:consult=
- - =lee_os_env= read data from environment variables
+- =lee_cli= read data by parsing CLI arguments
+- =lee_os_env= read data from environment variables
 
-In order to utilize these modules one should extend the model with new
-metatypes and metaparameters:
+In order to utilize these modules one should extend the model with new metatypes and metaparameters:
 
 #+BEGIN_SRC erlang
 -spec model() -> lee:lee_module().
@@ -237,7 +226,6 @@ model() ->
                    #{ type => integer()
                     , oneliner => "This value controls bazing"
                     , default => 42
-                    , os_env => "BAZ"
                     }}
             , quux =>
                   {[value, cli_param, os_env],  %% This value is read from both CLI and environment
@@ -311,18 +299,11 @@ the fragments. Finally, [[https://pandoc.org/][pandoc]] is used to transform Doc
 Export of documentation is triggered like this:
 
 #+BEGIN_SRC erlang
-%% List of metatypes that should be mentioned in the documentation,
-%% together with metatype-specific options affecting extraction
+%% List of metatypes that should be mentioned in the documentation
 MTs = [ os_env
       , cli_param
-      , consult
-      , {consult, #{ filter      => [foo]
-                   , config_name => "foo.conf"
-                   }}
-      , {consult, #{ filter      => [bar]
-                   , config_name => "bar.conf"
-                   }}
       , value
+      , map
       ],
 Config = #{ metatypes => MTs
           , run_pandoc => true
@@ -337,72 +318,19 @@ it was chosen because of the following properties:
 
  + It's the easiest format to assemble from small fragments
  + It's a supported source format in pandoc
- + It's whitespace insensitive. Given that the docstrings come from
+ + It's whitespace-insensitive. Given that the docstrings come from
    literals embedded into Erlang code, formatting of the source code
    should not affect the resulting documents. Also it generally
    focuses on structure rather than representation
 
-* Gathering it all together
-
-All Lee APIs that we discussed so far were stateless. Although being
-stateless makes Lee extremely flexible, passing state around is hardly
-practical for a configuration library. Lee comes with a simple
-reference implementation of configuration server, that holds all data
-in Mnesia and ensures that the data is always sound by validating
-patches. The following example briefly shows how it can be used:
-
-#+BEGIN_SRC erlang
-main() ->
-    application:ensure_all_started(lee),
-    %% Apply patches in a transaction (invalid ones won't be applied).
-    ok = lee_server:patch(fun(Model, Data) ->
-                             Quux = lee:get(Model, Data, [quux]),
-                             ...
-                             %% Return a patch:
-                             {ok, [ {set, [foo], Val}
-                                  , {rm, [bar]}
-                                  , ...
-                                  ]}
-                          end),
-    %% Get data by dirty read:
-    Foo = lee_server:get_d([foo]),
-    %% Or get a consistent snapshot of data in a transaction:
-    mnesia:transaction(
-      fun() ->
-        Foo = lee_server:get([foo]),
-        Keys = lee_server:list([foo, ?children]),
-        ...
-      end),
-   ...
-#+END_SRC
-
-* TODO Documentation
-
-Note that the model already contains the docstrings which can be
-easily transformed to manpages and what not. TBD
-
 * Name?
 
-This library is named after Tsung-Dao Lee, a physicist who predicted
-P-symmetry violation together with Chen-Ning Yang.
+This library is named after Tsung-Dao Lee, a physicist who predicted P-symmetry violation together with Chen-Ning Yang.
 
 * Design goals
-** Composability
-
-Be a library rather than framework. Don't enforce ways of
-working. Some example use cases:
-
- - Safe and consistent configs. Lee should be able to interwork with
-   mnesia-like DBs
- - On the other side configuration of the database itself may use Lee,
-   so Lee itself should not rely on transactions after all
-
 ** Speed
 
-Tl;dr: getting values from config should be very fast, but updating
-and validating config may be slow.
+Tl;dr: getting values from config should be very fast, but updating and validating config may be slow.
 
-It should be possible to use =lee:get= in hotspots. It means any call
-to =lee:get= should be theoretically possible to implement using at
-most (N + 1) hashtable lookups (N for the number of configuration
-overlays and 1 for the defaults).
+It should be possible to use =lee:get= in hotspots.
+It means any call to =lee:get= should be theoretically possible to implement using at most (N + 1) hashtable lookups (N for the number of configuration overlays and 1 for the defaults).
