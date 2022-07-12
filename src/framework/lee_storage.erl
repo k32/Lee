@@ -31,7 +31,7 @@
 
 -type storage(_A) :: term().
 
--type patch_op(A) :: {set, lee:key(), A} | {rm, lee:key()}.
+-type patch_op(A) :: {set, lee:key() | atom(), A} | {rm, lee:key()}.
 
 -type patch(A) :: [patch_op(A)].
 
@@ -56,8 +56,8 @@
 
 -callback create(Options :: term()) -> storage(_).
 
--callback get(term(), storage(Val)) -> {ok, Val}
-                                     | undefined.
+-callback get(lee:key() | atom(), storage(Val)) -> {ok, Val}
+                                                 | undefined.
 
 -callback patch(Storage, Delete, Set) -> Storage
     when Storage :: storage(Val)
@@ -80,7 +80,7 @@ new(Backend, Options) ->
 new(Module) ->
     new(Module, #{}).
 
--spec get(lee:key(), data(A)) -> {ok, A} | undefined.
+-spec get(term(), data(A)) -> {ok, A} | undefined.
 get(Key, #lee_tree{backend = Backend, data = Data}) ->
     Backend:get(Key, Data).
 
@@ -89,7 +89,7 @@ patch(D0 = #lee_tree{backend = Backend, data = Data0}, Patch0) ->
     {ok, Keys0} = Backend:get(?rose_tree, Data0),
     {Delete, Set} = transform_patch(D0, Patch0),
     Keys1 = lists:foldl(fun rt_del/2, Keys0, Delete),
-    Keys = lists:foldl(fun rt_add/2, Keys1, [K || {K, _} <- Set]),
+    Keys = lists:foldl(fun rt_add/2, Keys1, [K || {K, _} <- Set, is_list(K)]),
     Data = Backend:patch(Data0, Delete, [{?rose_tree, Keys} | Set]),
     D0#lee_tree{ data = Data
                }.

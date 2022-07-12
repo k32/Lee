@@ -3,30 +3,17 @@
 %% API exports
 -export([ namespace/2
         , base_metamodel/0
-        , get/3
-        , list/3
+        , get/2, get/3, list/2, list/3
         , validate/2
         , meta_validate/1
-        , from_string/3
-        , from_strings/3
+        , from_string/3, from_strings/3
 
-        , patch/3
+        , patch/2, patch/3
         , init_config/2
         ]).
 
--export_type([ node_id/0
-             , model_key/0
-             , key/0
-             , metatype/0
-             , type/0
-             , mnode/0
-             , model/0
-             , lee_module/0
-             , cooked_module/0
-             , properties/0
-             , data/0
-             , patch/0
-             , patch_result/0
+-export_type([node_id/0, model_key/0, key/0, metatype/0, type/0, mnode/0, model/0,
+              lee_module/0, cooked_module/0, properties/0, data/0, patch/0, patch_result/0
              ]).
 
 -include_lib("typerefl/include/types.hrl").
@@ -108,11 +95,15 @@ base_metamodel() ->
     , lee_metatype:create(lee_app_env)
     ].
 
+-spec get(data(), lee:key()) -> term().
+get(Data, Key) ->
+    get(get_bakedin_model(Data), Data, Key).
+
 %% @doc Get a value from the config
 %%
 %% The return value is guaranteed safe, as long as `Data' has been
 %% validated against the `Model', and `Key' is a valid `Model' key
--spec get(lee:model() | lee:cooked_module(), data(), lee:key()) -> term().
+-spec get(model() | lee:cooked_module(), data(), lee:key()) -> term().
 get(Model, Data, Key) when ?is_storage(Data) ->
     case lee_storage:get(Key, Data) of
         {ok, Val} ->
@@ -161,6 +152,10 @@ init_config(Model, Data0) ->
             {error, Errors, []}
     end.
 
+-spec patch(data(), patch()) -> patch_result().
+patch(Data, Patch) ->
+    patch(get_bakedin_model(Data), Data, Patch).
+
 -spec patch(model(), data(), patch()) -> patch_result().
 patch(Model, Data0, Patch) ->
     %% TODO: Inefficient. Make an overlay storage
@@ -168,7 +163,7 @@ patch(Model, Data0, Patch) ->
     PendingData = lee_storage:patch(PendingData0, Patch),
     case lee:validate(Model, PendingData) of
         {ok, Warnings} ->
-            Data = lee_storage:patch(Data0, Patch),
+            Data = lee_storage:patch(Data0, [{set, ?bakedin_model_key, Model} | Patch]),
             lists:foreach(fun(PatchOp) ->
                                   process_patch_op(Model, Data, PatchOp)
                           end,
@@ -177,6 +172,10 @@ patch(Model, Data0, Patch) ->
         Err ->
             Err
     end.
+
+-spec list(data(), lee:key()) -> [lee:key()].
+list(Data, Key) ->
+    list(get_bakedin_model(Data), Data, Key).
 
 %% @doc List objects in `Data' that can match `Key'
 %%
@@ -365,3 +364,10 @@ meta_validate_node(MT, Model, Key, MNode = #mnode{metaparams = MP}) ->
                                                           [MT, lee_lib:format_typerefl_error(Err)])], []}
                   end,
     lee_lib:inject_error_location(Key, {Errors, Warnings ++ Warn}).
+
+-spec get_bakedin_model(data()) -> model().
+get_bakedin_model(Data) ->
+    case lee_storage:get(?bakedin_model_key, Data) of
+        {ok, Model} -> Model;
+        undefined   -> error("Data has not been initilized properly")
+    end.

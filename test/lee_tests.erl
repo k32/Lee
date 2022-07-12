@@ -66,7 +66,7 @@ validate_test() ->
            Model
        end,
        [{"Check different data against the model",
-         fun(Model, Trace) ->
+         fun(Model, _Trace) ->
                  ?valid(#{[foo] => true}),
                  ?valid(#{[foo] => true, [bar] => 1}),
                  ?valid(#{[foo] => false, [bar] => -12}),
@@ -220,23 +220,26 @@ get_test() ->
             , {set, [baz, {1}, foo],            false}
             , {set, [baz, {0}, baz, {42}, foo], false}
             ],
-    Config = lee_storage:patch( lee_storage:new(lee_map_storage)
-                              , Patch
-                              ),
-    ?assertMatch(true, lee:get(Model, Config, [foo])),
-    ?assertMatch(42, lee:get(Model, Config, [bar])),
-    ?assertMatch(42, lee:get(Model, Config, [foobar])),
+    {ok, Config, _Warn} = lee:patch( Model
+                                   , lee_storage:new(lee_map_storage)
+                                   , Patch
+                                   ),
+    ?assertMatch(true, lee:get(Config, [foo])),
+    ?assertMatch(42, lee:get(Config, [bar])),
+    ?assertMatch(42, lee:get(Config, [foobar])),
 
-    ?assertMatch(0, lee:get(Model, Config, [baz, {0}, bar])),
-    ?assertMatch(42, lee:get(Model, Config, [baz, {0}, foobar])),
-    ?assertMatch(true, lee:get(Model, Config, [baz, {0}, foo])),
+    ?assertMatch(0, lee:get(Config, [baz, {0}, bar])),
+    ?assertMatch(42, lee:get(Config, [baz, {0}, foobar])),
+    ?assertMatch(true, lee:get(Config, [baz, {0}, foo])),
 
-    ?assertMatch(false, lee:get(Model, Config, [baz, {1}, foo])),
-    ?assertMatch(42, lee:get(Model, Config, [baz, {1}, bar])),
+    ?assertMatch(false, lee:get(Config, [baz, {1}, foo])),
+    ?assertMatch(42, lee:get(Config, [baz, {1}, bar])),
 
-    ?assertMatch(false, lee:get(Model, Config, [baz, {0}, baz, {42}, foo])),
-    ?assertMatch(42, lee:get(Model, Config, [baz, {0}, baz, {42}, bar])),
-    %?assertMatch([[bar]], lee:list(Model, Config, [bar])),
+    ?assertMatch(false, lee:get(Config, [baz, {0}, baz, {42}, foo])),
+    ?assertMatch(42, lee:get(Config, [baz, {0}, baz, {42}, bar])),
+
+    ?assertMatch([[baz, {0}], [baz, {1}]], lists:sort(lee:list(Config, [baz, {}]))),
+    %%?assertMatch([[bar]], lee:list(Model, Config, [bar])),
     ok.
 
 overlay_test() ->

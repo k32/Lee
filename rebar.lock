@@ -1,15 +1,12 @@
 {"1.2.0",
-[{<<"map_sets">>,{pkg,<<"map_sets">>,<<"1.1.0">>},0},
- {<<"snabbkaffe">>,{pkg,<<"snabbkaffe">>,<<"1.0.1">>},0},
+[{<<"snabbkaffe">>,{pkg,<<"snabbkaffe">>,<<"1.0.1">>},0},
  {<<"typerefl">>,
   {git,"https://github.com/ieQu1/typerefl.git",
        {ref,"209c3dbfe157383f2e2306c5a9b642b48baaa326"}},
   0}]}.
 [
 {pkg_hash,[
- {<<"map_sets">>, <<"517897DC5830F26770798B3226FCE515B94A37C31A8E714FBED0934EC4ABC630">>},
  {<<"snabbkaffe">>, <<"8E95CCBC90E1445C6B504D7980A35FE87E140BD694CED35851965B87D42BD882">>}]},
 {pkg_hash_ext,[
- {<<"map_sets">>, <<"789E022889E656F89D449D07ACA4E00A20E34E38A5EA8FE16F1366A3FFBC5E27">>},
  {<<"snabbkaffe">>, <<"035812759963897B71EE69A11E8DFF93BBBB0F475055479A557DD3C4FD72FE33">>}]}
 ].
