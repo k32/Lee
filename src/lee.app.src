@@ -1,3 +1,4 @@
+%% -*- mode: erlang -*-
 {application, lee,
  [{description, "Simple data modelling DSL"},
   {vsn, "0.1.0"},

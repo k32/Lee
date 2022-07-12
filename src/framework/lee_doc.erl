@@ -32,7 +32,6 @@
          , run_pandoc   => boolean()
          }.
 
-
 -export_type([doc_options/0]).
 
 -define(external_doc, [?MODULE, external_doc]).
@@ -63,7 +62,7 @@ erlang_listing(Str) ->
 %% @doc Get string representation of the key
 -spec format_key(lee:model_key()) -> string().
 format_key(Key) ->
-    lists:flatten(lists:join("-", [io_lib:format("~p", [I]) || I <- Key])).
+    lists:flatten(lists:join("/", [io_lib:format("~p", [I]) || I <- Key])).
 
 %% @doc Make a simple subsection
 -spec simplesect(string(), iolist() | [docbook_xml()]) -> docbook_xml().
@@ -82,7 +81,6 @@ li(Title, Contents) ->
      [ {emphasis, [Title]}, ": "
      | Contents
      ]}]}.
-
 
 %% @doc Generate a link to the description of a value
 -spec xref_key(lee:key()) -> docbook_xml().
@@ -144,8 +142,8 @@ documented() ->
 -spec make_file(atom(), docbook_xml(), string()) -> file:filename().
 make_file(Top, Data, Id) ->
     RootAttrs = [ {xmlns, "http://docbook.org/ns/docbook"}
-                , {'xmlns:xlink', "http://www.w3.org/1999/xlink"}
                 , {version, "5.0"}
+                , {'xmlns:xlink', "http://www.w3.org/1999/xlink"}
                 , {id, Id}
                 ],
     Doc = {Top, RootAttrs, Data},

@@ -131,7 +131,7 @@ meta_validate_value_test() ->
                 , Compile(#{type => integer(), default => foo})
                 ),
     %% Wrong type of `default_ref':
-    ?assertMatch( {error, ["[foo]: Invalid `default_ref' reference key"]}
+    ?assertMatch( {error, ["[foo]: Metaparameters of value are invalid." ++ _]}
                 , Compile(#{type => integer(), default_ref => foo})
                 ),
     %% Non-existent `default_ref':
@@ -150,6 +150,18 @@ meta_validate_value_test() ->
                            , bar => {[value], #{type => integer()}}
                            })
                 ),
+    %% Incorrect `default_ref':
+    ?assertMatch( {error,["[foo]: Type of the `default_ref' is different"]}
+                , compile(#{ foo => {[value], #{type => integer(), default_ref => [bar]}}
+                           , bar => {[value], #{type => boolean()}}
+                           })),
+    ?assertMatch( {error,["[foo]: Invalid `default_ref' reference key"]}
+                , compile(#{ foo => {[value], #{type => integer(), default_ref => [bar]}}
+                           })),
+    ?assertMatch( {error,["[foo]: Invalid `default_ref' metatype"]}
+                , compile(#{ foo => {[value], #{type => integer(), default_ref => [bar]}}
+                           , bar => {[map], #{}}
+                           })),
     %% Wrong type of `oneliner':
     ?assertMatch( {error, ["[foo]: Metaparameters of value are invalid." ++ _]}
                 , Compile(#{type => integer(), oneliner => foo})

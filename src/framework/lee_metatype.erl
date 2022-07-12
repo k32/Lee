@@ -17,7 +17,6 @@
 
 %% Callback wrappers:
 -export([create/1, create/2,
-         pre_compile_mnode/4,
          metaparams/2,
          validate/3, validate_node/5,
          meta_validate/2, meta_validate_node/4,
@@ -38,7 +37,7 @@
 
 -type cooked_metatype() :: {module(), [atom()], [{lee:key(), term()}]}.
 
--type callback() :: create | metaparams | pre_compile_mnode
+-type callback() :: create | metaparams
                   | meta_validate | meta_validate_node
                   | validate | validate_node
                   | description_title | description | description_node
@@ -50,7 +49,7 @@
 %% Callback declarations
 %%================================================================================
 
--optional_callbacks([metaparams/1, create/1, pre_compile_mnode/3,
+-optional_callbacks([metaparams/1, create/1,
                      validate/3, validate_node/5,
                      meta_validate/2, meta_validate_node/4,
                      description_title/2, description/2, description_node/4,
@@ -69,13 +68,6 @@
 
 %% Create configuration of the callback module, that can be accessed by `lee_model:get'
 -callback create(map()) -> [{lee:key(), term()}].
-
-%% Called for each mnode before compilation.
-%%
-%% Note: never return `{changed, OriginalNode}', or compilation will
-%% run into an infinite loop!
--callback pre_compile_mnode(lee:metatype(), lee:lee_module(), lee:mnode()) ->
-    {changed, lee:mnode()} | same | {error, [string()]}.
 
 %%--------------------------------------------------------------------------------
 %% Post-compilation
@@ -190,15 +182,6 @@ create(M, Params) ->
 create(Module) ->
     create(Module, #{}).
 
--spec pre_compile_mnode(lee:metatype(), lee:lee_module(), #{lee:metatype() => module()}, lee:mnode()) ->
-          {changed, lee:mnode()} | same | {error, [string()]}.
-pre_compile_mnode(Metatype, MetaModule, MetaModules, MNode) ->
-    Module = maps:get(Metatype, MetaModules),
-    case ?is_implemented(Module) of
-        true  -> Module:?FUNCTION_NAME(Metatype, MetaModule, MNode);
-        false -> same
-    end.
-
 %%--------------------------------------------------------------------------------
 %% Post-compilation
 %%--------------------------------------------------------------------------------
@@ -304,8 +287,6 @@ callback_arity(create) ->
     1;
 callback_arity(metaparams) ->
     1;
-callback_arity(pre_compile_mnode) ->
-    3;
 callback_arity(meta_validate) ->
     2;
 callback_arity(meta_validate_node) ->

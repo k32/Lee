@@ -35,7 +35,10 @@ names(_) ->
     [value].
 
 metaparams(value) ->
-    [{mandatory, type, typerefl:term()}, {optional, default, typerefl:term()}] ++ lee_doc:documented().
+    [ {mandatory, type, typerefl:term()}
+    , {optional, default, typerefl:term()}
+    , {optional, default_ref, lee:model_key()}
+    ] ++ lee_doc:documented().
 
 description(value, _Model) ->
     [{para, ["This section lists all configurable values."]}].
@@ -126,7 +129,7 @@ check_type_and_default(Model, Attrs) ->
                                     {["Type of the `default_ref' is different"], []}
                             end;
                         false ->
-                            {"Invalid `default_ref' metatype", []}
+                            {["Invalid `default_ref' metatype"], []}
                     end
             catch
                 _:_ -> {["Invalid `default_ref' reference key"], []}
