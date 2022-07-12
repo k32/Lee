@@ -131,7 +131,7 @@ meta_validate_value_test() ->
                 , Compile(#{type => integer(), default => foo})
                 ),
     %% Wrong type of `default_ref':
-    ?assertMatch( {error, ["[foo]: Invalid `default_ref' reference key"]}
+    ?assertMatch( {error, ["[foo]: Metaparameters of value are invalid." ++ _]}
                 , Compile(#{type => integer(), default_ref => foo})
                 ),
     %% Non-existent `default_ref':

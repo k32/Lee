@@ -35,7 +35,10 @@ names(_) ->
     [value].
 
 metaparams(value) ->
-    [{mandatory, type, typerefl:term()}, {optional, default, typerefl:term()}] ++ lee_doc:documented().
+    [ {mandatory, type, typerefl:term()}
+    , {optional, default, typerefl:term()}
+    , {optional, default_ref, lee:model_key()}
+    ] ++ lee_doc:documented().
 
 description(value, _Model) ->
     [{para, ["This section lists all configurable values."]}].
