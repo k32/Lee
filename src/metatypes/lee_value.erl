@@ -129,7 +129,7 @@ check_type_and_default(Model, Attrs) ->
                                     {["Type of the `default_ref' is different"], []}
                             end;
                         false ->
-                            {"Invalid `default_ref' metatype", []}
+                            {["Invalid `default_ref' metatype"], []}
                     end
             catch
                 _:_ -> {["Invalid `default_ref' reference key"], []}
