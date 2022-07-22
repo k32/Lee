@@ -34,8 +34,8 @@
 -spec read(lee:model(), file:filename()) -> {ok, lee:patch()} | {error, [string()]}.
 read(Model, Filename) ->
     case file:consult(Filename) of
-        {ok, [Term]} ->
-            {ok, make_patch([], Model, Term, [])};
+        {ok, Terms} ->
+            {ok, make_patch([], Model, Terms, [])};
         {error, enoent} ->
             {ok, []};
         {error, Err} ->
