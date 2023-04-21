@@ -362,7 +362,7 @@ meta_validate_node(MT, Model, Key, MNode = #mnode{metaparams = MP}) ->
                          ok           -> lee_metatype:meta_validate_node(MT, Model, Key, MNode);
                          {error, Err} -> {[lee_lib:format("Metaparameters of ~p are invalid. ~s",
                                                           [MT, lee_lib:format_typerefl_error(Err)])], []}
-                  end,
+                     end,
     lee_lib:inject_error_location(Key, {Errors, Warnings ++ Warn}).
 
 -spec get_bakedin_model(data()) -> model().
