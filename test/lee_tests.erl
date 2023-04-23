@@ -1,6 +1,6 @@
 -module(lee_tests).
 
--compile([export_all]).
+-export([validate_callback_spec/2]).
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("lee/include/lee.hrl").
@@ -107,9 +107,9 @@ validate_callback_spec(Model, Trace) ->
               Validated = [Key || #{ ?snk_kind       := lee_mt_callback
                                    , metatype        := MT
                                    , callback_name   := meta_validate_node
-                                   , callback_module := MyModule
+                                   , callback_module := CallbackModule
                                    , arguments       := [Key]
-                                   } <- Trace, MT =:= Metatype],
+                                   } <- Trace, MT =:= Metatype, CallbackModule =:= MyModule],
               ?assertEqual( lists:sort(Instances)
                           , lists:sort(Validated)
                           , {Metatype, MyModule, Idx}

@@ -12,7 +12,7 @@
         , init_config/2
         ]).
 
--export_type([node_id/0, model_key/0, key/0, metatype/0, type/0, mnode/0, model/0,
+-export_type([node_id/0, metatype/0, type/0, mnode/0, model/0,
               lee_module/0, cooked_module/0, properties/0, data/0, patch/0, patch_result/0
              ]).
 
@@ -43,14 +43,11 @@
 
 -type metatype() :: atom().
 
--type node_id() :: atom() %% Should not begin with `$', these are reserved
-                 | tuple()
-                 | integer()
-                 .
+-type node_id() :: atom() | {}.
 
--type model_key() :: [ node_id() | tuple() ].
+-type model_key() :: [node_id()].
 
--type key() :: [ node_id() | tuple() ].
+-type key() :: [atom() | tuple()].
 
 -type properties() :: #{atom() => term()}.
 
@@ -58,8 +55,7 @@
 
 %% Model node
 -type mnode() :: {[metatype()], properties(), lee_module()}
-               | {[metatype()], properties()} %% Shortcut for child-free MOs
-               .
+               | {[metatype()], properties()}. %% Shortcut for child-free MOs
 
 -reflect_type([key/0, model_key/0]).
 
@@ -355,9 +351,10 @@ meta_validate_node(MT, Model, Key, MNode = #mnode{metaparams = MP}) ->
     Type = typerefl:map([{case Kind of
                               mandatory -> strict;
                               _         -> fuzzy
-                          end, Key, Val} || {Kind, Key, Val} <- MPSpec] ++ [{fuzzy, term(), term()}]),
-    Warnings = [lee_lib:format("Missing optional ~p metaparameter", [Key])
-                || {warn_if_missing, Key, _} <- MPSpec, not maps:is_key(Key, MP)],
+                          end, K, Val} || {Kind, K, Val} <- MPSpec] ++ [{fuzzy, term(), term()}]),
+    Warnings = [lee_lib:format("Missing optional ~p metaparameter", [SpecKey])
+                || {warn_if_missing, SpecKey, _} <- MPSpec
+                 , not maps:is_key(SpecKey, MP)],
     {Errors, Warn} = case typerefl:typecheck(Type, MP) of
                          ok           -> lee_metatype:meta_validate_node(MT, Model, Key, MNode);
                          {error, Err} -> {[lee_lib:format("Metaparameters of ~p are invalid. ~s",

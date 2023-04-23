@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 k32 All Rights Reserved.
+%% Copyright (c) 2022-2023 k32 All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,9 +21,7 @@
 -export([]).
 
 %% behavior callbacks:
--export([names/1, description/2, metaparams/1, meta_validate_node/4,
-         validate_node/5,
-         description_title/2, description_node/4]).
+-export([names/1, metaparams/1, meta_validate_node/4, validate_node/5, description/3]).
 
 -include("../framework/lee_internal.hrl").
 
@@ -40,8 +38,8 @@ metaparams(value) ->
     , {optional, default_ref, lee:model_key()}
     ] ++ lee_doc:documented().
 
-description(value, _Model) ->
-    [{para, ["This section lists all configurable values."]}].
+%% description(value, _Model) ->
+%%     [{para, ["This section lists all configurable values."]}].
 
 %% Validate nodes of `value' metatype
 -spec validate_node(lee:metatype(), lee:model(), lee:data(), lee:key(), #mnode{}) ->
@@ -72,39 +70,16 @@ validate_node(value, _Model, Data, Key, #mnode{metaparams = Attrs}) ->
 meta_validate_node(value, Model, _Key, #mnode{metaparams = Attrs}) ->
     check_type_and_default(Model, Attrs).
 
-description_title(value, _) ->
-    "Values".
-
-description_node(value, Model, Key, MNode = #mnode{metaparams = Attrs}) ->
-    Type = ?m_attr(value, type, Attrs),
-    Default =
-        case Attrs of
-            #{default := DefVal} ->
-                DefStr = typerefl:pretty_print_value(Type, DefVal),
-                [lee_doc:simplesect( "Default value: "
-                                   , [lee_doc:erlang_listing(DefStr)]
-                                   )];
-            #{default_ref := Ref} ->
-                [lee_doc:simplesect( "Default value: "
-                                   , [{para, ["See ", lee_doc:xref_key(Ref)]}]
-                                   )];
-            _ ->
-                []
-        end,
-    Description = lee_doc:get_description(Model, Key, MNode),
-    Oneliner    = lee_doc:get_oneliner(Model, Key, MNode),
-    Id = lee_doc:format_key(Key),
-    { section, [{id, Id}]
-    , [ {title, [Id]}
-      , {para, [Oneliner]}
-      , lee_doc:simplesect("Type:", [lee_doc:erlang_listing(typerefl:print(Type))])
-      ] ++ Default ++ Description
-    }.
+description(value = MT, Model, _Options) ->
+    [{[], Global} | Rest] = lists:sort(maps:to_list(lee_model:fold(fun mk_doc_tree/4, #{}, {false, []}, Model))),
+    Content = mk_doc(Model, [], Global) ++
+        [document_map(Model, Parent, Children)
+         || {Parent, Children} <- Rest],
+    lee_doc:chapter(MT, "All configurable values", Content).
 
 %%================================================================================
 %% Internal functions
 %%================================================================================
-
 
 check_type_and_default(Model, Attrs) ->
     case Attrs of
@@ -139,4 +114,73 @@ check_type_and_default(Model, Attrs) ->
             {[], []};
         _ ->
             {["Missing mandatory `type' metaparameter"], []}
+    end.
+
+mk_doc_tree(Key, #mnode{metatypes = MTs}, Acc, {ParentUndocumented, Parent}) ->
+    case {lists:member(map, MTs), lists:member(value, MTs), ParentUndocumented orelse lists:member(undocumented, MTs)} of
+        {true, false, Undocumented} ->
+            {Acc, {Undocumented, Key}};
+        {false, true, false} ->
+            { maps:update_with(Parent, fun(Keys) -> [Key|Keys] end, [Key], Acc)
+            , {ParentUndocumented, Parent}
+            };
+        {false, _, _} ->
+            {Acc, {ParentUndocumented, Parent}}
+    end.
+
+document_value(Model, ParentKey, Key) ->
+    #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
+    Type = ?m_attr(value, type, Attrs),
+    Default =
+        case Attrs of
+            #{default := DefVal} ->
+                DefStr = typerefl:pretty_print_value(Type, DefVal),
+                [lee_doc:simplesect( "Default value: "
+                                   , [lee_doc:erlang_listing(DefStr)]
+                                   )];
+            #{default_ref := Ref} ->
+                [lee_doc:simplesect( "Default value: "
+                                   , ["See ", lee_doc:xref_key(value, Ref)]
+                                   )];
+            _ ->
+                []
+        end,
+    Description = lee_doc:get_description(Model, Key),
+    Oneliner = lee_doc:get_oneliner(Model, Key),
+    Title = lee_lib:format("~p", [Key -- ParentKey]),
+    {section, [{'xml:id', lee_doc:format_key(value, Key)}],
+     [ {title, [Title]}
+     , {para, Oneliner}
+     , lee_doc:simplesect("Type:", [lee_doc:erlang_listing(typerefl:print(Type))])
+     ] ++ Default ++ Description}.
+
+
+mk_doc(Model, Parent, Keys) ->
+    [document_value(Model, Parent ++ [{}], Key) || Key <- Keys].
+
+document_map(Model, Key, Children) ->
+    #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
+    Description = lee_doc:get_description(Model, Key),
+    Oneliner = lee_doc:get_oneliner(Model, Key),
+    Id = lee_doc:format_key(value, Key),
+    Title = lee_lib:format("~p", [Key]),
+    {section, [{'xml:id', Id}],
+     [ {title, [Title]}
+     , {para, Oneliner}
+     , {para, [{emphasis, ["Key elements:"]}]}
+     | document_map_key_elems(Key, Attrs)
+     ] ++ Description ++ mk_doc(Model, Key, Children)}.
+
+document_map_key_elems(Key, Attrs) ->
+    case ?m_attr(map, key_elements, Attrs, []) of
+        [] ->
+            [];
+        KeyAttrs ->
+            [{orderedlist,
+              [{listitem,
+                [{para,
+                  [ {link, [{linkend, lee_doc:format_key(value, Key ++ [?children|I])}],
+                     [lee_lib:format("~p", [I])]}
+                  ]}]}
+               || I <- KeyAttrs]}]
     end.

@@ -27,7 +27,7 @@
 
 %% behavior callbacks
 -export([ create/1, names/1, metaparams/1
-        , description_title/2, description/2
+        , description/3
         , meta_validate/2, meta_validate_node/4
         , read_patch/2
         ]).
@@ -237,18 +237,15 @@ read_patch(cli_action, Model) ->
 read_patch(_, _) ->
     {ok, 0, []}.
 
-description_title(_MetaType, _Model) ->
-    "CLI arguments".
-
-description(_MetaType, Model) ->
+description(cli_param, Model, Options) ->
+    AppName = lee_doc_root:prog_name(Model),
     {ok, Index} = lee_model:get_meta(?index_key, Model),
-    [{global, Global}|Scopes] = lists:sort(maps:to_list(Index)),
-    GlobalDoc = [{section, make_scope_docs(Global, Model)}],
-    ActionDocs =
-        [{section, [{id, "cli-command-" ++ Name}]
-         , [{title, [[?sigil|Name]]} | make_cli_action_docs(I, Model)]}
-         || {Name, I} <- Scopes],
-    GlobalDoc ++ ActionDocs.
+    RefSections = [make_scope_docs(AppName, Options, Model, Scope)
+                   || Scope <- lists:sort(maps:to_list(Index))],
+    %% Final result:
+    lee_doc:chapter("cli", "Command line interface", RefSections);
+description(_, _Model, _Options) ->
+    [].
 
 %%====================================================================
 %% Internal functions
@@ -282,6 +279,12 @@ split_commands(Tokens) ->
               (_)            -> true
            end,
     lee_lib:splitr(Pred, Tokens).
+
+%% @private
+-spec tokenize(char(), [string()]) -> [token()].
+tokenize(Sigil, L) ->
+    Tokens = [I || I <- tokenize_(Sigil, L), I /= []],
+    group_tokens(Tokens).
 
 tokenize_(_, []) ->
     [];
@@ -478,11 +481,6 @@ maybe_update_sc(Record, ElemNumber, Key, Value) ->
                                  )
     end.
 
-pretty_print_operand(Short) when is_integer(Short) ->
-    [$-, Short];
-pretty_print_operand(Long) ->
-    ["--"|Long].
-
 add_positional(Key, Attrs, SC0 = #sc{positional = Pos0}) ->
     %% Make key relative:
     Pos = maps:get(cli_arg_position, Attrs),
@@ -494,23 +492,44 @@ make_relative(Key0, Parent) ->
     [?children | Key] = Key0 -- Parent,
     Key.
 
-make_cli_action_docs(Scope = #sc{parent = Parent}, Model) ->
-    MNode = lee_model:get(Parent, Model),
-    Oneliner = lee_doc:get_oneliner(Model, Parent, MNode),
-    Doc = lee_doc:get_description(Model, Parent, MNode),
-    Preamble = [{para, [Oneliner]}|Doc],
-    Preamble ++ [{section,
-                  [ {title, ["CLI arguments"]}
-                  | make_scope_docs(Scope, Model)
-                  ]}].
+make_scope_docs(AppName, Options, Model, {ScopeName, Scope = #sc{parent = Parent}}) ->
+    case ScopeName of
+        global ->
+            Key = lee_doc_root:doc_root(Model),
+            Additional = make_os_env_doc(Options, Model, lee_model:get_metatype_index(os_env, Model)),
+            {ok, Index} = lee_model:get_meta(?index_key, Model),
+            SeeAlso = [AppName ++ [$-|I] || I <- maps:keys(Index) -- [global]],
+            SectionId = AppName;
+        _ ->
+            Key = Parent,
+            Additional = [],
+            SeeAlso = [AppName],
+            SectionId = AppName ++ [$-|ScopeName]
+    end,
+    {refentry, [{'xml:id', "cli." ++ SectionId}],
+     [ {refmeta,
+        [ {refentrytitle, [SectionId]}
+        , {manvolnum, ["1"]}
+        ]}
+     , {refnamediv,
+        [ {refname, [SectionId]}
+        , {refpurpose, lee_doc:get_oneliner(Model, Key)}
+        ]}
+     ] ++ lee_doc:refsection( "cli." ++ SectionId ++ ".description"
+                            , "Description"
+                            , lee_doc:get_description(Model, Key)
+                            )
+      ++ lee_doc:refsection( "cli." ++ SectionId ++ ".options"
+                           , "Options"
+                           , make_opts_doc(Model, Scope)
+                           )
+      ++ Additional
+      ++ see_also(SeeAlso)}.
 
-make_scope_docs(#sc{ short = Short
-                   , long = Long
-                   , positional = Positional
-                   }, Model) ->
+make_opts_doc(Model, #sc{ short = Short, long = Long, positional = Positional}) ->
     NamedDocs = merge_operands(Model, lists:keysort(2, maps:to_list(Long) ++ maps:to_list(Short))),
     PositionalDocs =
-        [document_param(lee_lib:format("Position: ~p", [P]), Key, Model)
+        [lee_doc:refer_value(Model, Key, lee_lib:format("Position: ~p", [P]))
          || {P, Key} <- Positional],
     NamedDocs ++ PositionalDocs.
 
@@ -518,17 +537,39 @@ merge_operands(_Model, []) ->
     [];
 merge_operands(Model, [{A, K}, {B, K} | Rest]) ->
     Name = pretty_print_operand(A) ++ ", " ++ pretty_print_operand(B),
-    [document_param(Name, K, Model) | merge_operands(Model, Rest)];
+    [lee_doc:refer_value(Model, K, Name) | merge_operands(Model, Rest)];
 merge_operands(Model, [{A, K} | Rest]) ->
     Name = pretty_print_operand(A),
-    [document_param(Name, K, Model) | merge_operands(Model, Rest)].
+    [lee_doc:refer_value(Model, K, Name) | merge_operands(Model, Rest)].
 
-document_param(Name, Key, Model) ->
-    MNode = lee_model:get(Key, Model),
-    lee_doc:refer_value(Key, cli_param, Name, MNode).
+pretty_print_operand(Short) when is_integer(Short) ->
+    [$-,Short];
+pretty_print_operand(Long) ->
+    "--"++Long.
 
-%% @private
--spec tokenize(char(), [string()]) -> [token()].
-tokenize(Sigil, L) ->
-    Tokens = [I || I <- tokenize_(Sigil, L), I /= []],
-    group_tokens(Tokens).
+make_os_env_doc(_Options, _Model, []) ->
+    [];
+make_os_env_doc(_Options, Model, OsEnvInstances) ->
+    [{refsection,
+      [ {title, ["OS Environment Variables"]}
+      , {para,
+         ["OS environment variables are used to
+           set configuration values. Values of type ", {code, ["string()"]}, " are
+           taken from OS environment variables verbatim, other types
+           are parsed as Erlang terms."]}
+      | [do_make_os_env_doc(Model, Key) || Key <- OsEnvInstances]
+      ]}].
+
+do_make_os_env_doc(Model, Key) ->
+    EnvVar = lee_os_env:variable_name(Key, Model),
+    lee_doc:refer_value(Model, Key, EnvVar).
+
+see_also([]) ->
+    [];
+see_also(RefEntries) ->
+    [{refsection,
+      [ {title, ["See also"]}
+      , {para,
+         [{citerefentry,
+           [{refentrytitle, [Title]}, {manvolnum, ["1"]}]} || Title <- RefEntries]}
+      ]}].

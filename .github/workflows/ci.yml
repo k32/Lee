@@ -13,11 +13,21 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        otp: [23.2.5, 21.3.8.21]
-    container:
-      image: erlang:${{ matrix.otp }}
+        otp: [25.3-1]
 
     steps:
     - uses: actions/checkout@v2
+    - name: Install packagess
+      run: |
+        curl "https://packages.erlang-solutions.com/erlang/debian/pool/esl-erlang_${{ matrix.otp }}~ubuntu~bionic_amd64.deb" > erlang.deb
+        sudo apt-get update
+        sudo apt-get install ./erlang.deb
+        sudo apt-get install -y asciidoctor libxml2-utils
+        wget https://s3.amazonaws.com/rebar3/rebar3
+        chmod +x ./rebar3
+        ./rebar3 local install
+
     - name: Compile and run tests
-      run: make
+      run: |
+        export PATH="/home/runner/.cache/rebar3/bin:$PATH"
+        make
