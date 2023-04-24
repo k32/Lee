@@ -160,17 +160,6 @@ match_test() ->
                 ),
     ok.
 
-optional_part_tests() ->
-    ?assertMatch( {[], [foo]}
-                , lee_model:optional_part([foo])
-                ),
-    ?assertMatch( {[], [bar, bar]}
-                , lee_model:optional_part([bar, bar])
-                ),
-    ?assertMatch( {[baz, ?children], [quux]}
-                , lee_model:optional_part([baz, ?children, quux])
-                ).
-
 scoped_traverse_test_() ->
     ?RUN_PROP(scoped_traverse_prop).
 
@@ -217,20 +206,39 @@ full_split_key_test() ->
                 ).
 
 map_vals_test() ->
-    M0 = #{ foo => {[], 0}
+    M0 = #{ foo => {[foo, bar], #{attr1 => 1}}
           , bar =>
                 #{ baz =>
-                       {[], 1}
+                       {[foo], #{}}
                  }
+          , baz =>
+                {[baz], #{},
+                 #{ bar1 =>
+                        #{bar2 =>
+                              {[bar2], #{}}
+                         }
+                  , bar3 =>
+                        {[bar3], #{}}
+                  }}
           },
-    Fun = fun(K, {MT, N}) ->
-                  {[a|MT], N+1, K}
+    Fun = fun(K, {MT, Attrs}) ->
+                  {[a|MT], Attrs#{key => K}}
           end,
     ?assertEqual( #{ foo =>
-                         {[a], 1, [foo]}
+                         {[a, foo, bar],
+                          #{attr1 => 1, key => [foo]}}
                    , bar =>
-                         #{ baz => {[a], 2, [bar, baz]}
+                         #{ baz => {[a, foo], #{key => [bar, baz]}}
                           }
+                   , baz =>
+                         {[a, baz], #{key => [baz]},
+                          #{ bar1 =>
+                                 #{bar2 =>
+                                       {[a, bar2], #{key => [baz, {}, bar1, bar2]}}
+                                   }
+                           , bar3 =>
+                                 {[a, bar3], #{key => [baz, {}, bar3]}}
+                           }}
                    }
                 , lee_model:map_vals(Fun, M0)
                 ).

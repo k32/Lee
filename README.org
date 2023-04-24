@@ -306,7 +306,6 @@ MTs = [ os_env
       , map
       ],
 Config = #{ metatypes => MTs
-          , run_pandoc => true
           },
 lee_doc:make_docs(model(), Config)
 #+END_SRC

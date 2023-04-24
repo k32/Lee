@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 k32 All Rights Reserved.
+%% Copyright (c) 2022-2023 k32 All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,13 +18,32 @@
 -behavior(lee_metatype).
 
 %% API:
--export([]).
+-export([doc_root/1, app_name/1, prog_name/1]).
 
 %% behavior callbacks:
 -export([create/1, names/1, metaparams/1,
-         description_title/2, description/2]).
+         description/3]).
 
 -include("../framework/lee_internal.hrl").
+
+%%================================================================================
+%% API
+%%================================================================================
+
+-spec doc_root(lee:model()) -> lee:model_key().
+doc_root(Model) ->
+    [Key] = lee_model:get_metatype_index(doc_root, Model),
+    Key.
+
+-spec app_name(lee:model()) -> string().
+app_name(Model) ->
+    #mnode{metaparams = Attrs} = lee_model:get(doc_root(Model), Model),
+    ?m_attr(doc_root, app_name, Attrs).
+
+-spec prog_name(lee:model()) -> string().
+prog_name(Model) ->
+    #mnode{metaparams = Attrs} = lee_model:get(doc_root(Model), Model),
+    ?m_attr(doc_root, prog_name, Attrs).
 
 %%================================================================================
 %% behavior callbacks
@@ -37,21 +56,23 @@ names(_) ->
     [doc_root].
 
 metaparams(doc_root) ->
-    [{mandatory, app_name, typerefl:string()}] ++ lee_doc:documented().
+    [ {mandatory, app_name, typerefl:string()}
+    , {mandatory, prog_name, typerefl:string()}
+    | lee_doc:documented()
+    ].
 
-description_title(doc_root, Model) ->
-    [Key] = lee_model:get_metatype_index(doc_root, Model),
-    #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
-    ?m_attr(doc_root, app_name, Attrs).
-
-description(doc_root, Model) ->
-    [Key]       = lee_model:get_metatype_index(doc_root, Model),
-    MNode       = lee_model:get(Key, Model),
-    Description = lee_doc:get_description(Model, Key, MNode),
-    Oneliner    = lee_doc:get_oneliner(Model, Key, MNode),
-    [{chapter, [{id, "_intro"}]
-     , [{title, ["Introduction"]}, {para, [Oneliner]} | Description]
-     }].
+description(doc_root, Model, _Options) ->
+    %% Get doc root mnode:
+    DocRoot = doc_root(Model),
+    Content = lists:append(
+                [ [lee_doc:p(Oneliner) || Oneliner <- lee_doc:get_oneliner(Model, DocRoot)]
+                , lee_doc:get_description(Model, DocRoot)
+                ]),
+    [{title, [app_name(Model)]},
+     {preface,
+      [ {title, ["Introduction"]}
+      | Content
+      ]}].
 
 %%================================================================================
 %% Internal functions

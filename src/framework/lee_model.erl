@@ -142,8 +142,7 @@ get_meta(Id, #model{metaconfig = MetaConfig}, Default) ->
 get_meta(Id, #model{metaconfig = MetaConfig}) ->
 	lee_storage:get(Id, MetaConfig).
 
-%% @doc Apply a function to all nodes of a raw model module. Doesn't
-%% traverse into child nodes
+%% @doc Apply a function to all nodes of a raw model module.
 -spec map_vals( fun((lee:model_key(), lee:mnode()) -> lee:mnode())
               , lee:module()
               ) -> lee:module().
@@ -265,7 +264,15 @@ do_map_vals(Fun, Model, Parent) ->
     maps:map( fun(K, Val) when is_map(Val) ->
                       do_map_vals(Fun, Val, [K|Parent]);
                  (K, Node) ->
-                      Fun(lists:reverse([K|Parent]), Node)
+                      ParentKey = lists:reverse([K|Parent]),
+                      case Node of
+                          {MTs, Attrs} ->
+                              Fun(ParentKey, {MTs, Attrs});
+                          {MTs0, Attrs0, Children0} ->
+                              Children =  do_map_vals(Fun, Children0, [{}, K|Parent]),
+                              {MTs, Attrs} = Fun(ParentKey, {MTs0, Attrs0}),
+                              {MTs, Attrs, Children}
+                      end
               end
             , Model).
 

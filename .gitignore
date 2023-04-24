@@ -21,6 +21,5 @@ TAGS
 test/docbook.xsd
 lee_doc/
 doc/
-!doc/images
-!doc/examples
+!doc/src
 snabbkaffe

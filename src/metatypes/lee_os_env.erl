@@ -10,10 +10,8 @@
 
 -behavior(lee_metatype).
 
--export([ names/1, metaparams/1, create/1
-        , description_title/2, description/2, description_node/4
-        , read_patch/2, read_to/2
-        ]).
+-export([variable_name/2]).
+-export([names/1, metaparams/1, create/1, read_patch/2, read_to/2]).
 
 -include_lib("lee/src/framework/lee_internal.hrl").
 
@@ -21,6 +19,13 @@
 -define(prio_key, [?MODULE, priority]).
 
 -define(metatype, os_env).
+
+-spec variable_name(lee:model_key(), lee:model()) -> string().
+variable_name(Key, Model) ->
+    #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
+    Default = make_default_key(Key),
+    {ok, Prefix} = lee_model:get_meta(?prefix_key, Model),
+    Prefix ++ ?m_attr(?metatype, os_env, Attrs, Default).
 
 create(Conf) ->
     Prefix = maps:get(prefix, Conf, ""),
@@ -34,26 +39,6 @@ names(_) ->
 
 metaparams(?metatype) ->
     [{optional, os_env, typerefl:printable_latin1_list()}].
-
-description_title(?metatype, _) ->
-    "OS Environment Variables".
-
-description(?metatype, Model) ->
-    {ok, Prio} = lee_model:get_meta(?prio_key, Model),
-    [{para,
-      ["The following OS environment variables are used to
-       set configuration values. Values of type string() are
-       taken from OS environment variables verbatim, other types
-       are parsed as Erlang terms."]},
-     {para,
-      ["Priority: ", integer_to_list(Prio)]}
-     ].
-
-description_node(os_env, Model, Key, MNode) ->
-    #mnode{metaparams = Attrs} = MNode,
-    {ok, Prefix} = lee_model:get_meta(?prefix_key, Model),
-    EnvVar = Prefix ++ ?m_attr(?metatype, os_env, Attrs, make_default_key(Key)),
-    lee_doc:refer_value(Key, ?metatype, EnvVar, MNode).
 
 %% @doc Make a patch from OS environment variables
 %% @throws {error, string()}
@@ -77,10 +62,7 @@ read_to(Model, Data) ->
 
 %% @private
 read_val(Model, Key, Acc) ->
-    #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
-    {ok, Prefix} = lee_model:get_meta(?prefix_key, Model),
-    Default = make_default_key(Key),
-    EnvVar = Prefix ++ ?m_attr(?metatype, os_env, Attrs, Default),
+    EnvVar = variable_name(Key, Model),
     case os:getenv(EnvVar) of
         false ->
             Acc;

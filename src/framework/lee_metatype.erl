@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 k32. All Rights Reserved.
+%% Copyright (c) 2022-2023 k32. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
          metaparams/2,
          validate/3, validate_node/5,
          meta_validate/2, meta_validate_node/4,
-         description_title/2, description_node/4, description/2,
+         description/3,
          read_patch/2, post_patch/5]).
 
 %% API:
@@ -40,7 +40,7 @@
 -type callback() :: create | metaparams
                   | meta_validate | meta_validate_node
                   | validate | validate_node
-                  | description_title | description | description_node
+                  | description
                   | read_patch | post_patch.
 
 -type metavalidate_result() :: {_Err :: [string()], _Warn :: [string()], [lee_storage:patch_op()]}.
@@ -52,7 +52,7 @@
 -optional_callbacks([metaparams/1, create/1,
                      validate/3, validate_node/5,
                      meta_validate/2, meta_validate_node/4,
-                     description_title/2, description/2, description_node/4,
+                     description/3,
                      read_patch/2, post_patch/5
                     ]).
 
@@ -114,14 +114,8 @@
 %% Documentation
 %%--------------------------------------------------------------------------------
 
-%% Called by `lee_doc:make_docs' to get title of the section in the generated configuration
--callback description_title(lee:metatype(), lee:model()) -> string() | undefined.
-
-%% (Mandatory if `description_title' is defined) Generate the body of the documentation section
--callback description(lee:metatype(), lee:model()) -> string() | lee_doc:doc().
-
-%% Generate documentation for each #mnode{}
--callback description_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) -> lee_doc:doc().
+%% Generate DocBook chapters
+-callback description(lee:metatype(), lee:model(), lee_doc:options()) -> [lee_doc:docbook_xml()].
 
 %%================================================================================
 %% Macros
@@ -254,27 +248,11 @@ post_patch(Metatype, Model, Data, MNode, PatchOp) ->
 %% Documentation
 %%--------------------------------------------------------------------------------
 
--spec description(lee:model(), lee:metatype()) -> lee_doc:doc().
-description(Model, Metatype) ->
+-spec description(lee:metatype(), lee:model(), lee_doc:options()) -> [lee_doc:docbook_xml()].
+description(Metatype, Model, Options) ->
     Module = get_module(Model, Metatype),
-    ?callbacktp(Metatype, Module, []),
-    Module:?FUNCTION_NAME(Metatype, Model).
-
--spec description_title(lee:metatype(), lee:model()) -> string() | undefined.
-description_title(Metatype, Model) ->
-    Module = get_module(Model, Metatype),
-    ?callbacktp(Metatype, Module, []),
     case ?is_implemented(Module) of
-        true  -> Module:description_title(Metatype, Model);
-        false -> undefined
-    end.
-
--spec description_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) -> lee_doc:doc().
-description_node(Metatype, Model, Key, MNode) ->
-    Module = get_module(Model, Metatype),
-    ?callbacktp(Metatype, Module, [Key]),
-    case ?is_implemented(Module) of
-        true  -> Module:?FUNCTION_NAME(Metatype, Model, Key, MNode);
+        true  -> Module:?FUNCTION_NAME(Metatype, Model, Options);
         false -> []
     end.
 
@@ -295,12 +273,8 @@ callback_arity(validate) ->
     3;
 callback_arity(validate_node) ->
     5;
-callback_arity(description_title) ->
-    2;
 callback_arity(description) ->
-    2;
-callback_arity(description_node) ->
-    4;
+    3;
 callback_arity(read_patch) ->
     2;
 callback_arity(post_patch) ->

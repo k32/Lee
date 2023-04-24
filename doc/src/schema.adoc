@@ -1,0 +1,15 @@
+= Documentation
+
+[id=quux]
+== Quux does quuxing
+
+Here is a very long description of quux.
+It _uses_ a lot of formatting and *whatnot*.
+
+* A list item
+* Another list item
+
+[id=more_stuff.default_ref]
+== default_ref demonastrates how to use nested keys
+
+And here goes very long text.

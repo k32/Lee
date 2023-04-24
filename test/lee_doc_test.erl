@@ -9,15 +9,11 @@
 
 -include("lee.hrl").
 
-long_text() ->
-    lee_doc:from_file(lee, "loremipsum.xml").
-
 model() ->
     Model = #{ '$doc_root' =>
                    {[doc_root],
                     #{ oneliner => "This is a test model for doc extraction"
                      , app_name => "Lee Test Application"
-                     , doc => long_text()
                      , prog_name => "lee_test"
                      }}
              , foo =>
@@ -25,7 +21,6 @@ model() ->
                     #{ oneliner => "This parameter controls fooing"
                      , type     => typerefl:string()
                      , default  => "foo"
-                     , doc      => long_text()
                      }}
              , bar =>
                    {[value, os_env],
@@ -47,40 +42,44 @@ model() ->
                     #{ type     => float()
                      , oneliner => "This value controls xizzying"
                      }}
+             , more_stuff =>
+                   #{default_ref =>
+                         {[value, os_env],
+                          #{ type        => typerefl:string()
+                           , default_ref => [foo]
+                           }}}
              , cli => lee_cli_tests:test_model_raw()
              },
-    {ok, Mod} = lee_model:compile( [ lee:base_metamodel()
-                                   , lee_metatype:create(lee_os_env, #{prefix => "TEST_"})
+    Options = #{readme_file => "doc/src/README.adoc"},
+    {ok, Mod} = lee_model:compile( [ lee_metatype:create(lee_os_env, #{prefix => "TEST_"})
                                    , lee_metatype:create(lee_config_file, #{ tag => conf_file
                                                                            , file => "/etc/myapp.eterm"
                                                                            })
                                    %% , lee_consult:metamodel()
                                    , lee_metatype:create(lee_cli)
                                    , lee_metatype:create(?MODULE)
+                                   | lee:base_metamodel()
                                    ]
-                                 , [Model]
+                                 , [lee_asciidoc:enrich_model(Options, Model)]
                                  ),
     Mod.
 
+doc_root_test() ->
+    Model = model(),
+    ?assertMatch( [ {title, ["Lee Test Application"]}
+                  , {preface,
+                     [ {title, ["Introduction"]}
+                     | _
+                     ]}
+                  ]
+                , lee_metatype:description(doc_root, Model, #{})
+                ).
 
 export_test() ->
-    MTs = [ cli_param
-          , os_env
-          , conf_file
-          %% , {consult, #{ filter      => [foo]
-          %%              , config_name => "foo.conf"
-          %%              }}
-          %% , {consult, #{ filter      => [bar]
-          %%              , config_name => "bar.conf"
-          %%              }}
-          , map
-          , value
-          ],
-    Config = #{ metatypes => MTs
-              , run_pandoc => false
-              , doc_xml => "test/data/external_doc.xml"
+    OutFile = "_build/lee_doc/test_out.xml",
+    Config = #{ output_file => OutFile
               },
-    lee_doc:make_docs(model(), Config).
+    ok = lee_doc:make_docs(model(), Config).
 
 %% Metatype callbacks:
 
