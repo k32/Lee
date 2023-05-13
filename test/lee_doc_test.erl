@@ -43,11 +43,17 @@ model() ->
                      , oneliner => "This value controls xizzying"
                      }}
              , more_stuff =>
-                   #{default_ref =>
-                         {[value, os_env],
-                          #{ type        => typerefl:string()
-                           , default_ref => [foo]
-                           }}}
+                   #{ default_ref =>
+                          {[value, os_env],
+                           #{ type        => typerefl:string()
+                            , default_ref => [foo]
+                            }}
+                    , default_str =>
+                          {[value],
+                           #{ type => typerefl:ip_address()
+                            , default_str => "127.0.0.1"
+                            }}
+                    }
              , cli => lee_cli_tests:test_model_raw()
              },
     Options = #{readme_file => "doc/src/README.adoc"},

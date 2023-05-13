@@ -21,7 +21,7 @@
 -export([]).
 
 %% behavior callbacks:
--export([names/1, metaparams/1, meta_validate_node/4, validate_node/5, description/3]).
+-export([names/1, metaparams/1, pre_compile/2, meta_validate_node/4, validate_node/5, description/3]).
 
 -include("../framework/lee_internal.hrl").
 
@@ -64,6 +64,12 @@ validate_node(value, _Model, Data, Key, #mnode{metaparams = Attrs}) ->
         undefined ->
             {["Mandatory value is missing in the config"] , []}
     end.
+
+pre_compile(value, MPs = #{default_str := Str, type := Type}) ->
+    {ok, Default} = typerefl:from_string(Type, Str),
+    MPs#{default => Default};
+pre_compile(_, MPs) ->
+    MPs.
 
 -spec meta_validate_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) ->
                             lee_lib:check_result().
@@ -133,6 +139,10 @@ document_value(Model, ParentKey, Key) ->
     Type = ?m_attr(value, type, Attrs),
     Default =
         case Attrs of
+            #{default_str := DefStr} ->
+                [lee_doc:simplesect( "Default value: "
+                                   , [lee_doc:erlang_listing(DefStr)]
+                                   )];
             #{default := DefVal} ->
                 DefStr = typerefl:pretty_print_value(Type, DefVal),
                 [lee_doc:simplesect( "Default value: "

@@ -3,7 +3,6 @@
 
 %% API exports
 -export([ compile/2
-        , compile_module/1
         , map_vals/2
 
         , fold/3
@@ -43,7 +42,7 @@
 %% @doc Merge multiple model and metamodel modules into a
 %% machine-friendly form
 -spec compile([T], [M]) -> {ok, #model{}} | {error, [string()]}
-              when M :: lee:lee_module() | lee:cooked_module(),
+              when M :: lee:lee_module(),
                    T :: lee_metatype:cooked_metatype().
 compile(MetaModules0, Models0) ->
     MetaModules = lists:flatten(MetaModules0),
@@ -53,7 +52,7 @@ compile(MetaModules0, Models0) ->
                                        {K, V} <- Conf]),
     MetaConfig0 = lee_storage:new(lee_map_storage),
     MetaConfig1 = lee_storage:patch(MetaConfig0, MetaConfigPatch),
-    Models = [compile_module(I) || I <- Models0],
+    Models = [compile_module(ModuleLookup, I) || I <- Models0],
     case merge(Models) of
         {ok, Model} ->
             Result = #model{ metaconfig     = MetaConfig1
@@ -78,7 +77,7 @@ patch_meta(M = #model{metaconfig = MC0}, Patch) ->
 
 %% @doc Merge multiple Lee model modules into a single module
 -spec merge([M]) -> {ok, lee:cooked_module()} | {error, term()}
-               when M :: lee:cooked_module() | lee:lee_module().
+               when M :: lee:cooked_module().
 merge(L) ->
     M0 = lee_storage:new(lee_map_storage),
     try
@@ -98,9 +97,8 @@ merge(L) ->
 %% @doc Merge two Lee model modules into a single module
 -spec merge(M, M) -> {ok, lee:cooked_module()}
                    | {error, [string()]}
-               when M :: lee:cooked_module() | lee:lee_module().
-merge(M1_0, M2) ->
-    M1 = compile_module(M1_0),
+               when M :: lee:cooked_module().
+merge(M1, M2) ->
     Fun = fun(Key, MNode, Acc) ->
                   [{set, Key, MNode} | Acc]
           end,
@@ -276,16 +274,20 @@ do_map_vals(Fun, Model, Parent) ->
               end
             , Model).
 
--spec compile_module(lee:module() | lee:cooked_module()) -> lee:cooked_module().
-compile_module(Module) when is_map(Module) ->
-    Fun = fun(Key, MNode, Acc) ->
-                  [{set, Key, MNode} | Acc]
+-spec compile_module(_ModuleLookup, lee:module() | lee:cooked_module()) -> lee:cooked_module().
+compile_module(MLookup, Module) when is_map(Module) ->
+    Fun = fun(Key, MNode = #mnode{metaparams = MPs0, metatypes = MTs}, Acc) ->
+                  MPs = lists:foldl( fun(MT, Params) ->
+                                             #{MT := MTMod} = MLookup,
+                                             lee_metatype:pre_compile(MT, MTMod, Params)
+                                     end
+                                   , MPs0
+                                   , MTs),
+                  [{set, Key, MNode#mnode{metaparams = MPs}} | Acc]
           end,
     lee_storage:patch( lee_storage:new(lee_map_storage)
                      , fold(Fun, [], Module)
-                     );
-compile_module(Module) when ?is_storage(Module) -> %% Already cooked
-    Module.
+                     ).
 
 %% Fold over raw model:
 fold(Key0, Fun, AccIn, ScopeIn, M) when is_map(M) -> %% Namespace

@@ -52,6 +52,11 @@ validate_test() ->
                      #{ type => typerefl:integer()
                       , default_ref => [bar]
                       }}
+              , foobaz =>
+                    {[value],
+                     #{ type => typerefl:integer()
+                      , default_str => "42"
+                      }}
               },
     Model1 = Model0
         #{ baz =>
@@ -134,6 +139,10 @@ meta_validate_value_test() ->
     ?assertMatch( {error, ["[foo]: Metaparameters of value are invalid." ++ _]}
                 , Compile(#{type => integer(), default_ref => foo})
                 ),
+    %% Wrong type of `default_str':
+    ?assertMatch( {error, ["[foo]: Mistyped default value" ++ _]}
+                , Compile(#{type => tuple(), default_str => "foo"})
+                ),
     %% Non-existent `default_ref':
     ?assertMatch( {error, ["[foo]: Invalid `default_ref' reference key"]}
                 , Compile(#{type => integer(), default_ref => [bar]})
@@ -210,6 +219,10 @@ get_test() ->
                            #{ type => typerefl:integer()
                             , default_ref => [bar]
                             }}
+              , foobaz => {[value],
+                           #{ type => integer()
+                            , default_str => "25"
+                            }}
               },
     Model1 = Model0 #{ baz => {[map], #{}, Model0}},
     Model2 = Model1 #{ baz => {[map], #{}, Model1}},
@@ -237,6 +250,8 @@ get_test() ->
 
     ?assertMatch(false, lee:get(Config, [baz, {0}, baz, {42}, foo])),
     ?assertMatch(42, lee:get(Config, [baz, {0}, baz, {42}, bar])),
+
+    ?assertMatch(25, lee:get(Config, [foobaz])),
 
     ?assertMatch([[baz, {0}], [baz, {1}]], lists:sort(lee:list(Config, [baz, {}]))),
     %%?assertMatch([[bar]], lee:list(Model, Config, [bar])),

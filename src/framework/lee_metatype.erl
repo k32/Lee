@@ -19,7 +19,7 @@
 -export([create/1, create/2,
          metaparams/2,
          validate/3, validate_node/5,
-         meta_validate/2, meta_validate_node/4,
+         pre_compile/3, meta_validate/2, meta_validate_node/4,
          description/3,
          read_patch/2, post_patch/5]).
 
@@ -38,7 +38,7 @@
 -type cooked_metatype() :: {module(), [atom()], [{lee:key(), term()}]}.
 
 -type callback() :: create | metaparams
-                  | meta_validate | meta_validate_node
+                  | pre_compile | meta_validate | meta_validate_node
                   | validate | validate_node
                   | description
                   | read_patch | post_patch.
@@ -51,7 +51,7 @@
 
 -optional_callbacks([metaparams/1, create/1,
                      validate/3, validate_node/5,
-                     meta_validate/2, meta_validate_node/4,
+                     pre_compile/2, meta_validate/2, meta_validate_node/4,
                      description/3,
                      read_patch/2, post_patch/5
                     ]).
@@ -68,6 +68,15 @@
 
 %% Create configuration of the callback module, that can be accessed by `lee_model:get'
 -callback create(map()) -> [{lee:key(), term()}].
+
+
+%% Called during compilation of the module into the model. One can perform
+%% simple transformations of the metaparameters in this callback.
+%%
+%% This callback MUST NOT validate any data or parameters: all errors
+%% will be ignored. Validation should be left to `meta_validate_node'
+-callback pre_compile(lee:metatype(), Metaparams) -> Metaparams when
+      Metaparams :: map().
 
 %%--------------------------------------------------------------------------------
 %% Post-compilation
@@ -180,6 +189,14 @@ create(Module) ->
 %% Post-compilation
 %%--------------------------------------------------------------------------------
 
+-spec pre_compile(lee:metatype(), module(), map()) -> map().
+pre_compile(Metatype, Module,  Metaparams) ->
+    ?callbacktp(Metatype, Module, [Metaparams]),
+    case ?is_implemented(Module) of
+        true  -> Module:?FUNCTION_NAME(Metatype, Metaparams);
+        false -> Metaparams
+    end.
+
 -spec meta_validate_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) -> lee_lib:check_result().
 meta_validate_node(Metatype, Model, Key, MNode) ->
     Module = get_module(Model, Metatype),
@@ -265,6 +282,8 @@ callback_arity(create) ->
     1;
 callback_arity(metaparams) ->
     1;
+callback_arity(pre_compile) ->
+    2;
 callback_arity(meta_validate) ->
     2;
 callback_arity(meta_validate_node) ->
