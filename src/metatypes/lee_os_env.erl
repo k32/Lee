@@ -11,7 +11,7 @@
 -behavior(lee_metatype).
 
 -export([variable_name/2]).
--export([names/1, metaparams/1, create/1, read_patch/2, read_to/2]).
+-export([names/1, metaparams/1, create/1, read_patch/2, read_to/2, doc_refer_key/3]).
 
 -include_lib("lee/src/framework/lee_internal.hrl").
 
@@ -39,6 +39,9 @@ names(_) ->
 
 metaparams(?metatype) ->
     [{optional, os_env, typerefl:printable_latin1_list()}].
+
+doc_refer_key(?metatype, _Model, Key) ->
+    [{xref, [{linkend, lee_doc:format_key(os_env, Key)}], []}].
 
 %% @doc Make a patch from OS environment variables
 %% @throws {error, string()}
@@ -84,4 +87,4 @@ make_default_key_([]) ->
 make_default_key_([Atom|Rest]) when is_atom(Atom) ->
     [string:to_upper(atom_to_list(Atom))|make_default_key_(Rest)];
 make_default_key_([Tuple|_Rest]) when is_tuple(Tuple) ->
-    error(sorry_not_supported).
+    error({sorry_not_supported, Tuple}).

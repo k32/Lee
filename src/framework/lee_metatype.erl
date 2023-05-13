@@ -19,8 +19,8 @@
 -export([create/1, create/2,
          metaparams/2,
          validate/3, validate_node/5,
-         meta_validate/2, meta_validate_node/4,
-         description/3,
+         pre_compile/3, meta_validate/2, meta_validate_node/4,
+         description/3, doc_refer_key/3,
          read_patch/2, post_patch/5]).
 
 %% API:
@@ -38,9 +38,9 @@
 -type cooked_metatype() :: {module(), [atom()], [{lee:key(), term()}]}.
 
 -type callback() :: create | metaparams
-                  | meta_validate | meta_validate_node
+                  | pre_compile | meta_validate | meta_validate_node
                   | validate | validate_node
-                  | description
+                  | description | doc_refer_key
                   | read_patch | post_patch.
 
 -type metavalidate_result() :: {_Err :: [string()], _Warn :: [string()], [lee_storage:patch_op()]}.
@@ -51,8 +51,8 @@
 
 -optional_callbacks([metaparams/1, create/1,
                      validate/3, validate_node/5,
-                     meta_validate/2, meta_validate_node/4,
-                     description/3,
+                     pre_compile/2, meta_validate/2, meta_validate_node/4,
+                     description/3, doc_refer_key/3,
                      read_patch/2, post_patch/5
                     ]).
 
@@ -68,6 +68,14 @@
 
 %% Create configuration of the callback module, that can be accessed by `lee_model:get'
 -callback create(map()) -> [{lee:key(), term()}].
+
+%% Called during compilation of the module into the model. One can perform
+%% simple transformations of the metaparameters in this callback.
+%%
+%% This callback MUST NOT validate any data or parameters: all errors
+%% will be ignored. Validation should be left to `meta_validate_node'
+-callback pre_compile(lee:metatype(), Metaparams) -> Metaparams when
+      Metaparams :: map().
 
 %%--------------------------------------------------------------------------------
 %% Post-compilation
@@ -116,6 +124,10 @@
 
 %% Generate DocBook chapters
 -callback description(lee:metatype(), lee:model(), lee_doc:options()) -> [lee_doc:docbook_xml()].
+
+%% Return a DocBook XML term containing link to the description of the
+%% key in the context of metatype
+-callback doc_refer_key(lee:metatype(), lee:model(), lee:model_key()) -> [lee_doc:docbook_xml()].
 
 %%================================================================================
 %% Macros
@@ -179,6 +191,14 @@ create(Module) ->
 %%--------------------------------------------------------------------------------
 %% Post-compilation
 %%--------------------------------------------------------------------------------
+
+-spec pre_compile(lee:metatype(), module(), map()) -> map().
+pre_compile(Metatype, Module,  Metaparams) ->
+    ?callbacktp(Metatype, Module, [Metaparams]),
+    case ?is_implemented(Module) of
+        true  -> Module:?FUNCTION_NAME(Metatype, Metaparams);
+        false -> Metaparams
+    end.
 
 -spec meta_validate_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) -> lee_lib:check_result().
 meta_validate_node(Metatype, Model, Key, MNode) ->
@@ -256,6 +276,14 @@ description(Metatype, Model, Options) ->
         false -> []
     end.
 
+-spec doc_refer_key(lee:metatype(), lee:model(), lee:model_key()) -> [lee_doc:docbook_xml()].
+doc_refer_key(Metatype, Model, Key) ->
+    Module = get_module(Model, Metatype),
+    case ?is_implemented(Module) of
+        true  -> Module:?FUNCTION_NAME(Metatype, Model, Key);
+        false -> []
+    end.
+
 %%================================================================================
 %% Internal functions
 %%================================================================================
@@ -265,6 +293,8 @@ callback_arity(create) ->
     1;
 callback_arity(metaparams) ->
     1;
+callback_arity(pre_compile) ->
+    2;
 callback_arity(meta_validate) ->
     2;
 callback_arity(meta_validate_node) ->
@@ -274,6 +304,8 @@ callback_arity(validate) ->
 callback_arity(validate_node) ->
     5;
 callback_arity(description) ->
+    3;
+callback_arity(doc_refer_key) ->
     3;
 callback_arity(read_patch) ->
     2;

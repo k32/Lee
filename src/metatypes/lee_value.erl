@@ -21,7 +21,8 @@
 -export([]).
 
 %% behavior callbacks:
--export([names/1, metaparams/1, meta_validate_node/4, validate_node/5, description/3]).
+-export([names/1, metaparams/1, pre_compile/2, meta_validate_node/4, validate_node/5,
+         description/3, doc_refer_key/3]).
 
 -include("../framework/lee_internal.hrl").
 
@@ -65,6 +66,12 @@ validate_node(value, _Model, Data, Key, #mnode{metaparams = Attrs}) ->
             {["Mandatory value is missing in the config"] , []}
     end.
 
+pre_compile(value, MPs = #{default_str := Str, type := Type}) ->
+    {ok, Default} = typerefl:from_string(Type, Str),
+    MPs#{default => Default};
+pre_compile(_, MPs) ->
+    MPs.
+
 -spec meta_validate_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) ->
                             lee_lib:check_result().
 meta_validate_node(value, Model, _Key, #mnode{metaparams = Attrs}) ->
@@ -76,6 +83,9 @@ description(value = MT, Model, _Options) ->
         [document_map(Model, Parent, Children)
          || {Parent, Children} <- Rest],
     lee_doc:chapter(MT, "All configurable values", Content).
+
+doc_refer_key(value, _Model, Key) ->
+    [{xref, [{linkend, lee_doc:format_key(value, Key)}], []}].
 
 %%================================================================================
 %% Internal functions
@@ -129,10 +139,14 @@ mk_doc_tree(Key, #mnode{metatypes = MTs}, Acc, {ParentUndocumented, Parent}) ->
     end.
 
 document_value(Model, ParentKey, Key) ->
-    #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
+    #mnode{metatypes = MTs, metaparams = Attrs} = lee_model:get(Key, Model),
     Type = ?m_attr(value, type, Attrs),
     Default =
         case Attrs of
+            #{default_str := DefStr} ->
+                [lee_doc:simplesect( "Default value: "
+                                   , [lee_doc:erlang_listing(DefStr)]
+                                   )];
             #{default := DefVal} ->
                 DefStr = typerefl:pretty_print_value(Type, DefVal),
                 [lee_doc:simplesect( "Default value: "
@@ -148,12 +162,18 @@ document_value(Model, ParentKey, Key) ->
     Description = lee_doc:get_description(Model, Key),
     Oneliner = lee_doc:get_oneliner(Model, Key),
     Title = lee_lib:format("~p", [Key -- ParentKey]),
+    SeeAlso = case lists:flatmap(fun(value) -> [];
+                                    (MT)    -> lee_metatype:doc_refer_key(MT, Model, Key)
+                                 end, MTs)
+              of
+                  []        -> [];
+                  OtherRefs -> [lee_doc:simplesect("See also: ", lists:join(", ", OtherRefs))]
+              end,
     {section, [{'xml:id', lee_doc:format_key(value, Key)}],
      [ {title, [Title]}
      , {para, Oneliner}
      , lee_doc:simplesect("Type:", [lee_doc:erlang_listing(typerefl:print(Type))])
-     ] ++ Default ++ Description}.
-
+     ] ++ Default ++ Description ++ SeeAlso}.
 
 mk_doc(Model, Parent, Keys) ->
     [document_value(Model, Parent ++ [{}], Key) || Key <- Keys].

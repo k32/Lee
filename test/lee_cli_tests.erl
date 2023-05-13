@@ -377,4 +377,6 @@ validate_duplicate_short_test() ->
                ).
 
 compile(Module) ->
-    lee_model:compile([lee:base_metamodel(), lee_metatype:create(lee_cli)], [Module]).
+    lee_model:compile([ lee:base_metamodel()
+                      , lee_metatype:create(lee_cli)
+                      ], [Module]).
