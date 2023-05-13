@@ -27,7 +27,7 @@
 
 %% behavior callbacks
 -export([ create/1, names/1, metaparams/1
-        , description/3
+        , description/3, doc_refer_key/3
         , meta_validate/2, meta_validate_node/4
         , read_patch/2
         ]).
@@ -247,6 +247,9 @@ description(?chapter_id, Model, Options) ->
     lee_doc:chapter("cli", "Command line interface", RefSections);
 description(_, _Model, _Options) ->
     [].
+
+doc_refer_key(_, Model, Key) ->
+    [{xref, [{linkend, lee_doc:format_key(?chapter_id, Key)}], []}].
 
 %%====================================================================
 %% Internal functions
@@ -563,7 +566,7 @@ make_os_env_doc(_Options, Model, OsEnvInstances) ->
 
 do_make_os_env_doc(Model, Key) ->
     EnvVar = lee_os_env:variable_name(Key, Model),
-    lee_doc:refer_value(Model, ?chapter_id, Key, EnvVar).
+    lee_doc:refer_value(Model, os_env, Key, EnvVar).
 
 see_also([]) ->
     [];

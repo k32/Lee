@@ -21,7 +21,8 @@
 -export([]).
 
 %% behavior callbacks:
--export([names/1, metaparams/1, pre_compile/2, meta_validate_node/4, validate_node/5, description/3]).
+-export([names/1, metaparams/1, pre_compile/2, meta_validate_node/4, validate_node/5,
+         description/3, doc_refer_key/3]).
 
 -include("../framework/lee_internal.hrl").
 
@@ -83,6 +84,9 @@ description(value = MT, Model, _Options) ->
          || {Parent, Children} <- Rest],
     lee_doc:chapter(MT, "All configurable values", Content).
 
+doc_refer_key(value, _Model, Key) ->
+    [{xref, [{linkend, lee_doc:format_key(value, Key)}], []}].
+
 %%================================================================================
 %% Internal functions
 %%================================================================================
@@ -135,7 +139,7 @@ mk_doc_tree(Key, #mnode{metatypes = MTs}, Acc, {ParentUndocumented, Parent}) ->
     end.
 
 document_value(Model, ParentKey, Key) ->
-    #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
+    #mnode{metatypes = MTs, metaparams = Attrs} = lee_model:get(Key, Model),
     Type = ?m_attr(value, type, Attrs),
     Default =
         case Attrs of
@@ -158,12 +162,18 @@ document_value(Model, ParentKey, Key) ->
     Description = lee_doc:get_description(Model, Key),
     Oneliner = lee_doc:get_oneliner(Model, Key),
     Title = lee_lib:format("~p", [Key -- ParentKey]),
+    SeeAlso = case lists:flatmap(fun(value) -> [];
+                                    (MT)    -> lee_metatype:doc_refer_key(MT, Model, Key)
+                                 end, MTs)
+              of
+                  []        -> [];
+                  OtherRefs -> [lee_doc:simplesect("See also: ", lists:join(", ", OtherRefs))]
+              end,
     {section, [{'xml:id', lee_doc:format_key(value, Key)}],
      [ {title, [Title]}
      , {para, Oneliner}
      , lee_doc:simplesect("Type:", [lee_doc:erlang_listing(typerefl:print(Type))])
-     ] ++ Default ++ Description}.
-
+     ] ++ Default ++ Description ++ SeeAlso}.
 
 mk_doc(Model, Parent, Keys) ->
     [document_value(Model, Parent ++ [{}], Key) || Key <- Keys].

@@ -44,9 +44,11 @@ model() ->
                      }}
              , more_stuff =>
                    #{ default_ref =>
-                          {[value, os_env],
+                          {[value, os_env, cli_param],
                            #{ type        => typerefl:string()
                             , default_ref => [foo]
+                            , cli_param   => "default-ref"
+                            , cli_short   => $d
                             }}
                     , default_str =>
                           {[value],
