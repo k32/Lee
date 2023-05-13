@@ -43,6 +43,7 @@
 -define(cli_opts_key, [?MODULE, cli_opts]).
 -define(prio_key, [?MODULE, priority]).
 -define(index_key, [?MODULE, index]).
+-define(chapter_id, cli_param).
 
 %%====================================================================
 %% Types
@@ -237,7 +238,7 @@ read_patch(cli_action, Model) ->
 read_patch(_, _) ->
     {ok, 0, []}.
 
-description(cli_param, Model, Options) ->
+description(?chapter_id, Model, Options) ->
     AppName = lee_doc_root:prog_name(Model),
     {ok, Index} = lee_model:get_meta(?index_key, Model),
     RefSections = [make_scope_docs(AppName, Options, Model, Scope)
@@ -529,7 +530,7 @@ make_scope_docs(AppName, Options, Model, {ScopeName, Scope = #sc{parent = Parent
 make_opts_doc(Model, #sc{ short = Short, long = Long, positional = Positional}) ->
     NamedDocs = merge_operands(Model, lists:keysort(2, maps:to_list(Long) ++ maps:to_list(Short))),
     PositionalDocs =
-        [lee_doc:refer_value(Model, Key, lee_lib:format("Position: ~p", [P]))
+        [lee_doc:refer_value(Model, ?chapter_id, Key, lee_lib:format("Position: ~p", [P]))
          || {P, Key} <- Positional],
     NamedDocs ++ PositionalDocs.
 
@@ -537,10 +538,10 @@ merge_operands(_Model, []) ->
     [];
 merge_operands(Model, [{A, K}, {B, K} | Rest]) ->
     Name = pretty_print_operand(A) ++ ", " ++ pretty_print_operand(B),
-    [lee_doc:refer_value(Model, K, Name) | merge_operands(Model, Rest)];
+    [lee_doc:refer_value(Model, ?chapter_id, K, Name) | merge_operands(Model, Rest)];
 merge_operands(Model, [{A, K} | Rest]) ->
     Name = pretty_print_operand(A),
-    [lee_doc:refer_value(Model, K, Name) | merge_operands(Model, Rest)].
+    [lee_doc:refer_value(Model, ?chapter_id, K, Name) | merge_operands(Model, Rest)].
 
 pretty_print_operand(Short) when is_integer(Short) ->
     [$-,Short];
@@ -562,7 +563,7 @@ make_os_env_doc(_Options, Model, OsEnvInstances) ->
 
 do_make_os_env_doc(Model, Key) ->
     EnvVar = lee_os_env:variable_name(Key, Model),
-    lee_doc:refer_value(Model, Key, EnvVar).
+    lee_doc:refer_value(Model, ?chapter_id, Key, EnvVar).
 
 see_also([]) ->
     [];

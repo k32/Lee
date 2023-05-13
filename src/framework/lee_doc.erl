@@ -3,7 +3,7 @@
 
 -export([make_docs/2, get_description/2, get_oneliner/2, format_key/1, format_key/2]).
 
--export([ p/1, li/2, href/2, simplesect/2, erlang_listing/1, xref_key/2, refer_value/3, chapter/3, refsection/3
+-export([ p/1, li/2, href/2, simplesect/2, erlang_listing/1, xref_key/2, refer_value/4, chapter/3, refsection/3
           %% Misc:
         , docbook/1
         , documented/0
@@ -14,6 +14,7 @@
 -include_lib("typerefl/include/types.hrl").
 
 -type docbook_xml() :: term().
+-type chapter_id() :: atom().
 -typerefl_verify({docbook_xml/0, ?MODULE, is_docbook_xml}).
 -reflect_type([docbook_xml/0]).
 
@@ -73,7 +74,7 @@ format_key([A]) when is_atom(A) ->
 format_key([A|Rest]) ->
     format_key([A]) ++ "." ++ format_key(Rest).
 
--spec format_key(lee:metatype(), lee:model_key()) -> string().
+-spec format_key(chapter_id(), lee:model_key()) -> string().
 format_key(MT, Key) ->
     format_key([MT|Key]).
 
@@ -142,10 +143,11 @@ li(Title, Contents) ->
 
 %% @doc Generate a section that contains short description of a value
 %% and a link to the full description
--spec refer_value(lee:model(), lee:model_key(), string()) ->
+-spec refer_value(lee:model(), chapter_id(), lee:model_key(), string()) ->
           docbook_xml().
-refer_value(Model, Key, Name) ->
+refer_value(Model, Chapter, Key, Name) ->
     {refsection,
+     [{'xml:id', format_key(Chapter, Key)}],
      [ {title, [Name]}
      , {para, [lists:flatten(get_oneliner(Model, Key)) ++ ", see: ", xref_key(value, Key)]}
      ]}.
