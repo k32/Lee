@@ -574,6 +574,7 @@ see_also(RefEntries) ->
     [{refsection,
       [ {title, ["See also"]}
       , {para,
-         [{citerefentry,
-           [{refentrytitle, [Title]}, {manvolnum, ["1"]}]} || Title <- RefEntries]}
+         lists:join(" ",
+                    [{citerefentry,
+                      [{refentrytitle, [Title]}, {manvolnum, ["1"]}]} || Title <- RefEntries])}
       ]}].
