@@ -143,9 +143,9 @@ document_value(Model, ParentKey, Key) ->
     Description = lee_doc:get_description(Model, Key),
     Oneliner = lee_doc:get_oneliner(Model, Key),
     Type = ?m_attr(value, type, Attrs),
-    RelKey = lee_lib:format("~p", [Key -- ParentKey]),
+    KeyStr = lee_lib:format("~p", [Key -- ParentKey]),
     Title = case Oneliner of
-                [] -> RelKey;
+                [] -> KeyStr;
                 [OL] -> OL
             end,
     Default =
@@ -175,7 +175,7 @@ document_value(Model, ParentKey, Key) ->
               end,
     {section, [{'xml:id', lee_doc:format_key(value, Key)}],
      [ {title, [Title]}
-     , lee_doc:simplesect("Key: ", [lee_doc:erlang_listing(RelKey)])
+     , lee_doc:simplesect("Key: ", [lee_doc:erlang_listing(KeyStr)])
      , lee_doc:simplesect("Type: ", [lee_doc:erlang_listing(typerefl:print(Type))])
      ] ++ Default ++ Description ++ SeeAlso}.
 
@@ -187,10 +187,14 @@ document_map(Model, Key, Children) ->
     Description = lee_doc:get_description(Model, Key),
     Oneliner = lee_doc:get_oneliner(Model, Key),
     Id = lee_doc:format_key(value, Key),
-    Title = lee_lib:format("~p", [Key]),
+    KeyStr = lee_lib:format("~p", [Key]),
+    Title = case Oneliner of
+                [] -> KeyStr;
+                [OL] -> OL
+            end,
     {section, [{'xml:id', Id}],
      [ {title, [Title]}
-     , {para, Oneliner}
+     , lee_doc:simplesect("Key: ", [lee_doc:erlang_listing(KeyStr)])
      , {para, [{emphasis, ["Key elements:"]}]}
      | document_map_key_elems(Key, Attrs)
      ] ++ Description ++ mk_doc(Model, Key, Children)}.
