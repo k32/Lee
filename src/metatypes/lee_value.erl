@@ -140,7 +140,14 @@ mk_doc_tree(Key, #mnode{metatypes = MTs}, Acc, {ParentUndocumented, Parent}) ->
 
 document_value(Model, ParentKey, Key) ->
     #mnode{metatypes = MTs, metaparams = Attrs} = lee_model:get(Key, Model),
+    Description = lee_doc:get_description(Model, Key),
+    Oneliner = lee_doc:get_oneliner(Model, Key),
     Type = ?m_attr(value, type, Attrs),
+    RelKey = lee_lib:format("~p", [Key -- ParentKey]),
+    Title = case Oneliner of
+                [] -> RelKey;
+                [OL] -> OL
+            end,
     Default =
         case Attrs of
             #{default_str := DefStr} ->
@@ -159,9 +166,6 @@ document_value(Model, ParentKey, Key) ->
             _ ->
                 []
         end,
-    Description = lee_doc:get_description(Model, Key),
-    Oneliner = lee_doc:get_oneliner(Model, Key),
-    Title = lee_lib:format("~p", [Key -- ParentKey]),
     SeeAlso = case lists:flatmap(fun(value) -> [];
                                     (MT)    -> lee_metatype:doc_refer_key(MT, Model, Key)
                                  end, MTs)
@@ -171,8 +175,8 @@ document_value(Model, ParentKey, Key) ->
               end,
     {section, [{'xml:id', lee_doc:format_key(value, Key)}],
      [ {title, [Title]}
-     , {para, Oneliner}
-     , lee_doc:simplesect("Type:", [lee_doc:erlang_listing(typerefl:print(Type))])
+     , lee_doc:simplesect("Key: ", [lee_doc:erlang_listing(RelKey)])
+     , lee_doc:simplesect("Type: ", [lee_doc:erlang_listing(typerefl:print(Type))])
      ] ++ Default ++ Description ++ SeeAlso}.
 
 mk_doc(Model, Parent, Keys) ->
