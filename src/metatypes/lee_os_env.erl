@@ -13,7 +13,7 @@
 -export([variable_name/2]).
 -export([names/1, metaparams/1, create/1, read_patch/2, read_to/2, doc_refer_key/3]).
 
--include_lib("lee/src/framework/lee_internal.hrl").
+-include("lee.hrl").
 
 -define(prefix_key, [?MODULE, attr_prefix]).
 -define(prio_key, [?MODULE, priority]).

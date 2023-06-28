@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 k32 All Rights Reserved.
+%% Copyright (c) 2022-2023 k32 All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 %% behavior callbacks:
 -export([names/1, meta_validate_node/4, validate_node/5]).
 
--include("../framework/lee_internal.hrl").
+-include("lee.hrl").
 
 %%================================================================================
 %% API

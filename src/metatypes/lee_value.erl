@@ -24,7 +24,7 @@
 -export([names/1, metaparams/1, pre_compile/2, meta_validate_node/4, validate_node/5,
          description/3, doc_refer_key/3]).
 
--include("../framework/lee_internal.hrl").
+-include("lee.hrl").
 
 %%================================================================================
 %% behavior callbacks
