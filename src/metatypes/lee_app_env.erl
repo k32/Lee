@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 k32 All Rights Reserved.
+%% Copyright (c) 2022-2023 k32 All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 %% behavior callbacks:
 -export([create/1, names/1, metaparams/1, post_patch/5]).
 
--include_lib("lee/src/framework/lee_internal.hrl").
+-include("lee.hrl").
 -include_lib("typerefl/include/types.hrl").
 
 -define(metatype, app_env).

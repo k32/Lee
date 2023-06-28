@@ -14,9 +14,6 @@
         , meta_class_idx   :: #{lee:metatype() => [lee:key()]}
         }).
 
--define(data_table, lee_data).
--define(model_table, lee_model).
--define(metamodel_table, lee_metamodel).
 -define(bakedin_model_key, '$bakedin_model').
 
 -endif.

@@ -248,7 +248,7 @@ description(?chapter_id, Model, Options) ->
 description(_, _Model, _Options) ->
     [].
 
-doc_refer_key(_, Model, Key) ->
+doc_refer_key(_, _Model, Key) ->
     [{xref, [{linkend, lee_doc:format_key(?chapter_id, Key)}], []}].
 
 %%====================================================================

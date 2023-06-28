@@ -24,7 +24,7 @@
 -export([create/1, names/1, metaparams/1,
          description/3]).
 
--include("../framework/lee_internal.hrl").
+-include("lee.hrl").
 
 %%================================================================================
 %% API
