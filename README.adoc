@@ -323,7 +323,7 @@ This can be done with XSLT stylesheets:
 * https://xsltng.docbook.org
   XSLTNG can create very fancy static HTML webpages.
 
-<<blob/master/Makefile,Makefile>> gives an example of how to integrate these tools into the build flow.
+https://github.com/k32/Lee/blob/master/Makefile[Makefile] gives an example of how to integrate these tools into the build flow.
 
 == Name?
 
