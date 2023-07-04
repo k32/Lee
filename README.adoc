@@ -308,8 +308,8 @@ Embedding documentation into code as XML works in simple cases, but it doesn't s
 In a large project it's preferable to keep documentation separate, and use a less verbose format.
 
 Lee supports <<https://docs.asciidoctor.org/asciidoc/latest/,AsciiDoc>> as an alternative format.
-<</blob/master/src/framework/lee_asciidoctor.erl,lee_asciidoctor>> module allows to "enrich" the model with the docstrings extracted from an external source,
-see <</blob/master/doc/src/schema.adoc,example>>.
+<<https://github.com/k32/Lee/blob/master/src/framework/lee_asciidoc.erl,lee_asciidoctor>> module allows to "enrich" the model with the docstrings extracted from an external source,
+see <<https://github.com/k32/Lee/blob/master/doc/src/schema.adoc,example>>.
 
 === Export
 
