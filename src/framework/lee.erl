@@ -10,6 +10,7 @@
 
         , patch/2, patch/3
         , init_config/2
+        , get_model/1
         ]).
 
 -export_type([node_id/0, metatype/0, type/0, mnode/0, model/0,
@@ -93,7 +94,7 @@ base_metamodel() ->
 
 -spec get(data(), lee:key()) -> term().
 get(Data, Key) ->
-    get(get_bakedin_model(Data), Data, Key).
+    get(get_model(Data), Data, Key).
 
 %% @doc Get a value from the config
 %%
@@ -150,7 +151,7 @@ init_config(Model, Data0) ->
 
 -spec patch(data(), patch()) -> patch_result().
 patch(Data, Patch) ->
-    patch(get_bakedin_model(Data), Data, Patch).
+    patch(get_model(Data), Data, Patch).
 
 -spec patch(model(), data(), patch()) -> patch_result().
 patch(Model, Data0, Patch) ->
@@ -171,7 +172,7 @@ patch(Model, Data0, Patch) ->
 
 -spec list(data(), lee:key()) -> [lee:key()].
 list(Data, Key) ->
-    list(get_bakedin_model(Data), Data, Key).
+    list(get_model(Data), Data, Key).
 
 %% @doc List objects in `Data' that can match `Key'
 %%
@@ -362,8 +363,8 @@ meta_validate_node(MT, Model, Key, MNode = #mnode{metaparams = MP}) ->
                      end,
     lee_lib:inject_error_location(Key, {Errors, Warnings ++ Warn}).
 
--spec get_bakedin_model(data()) -> model().
-get_bakedin_model(Data) ->
+-spec get_model(data()) -> model().
+get_model(Data) ->
     case lee_storage:get(?bakedin_model_key, Data) of
         {ok, Model} -> Model;
         undefined   -> error("Data has not been initilized properly")
