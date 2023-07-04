@@ -43,7 +43,7 @@ This library _does_ implement `?magic:get/1` function.
 
 Get a taste of what Lee configuration specification looks like:
 
-[code:erlang]
+[source,erlang]
 ----
 model() ->
    #{ logging =>
@@ -90,7 +90,7 @@ model() ->
 
 Business logic can access values from this model like this:
 
-[code:erlang]
+[source,erlang]
 ----
 LogLevel = lee:get(?MY_STORAGE, [logging, level]),
 %% List listener IDs:
@@ -121,7 +121,7 @@ Namespace is a regular Erlang map where keys are atoms and values can be either 
 
 Leaf node is a tuple that looks like this:
 
-[code:erlang]
+[source,erlang]
 ----
 { MetaTypes      :: [MetaType :: atom()]
 , MetaParameters :: #{atom() => term()}
@@ -131,7 +131,7 @@ Leaf node is a tuple that looks like this:
 
 or this:
 
-[code:erlang]
+[source,erlang]
 ----
 { MetaTypes      :: [atom()]
 , MetaParameters :: #{atom() => term()}
@@ -188,7 +188,7 @@ Lee models have a nice property: they are composable as long as their keys do no
 
 Model modules should be compiled to a machine-friendly form before use using `lee_model:compile/2` function:
 
-[code:erlang]
+[source,erlang]
 ----
 lee_model:compile( [lee:base_metamodel(), lee_metatype:create(lee_cli)]
                  , [Model]
@@ -213,7 +213,7 @@ There are a few prepackaged implementations:
 The contents of the storage can be modified via *patches*.
 The following example illustrates how to create a new storage and populate it with some data:
 
-[code:erlang]
+[source,erlang]
 ----
 -include_lib("lee/include/lee.hrl").
 
@@ -252,7 +252,7 @@ Lee helps to generate user manuals using https://docbook.org/:Docbook as an inte
 
 In the simplest case, it is possible to embed docstrings directly into the model:
 
-[code:erlang]
+[source,erlang]
 ----
 #{ foo =>
      {[value],
@@ -272,7 +272,7 @@ Lee does the job of assembling an intermediate DocBook file from the fragments.
 
 Also element with `doc_root` metatype containing information about the application itself should be present somewhere in the model:
 
-[code:erlang]
+[source,erlang]
 ----
 #{ '$doc_root' =>
      {[doc_root],
@@ -307,9 +307,9 @@ DocBook is not the most popular or concise markup language, but it was chosen as
 Embedding documentation into code as XML works in simple cases, but it doesn't scale well.
 In a large project it's preferable to keep documentation separate, and use a less verbose format.
 
-Lee supports https://docs.asciidoctor.org/asciidoc/latest/:"AsciiDoc" as an alternative format.
-<<blob/master/src/framework/lee_asciidoctor.erl,lee_asciidoctor>> module allows to "enrich" the model with the docstrings extracted from an external source,
-see <<blob/master/doc/src/schema.adoc,example>>.
+Lee supports <<https://docs.asciidoctor.org/asciidoc/latest/,AsciiDoc>> as an alternative format.
+<<https://github.com/k32/Lee/blob/master/src/framework/lee_asciidoc.erl,lee_asciidoctor>> module allows to "enrich" the model with the docstrings extracted from an external source,
+see <<https://github.com/k32/Lee/blob/master/doc/src/schema.adoc,example>>.
 
 === Export
 
