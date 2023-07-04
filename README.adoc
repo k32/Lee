@@ -307,9 +307,9 @@ DocBook is not the most popular or concise markup language, but it was chosen as
 Embedding documentation into code as XML works in simple cases, but it doesn't scale well.
 In a large project it's preferable to keep documentation separate, and use a less verbose format.
 
-Lee supports <<https://docs.asciidoctor.org/asciidoc/latest/,AsciiDoc>> as an alternative format.
-<<https://github.com/k32/Lee/blob/master/src/framework/lee_asciidoc.erl,lee_asciidoctor>> module allows to "enrich" the model with the docstrings extracted from an external source,
-see <<https://github.com/k32/Lee/blob/master/doc/src/schema.adoc,example>>.
+Lee supports https://docs.asciidoctor.org/asciidoc/latest/[AsciiDoc] as an alternative format.
+https://github.com/k32/Lee/blob/master/src/framework/lee_asciidoc.erl[lee_asciidoctor] module allows to "enrich" the model with the docstrings extracted from an external source,
+see https://github.com/k32/Lee/blob/master/doc/src/schema.adoc[example].
 
 === Export
 
