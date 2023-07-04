@@ -1,3 +1,4 @@
+:!sectid:
 = Documentation
 
 [id=quux]
