@@ -146,7 +146,7 @@ or this:
 
 Metatypes are the meat and potatoes of Lee: they define the behaviors associated with the node.
 Every feature, such as type checking or CLI parsing, is handled by one of the metatypes.
-Metatypes are defined by the Erlang modules implementing https://github.com/k32/Lee/blob/master/src/framework/lee_metatype.erl:"lee_metatype behavior"
+Metatypes are defined by the Erlang modules implementing https://github.com/k32/Lee/blob/master/src/framework/lee_metatype.erl[lee_metatype behavior]
 which defines a number of callbacks invoked during different configuration-related workflows.
 
 Example metatypes:
@@ -247,14 +247,14 @@ lee:patch(?MY_STORAGE, Patch)
 
 == Documentation
 
-Lee helps to generate user manuals using https://docbook.org/:Docbook as an intermediate format.
+Lee helps to generate user manuals using https://docbook.org/[Docbook] as an intermediate format.
 (You don't have to write any DocBook by hand, though)
 
 In the simplest case, it is possible to embed docstrings directly into the model:
 
 [source,erlang]
 ----
-#{ foo =>
+#{ foo =
      {[value],
       #{ oneliner => "This value controls fooing" %% Very short description in plain text
        , type     => integer()
@@ -276,7 +276,7 @@ Also element with `doc_root` metatype containing information about the applicati
 ----
 #{ '$doc_root' =>
      {[doc_root],
-       #{ oneliner  => "An ultimate frobnicator"
+       #{ oneliner  => "The ultimate self-documenting frobnicator"
         , app_name  => "Frob"
         , doc       => "<para>Long and elaborate description of this
                         tool</para>"
@@ -321,7 +321,7 @@ This can be done with XSLT stylesheets:
   For example, in Ubuntu the package is called `docbook-xsl`.
 
 * https://xsltng.docbook.org
-  XSLTNG can create very fancy static HTML webpages.
+  xslTNG can create very fancy static HTML webpages.
 
 https://github.com/k32/Lee/blob/master/Makefile[Makefile] gives an example of how to integrate these tools into the build flow.
 
