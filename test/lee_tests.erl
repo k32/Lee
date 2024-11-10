@@ -174,10 +174,6 @@ meta_validate_value_test() ->
     %% Wrong type of `oneliner':
     ?assertMatch( {error, ["[foo]: Metaparameters of value are invalid." ++ _]}
                 , Compile(#{type => integer(), oneliner => foo})
-                ),
-    %% Error in `doc':
-    ?assertMatch( {error, ["[foo]: Metaparameters of value are invalid." ++ _]}
-                , Compile(#{type => integer(), doc => "<para>foo"})
                 ).
 
 meta_validate_map_test() ->
@@ -195,8 +191,8 @@ meta_validate_map_test() ->
                        #{key_elements => [[bar]]},
                        #{foo => {[value], #{}}}
                       }},
-    ?assertMatch( {error, [ "[foo,{},foo]: Metaparameters of value are invalid." ++ _
-                          , "[foo]: missing key element [bar]"
+    ?assertMatch( {error, [ "[foo]: missing key element [bar]"
+                          , "[foo,{},foo]: Metaparameters of value are invalid." ++ _
                           ]}
                 , compile(Model4)
                 ),

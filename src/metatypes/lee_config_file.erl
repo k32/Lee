@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2023 k32 All Rights Reserved.
+%% Copyright (c) 2022-2024 k32 All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,15 +52,18 @@ read_to(Model, Data, Filename) ->
 %% behavior callbacks
 %%================================================================================
 
+%% @private
 create(#{file := File, tag := Tag} = Attrs) ->
     Prio = maps:get(priority, Attrs, 0),
     [ {?filename_key(Tag), File}
     , {?prio_key(Tag), Prio}
     ].
 
+%% @private
 names(#{tag := Tag}) ->
     [Tag].
 
+%% @private
 read_patch(Tag, Model) ->
     {ok, Filename} = lee_model:get_meta(?filename_key(Tag), Model),
     {ok, Prio} = lee_model:get_meta(?prio_key(Tag), Model),

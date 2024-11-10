@@ -11,7 +11,7 @@
 -behavior(lee_metatype).
 
 -export([variable_name/2]).
--export([names/1, metaparams/1, create/1, read_patch/2, read_to/2, doc_refer_key/3]).
+-export([names/1, metaparams/1, create/1, read_patch/2, read_to/2]).
 
 -include("lee.hrl").
 
@@ -27,6 +27,7 @@ variable_name(Key, Model) ->
     {ok, Prefix} = lee_model:get_meta(?prefix_key, Model),
     Prefix ++ ?m_attr(?metatype, os_env, Attrs, Default).
 
+%% @private
 create(Conf) ->
     Prefix = maps:get(prefix, Conf, ""),
     Priority = maps:get(priority, Conf, 10),
@@ -34,14 +35,13 @@ create(Conf) ->
     , {?prio_key, Priority}
     ].
 
+%% @private
 names(_) ->
     [?metatype].
 
+%% @private
 metaparams(?metatype) ->
     [{optional, os_env, typerefl:printable_latin1_list()}].
-
-doc_refer_key(?metatype, _Model, Key) ->
-    [{xref, [{linkend, lee_doc:format_key(os_env, Key)}], []}].
 
 %% @doc Make a patch from OS environment variables
 %% @throws {error, string()}

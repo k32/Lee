@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2023 k32 All Rights Reserved.
+%% Copyright (c) 2022-2024 k32 All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@
 %% API
 %%================================================================================
 
+%% @doc Return list of map key elements
 -spec key_elements(lee:model(), lee:model_key()) -> list(lee:model_key()).
 key_elements(Model, Key) ->
     #mnode{metaparams = MetaAttrs} = lee_model:get(Key, Model),
@@ -45,14 +46,17 @@ key_elements(Model, Key) ->
 %% behavior callbacks
 %%================================================================================
 
+%% @private
 names(_) ->
     [map, default_instance].
 
+%% @private
 metaparams(map) ->
     [{optional, key_elements, typerefl:list(lee:model_key())}];
 metaparams(default_instance) ->
     [].
 
+%% @private
 -spec meta_validate_node(lee:metatype(), lee:model(), lee:key(), #mnode{}) ->
                             lee_lib:check_result().
 meta_validate_node(map, #model{model = Model}, Key, #mnode{metaparams = Params}) ->
@@ -73,6 +77,7 @@ meta_validate_node(default_instance, Model, Key, #mnode{metatypes = MTs}) ->
              check_all_defaults(Model, Key),
     {Errors, []}.
 
+%% @private
 read_patch(map, _) ->
     {ok, ?PRIO, []};
 read_patch(default_instance, Model) ->

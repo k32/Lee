@@ -9,7 +9,7 @@
 
 %% Internal mnode definition
 -record(mnode,
-        { metatypes = []    :: ordsets:set(atom())
+        { metatypes = []    :: ordsets:ordset(atom())
         , metaparams = #{}  :: map()
         }).
 
@@ -41,5 +41,17 @@
 -define(lee_persistent_term_storage(KEY), {lee_tree, lee_persistent_term_storage, KEY}).
 -define(lee_mnesia_storage(KEY), {lee_tree, lee_mnesia_storage, KEY}).
 -define(lee_dirty_mnesia_storage(KEY), {lee_tree, lee_dirty_mnesia_storage, KEY}).
+
+-record(doclet,
+        { mt :: lee:metatype()
+        , tag :: atom()
+        , key :: undefined | lee:model_key()
+        , data
+        }).
+
+-record(doc_xref,
+        { mt :: lee:metatype()
+        , key :: lee:model_key()
+        }).
 
 -endif.

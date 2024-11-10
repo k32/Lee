@@ -30,7 +30,7 @@
 format(Fmt, Attrs) ->
     lists:flatten(io_lib:format(Fmt, Attrs)).
 
--spec patch_key(lee:patch_op()) -> lee:key().
+-spec patch_key(lee_storage:patch_op()) -> lee:key().
 patch_key({set, K, _}) ->
     K;
 patch_key({rm, K}) ->
@@ -179,7 +179,7 @@ perform_checks(Key, Attrs, CheckFuns) ->
                                  , typerefl:type()
                                  , lee:properties() | #mnode{}
                                  , boolean()
-                                 ) -> lee:validate_result().
+                                 ) -> {[_Error], [_Warning]}.
 validate_optional_meta_attr(Attr, Type, #mnode{metaparams = MP}, WarnIfAbsent) ->
     validate_optional_meta_attr(Attr, Type, MP, WarnIfAbsent);
 validate_optional_meta_attr(Attr, Type, Params, WarnIfAbsent) ->
@@ -196,14 +196,14 @@ validate_optional_meta_attr(Attr, Type, Params, WarnIfAbsent) ->
 -spec validate_optional_meta_attr( atom()
                                  , typerefl:type()
                                  , lee:properties() | #mnode{}
-                                 ) -> lee:validate_result().
+                                 ) -> {[_Error], [_Warning]}.
 validate_optional_meta_attr(Attr, Type, #mnode{metaparams = MP}) ->
     validate_optional_meta_attr(Attr, Type, MP, false).
 
 -spec validate_meta_attr( atom()
                         , typerefl:type()
                         , lee:properties() | #mnode{}
-                        ) -> lee:validate_result().
+                        ) -> {[_Error], [_Warning]}.
 validate_meta_attr(Attr, Type, #mnode{metaparams = MP}) ->
     validate_meta_attr(Attr, Type, MP);
 validate_meta_attr(Attr, Type, Params) ->

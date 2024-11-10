@@ -17,11 +17,7 @@
 %% Internal exports:
 -export([wrap/2]).
 
--export_type([ data/1
-             , data/0
-             , patch_op/1
-             , patch/1
-             ]).
+-export_type([storage/1, data/1, data/0, patch_op/1, patch_op/0, patch/1]).
 
 %%====================================================================
 %% Types
@@ -32,6 +28,7 @@
 -type storage(_A) :: term().
 
 -type patch_op(A) :: {set, lee:key() | atom(), A} | {rm, lee:key()}.
+-type patch_op() :: patch_op(_).
 
 -type patch(A) :: [patch_op(A)].
 

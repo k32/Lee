@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 k32 All Rights Reserved.
+%% Copyright (c) 2022, 2024 k32 All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -13,6 +13,9 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%--------------------------------------------------------------------
+
+%% @doc A metatype that doesn't do anything on its own. It is used as
+%% a marker that disables documentation generation for the model node.
 -module(lee_undocumented).
 
 -behavior(lee_metatype).
@@ -24,6 +27,7 @@
 %% behavior callbacks
 %%================================================================================
 
+%% @private
 names(_Conf) ->
     [undocumented].
 

@@ -14,7 +14,8 @@
         ]).
 
 -export_type([node_id/0, metatype/0, type/0, mnode/0, model/0,
-              lee_module/0, cooked_module/0, properties/0, data/0, patch/0, patch_result/0
+              lee_module/0, cooked_module/0, properties/0, data/0, patch/0, patch_result/0,
+              validate_result/0
              ]).
 
 -include_lib("typerefl/include/types.hrl").
@@ -71,8 +72,7 @@
 %% @doc Put model to a namespace.
 %%
 %% `namespace([foo, bar], A)' is equivalent to `#{foo => #{bar => A}}'
--spec namespace(lee:key(), lee:module()) ->
-                       lee:module().
+-spec namespace(lee:key(), lee:lee_module()) -> lee:lee_module().
 namespace(Key, M) ->
     lists:foldl( fun(NodeId, Acc) ->
                          #{NodeId => Acc}
@@ -86,7 +86,6 @@ namespace(Key, M) ->
 base_metamodel() ->
     [ lee_metatype:create(lee_value)
     , lee_metatype:create(lee_map)
-    , lee_metatype:create(lee_doc_root)
     , lee_metatype:create(lee_undocumented)
     , lee_metatype:create(lee_pointer)
     , lee_metatype:create(lee_app_env)

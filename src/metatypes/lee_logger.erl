@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2023 k32 All Rights Reserved.
+%% Copyright (c) 2022-2024 k32 All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,12 +29,15 @@
 %% behavior callbacks
 %%================================================================================
 
+%% @private
 names(_) ->
     [logger_level].
 
+%% @private
 metaparams(logger_level) ->
     [{optional, logger_handler, atom()}].
 
+%% @private
 meta_validate_node(logger_level, _Model, _Key, MNode) ->
     ExpectedType = level(),
     case MNode of
@@ -44,6 +47,7 @@ meta_validate_node(logger_level, _Model, _Key, MNode) ->
             {["Type of logger level must be lee_logger:level()"], []}
     end.
 
+%% @private
 post_patch(logger_level, Model, Data, #mnode{metaparams = Attrs}, PatchOp) ->
     Val = lee:get(Model, Data, lee_lib:patch_key(PatchOp)),
     case Attrs of
