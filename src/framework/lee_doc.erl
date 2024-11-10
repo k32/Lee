@@ -5,16 +5,17 @@
 -export([texinfo/3]).
 
 -export([documented/0]).
+-export_type([doclet/0]).
 
 -include("lee_internal.hrl").
 -include_lib("typerefl/include/types.hrl").
 
--type doclet(Data) :: #doclet{data :: Data}.
+-type doclet() :: #doclet{}.
 
 -type docstring() :: iodata().
 -reflect_type([docstring/0]).
 
--type formatter() :: fun((options(), io:device(), doclet(_)) -> _).
+-type formatter() :: fun((options(), io:device(), doclet()) -> _).
 
 -type options() ::
         #{ output_dir  := file:filename()
@@ -133,7 +134,7 @@ make_docs(Model, Options = #{formatter := F}) ->
                   end,
                   MTs).
 
--spec get_description(lee:model(), lee:model_key()) -> [doclet(docstring())].
+-spec get_description(lee:model(), lee:model_key()) -> [doclet()].
 get_description(Model, Key) ->
     #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
     case Attrs of
@@ -143,7 +144,7 @@ get_description(Model, Key) ->
 
 %% @doc Return a list with single element containing the oneliner, or
 %% empty list
--spec get_oneliner(lee:model(), lee:model_key()) -> [doclet(string())].
+-spec get_oneliner(lee:model(), lee:model_key()) -> [doclet()].
 get_oneliner(Model, Key) ->
     #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
     case Attrs of

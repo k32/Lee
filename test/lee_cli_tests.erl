@@ -344,9 +344,10 @@ validate_duplicate_action_test() ->
                     #{ cli_operand => "duplicate"
                      }}
           },
-    err_compile( ["[foo]: Action name @duplicate is already used by [bar]"]
-               , M1
-               ).
+    case compile(M1) of
+        {error, ["[foo]: Action name @duplicate is already used by [bar]"]} -> ok;
+        {error, ["[bar]: Action name @duplicate is already used by [foo]"]} -> ok
+    end.
 
 validate_positional_test() ->
     M1 = #{ foo => {[cli_positional], #{}}
@@ -364,17 +365,19 @@ validate_duplicate_long_test() ->
     M1 = #{ foo => {[cli_param], #{cli_operand => "long"}}
           , bar => {[cli_param], #{cli_operand => "long"}}
           },
-    err_compile( ["[foo]: CLI operand --long is already used by [bar]"]
-               , M1
-               ).
+    case compile(M1) of
+        {error, ["[foo]: CLI operand --long is already used by [bar]"]} -> ok;
+        {error, ["[bar]: CLI operand --long is already used by [foo]"]} -> ok
+    end.
 
 validate_duplicate_short_test() ->
     M1 = #{ foo => {[cli_param], #{cli_short => $s}}
           , bar => {[cli_param], #{cli_short => $s}}
           },
-    err_compile( ["[foo]: CLI operand -s is already used by [bar]"]
-               , M1
-               ).
+    case compile(M1) of
+        {error, ["[foo]: CLI operand -s is already used by [bar]"]} -> ok;
+        {error, ["[bar]: CLI operand -s is already used by [foo]"]} -> ok
+    end.
 
 compile(Module) ->
     lee_model:compile([ lee:base_metamodel()

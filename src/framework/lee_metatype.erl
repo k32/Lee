@@ -26,7 +26,7 @@
 %% API:
 -export([is_implemented/3]).
 
--export_types([cooked_metatype/0, metavalidate_result/0]).
+-export_type([cooked_metatype/0, metavalidate_result/0]).
 
 -include("lee_internal.hrl").
 -include_lib("snabbkaffe/include/trace.hrl").
@@ -122,12 +122,11 @@
 %% Documentation
 %%--------------------------------------------------------------------------------
 
-%% Generate DocBook chapters
--callback description(lee:metatype(), lee:model(), lee_doc:options()) -> [lee_doc:docbook_xml()].
+%% Generate internal representation of the documentation chapter
+%% describing the metatype.
+-callback description(lee:metatype(), lee:model(), lee_doc:options()) -> [lee_doc:doclet()].
 
-%% Return a DocBook XML term containing link to the description of the
-%% key in the context of metatype
--callback doc_reference(lee:metatype(), lee:model(), lee:model_key()) -> [lee_doc:docbook_xml()].
+-callback doc_reference(lee:metatype(), lee:model(), lee:model_key()) -> [lee_doc:doclet()].
 
 %%================================================================================
 %% Macros

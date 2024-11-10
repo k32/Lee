@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2023 k32 All Rights Reserved.
+%% Copyright (c) 2022-2024 k32 All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,15 +27,19 @@
 %% behavior callbacks
 %%================================================================================
 
+%% @private
 create(_) ->
     [].
 
+%% @private
 names(_) ->
     [?metatype].
 
+%% @private
 metaparams(?metatype) ->
     [{mandatory, app_env, {atom(), atom()}}].
 
+%% @private
 post_patch(?metatype, Model, Data, #mnode{metaparams = Attrs}, PatchOp) ->
     {App, Env} = ?m_attr(?metatype, app_env, Attrs),
     Transform = ?m_attr(?metatype, app_env_transform, Attrs, fun(A) -> A end),

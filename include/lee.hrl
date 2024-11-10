@@ -9,7 +9,7 @@
 
 %% Internal mnode definition
 -record(mnode,
-        { metatypes = []    :: ordsets:set(atom())
+        { metatypes = []    :: ordsets:ordset(atom())
         , metaparams = #{}  :: map()
         }).
 

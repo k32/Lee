@@ -15,6 +15,95 @@
 %% '''
 %%
 %% CLI actions start with sigil @ and define their own scope
+%%
+%% This module declares the following metatypes:
+%%
+%% == cli_param ==
+%% `cli_param' denotes a regular CLI argument.
+%%
+%% === Metaparameters ===
+%%   <ul><li>`cli_operand' of type `string()':
+%%       long operand name without leading dashes</li>
+%%       <li>`cli_short' of type `char()':
+%%       short operand name</li>
+%%   </ul>
+%%
+%% <b>Note:</b> instances of this metatype must include either or both
+%% parameters.
+%%
+%% Argument names should be unique within the scope.
+%%
+%% === Depends on ===
+%% {@link lee:base_metamodel/0 . value}
+%%
+%% === Example ===
+%% ```
+%% {[value, cli_param],
+%%  #{ type        => boolean()
+%%   , cli_operand => "verbose"
+%%   , cli_short   => $V
+%%   }}'''
+%%
+%% == cli_action ==
+%% `cli_action' defines a CLI action
+%%
+%% === Metaparameters ===
+%% <ul><li>`cli_operand' of type `string(I)':
+%%     CLI action name without leading @</li>
+%% </ul>
+%%
+%% === Depends on ===
+%% {@link lee:base_metamodel/0 . value}
+%%
+%% === Example ===
+%% ```
+%% {[map, cli_action],
+%%   #{ cli_operand  => "compile"
+%%    , key_elements => [[foo]] %% Relative key of `foo' child
+%%    },
+%%   #{ foo =>
+%%        {[value, cli_param],
+%%         ...}
+%%    }}'''
+%%
+%% == cli_positional ==
+%% `cli_positional' denotes a positional CLI argument
+%%
+%% === Metaparameters ===
+%%
+%% <ul><li>`cli_arg_position' of type `integer() | rest':
+%% Position of CLI argument</li></ul>
+%%
+%% === Notes ===
+%%
+%% Actual integer values `cli_arg_position' are irrelevant, order is
+%% what matters.
+%%
+%% Values that are declared as `rest' should be have `list(A)'
+%% type. Each scope can have at most one `rest' argument.
+%%
+%% === Depends on ===
+%% {@link lee:base_metamodel/0 . map}
+%%
+%% === Example ===
+%% ```
+%% #{ foo =>
+%%     {[value, cli_positional],
+%%       #{ type             => integer()
+%%        , cli_arg_position => 10
+%%        }},
+%%  , bar =>
+%%      {[value, cli_positional],
+%%       #{ type             => string()
+%%        , cli_arg_position => 20
+%%        }}
+%%  , baz =>
+%%      {[value, cli_positional],
+%%       #{ type             => list(integer())
+%%        , cli_arg_position => rest
+%%        }}
+%%  }'''
+
 -module(lee_cli).
 
 %% TODO: This module is experimental; it's too convoluted and it needs
@@ -73,91 +162,6 @@
 %% API
 %%====================================================================
 
-%% Metamodel module containing definitions of CLI-related metatypes:
-%%
-%% == cli_param ==
-%% `cli_param' denotes a regular CLI argument.
-%%
-%% === Metaparameters ===
-%%   <ul><li>`cli_operand' of type `string(I)':
-%%       long operand name without leading dashes</li>
-%%       <li>`cli_short' of type `char()':
-%%       short operand name</li>
-%%   </ul>
-%%
-%% <b>Note:</b> instances of this metatype must include either or both
-%% parameters.
-%%
-%% === Depends on ===
-%% {@link lee:base_metamodel/0 . value}
-%%
-%% === Example ===
-%% ```
-%% {[value, cli_param],
-%%  #{ type        => boolean()
-%%   , cli_operand => "verbose"
-%%   , cli_short   => $V
-%%   }}'''
-%%
-%% == cli_action ==
-%% `cli_action' defines a CLI action
-%%
-%% === Metaparameters ===
-%% <ul><li>`cli_operand' of type `string(I)':
-%%     CLI action name without leading @</li>
-%% </ul>
-%%
-%% === Depends on ===
-%% {@link lee:base_metamodel/0 . value}
-%%
-%% === Example ===
-%% ```
-%% {[map, cli_action],
-%%   #{ cli_operand  => "compile"
-%%    , key_elements => [[foo]] %% Relative key of `foo' child
-%%    },
-%%   #{ foo =>
-%%        {[value, cli_param],
-%%         ...}
-%%    }}'''
-%%
-%% == cli_positional ==
-%% `cli_positional' denotes a positional CLI argument
-%%
-%% === Metaparameters ===
-%%
-%% <ul><li>`cli_arg_position' of type `integer() | rest':
-%% Position of CLI argument</li></ul>
-%%
-%% === Notes ===
-%% Actual integer values `cli_arg_position' are
-%% irrelevant, order is what matters.
-%%
-%% Values that are declared as `rest' should be have `list(A)'
-%% type. Each scope can have at most one `rest' argument.
-%%
-%% === Depends on ===
-%% {@link lee:base_metamodel/0 . map}
-%%
-%% === Example ===
-%% ```
-%% #{ foo =>
-%%     {[value, cli_positional],
-%%       #{ type             => integer()
-%%        , cli_arg_position => 10
-%%        }},
-%%  , bar =>
-%%      {[value, cli_positional],
-%%       #{ type             => string()
-%%        , cli_arg_position => 20
-%%        }}
-%%  , baz =>
-%%      {[value, cli_positional],
-%%       #{ type             => list(integer())
-%%        , cli_arg_position => rest
-%%        }}
-%%  }'''
-
 %% @doc Read CLI arguments and create a configuration patch
 %% @throws {error, string()}
 -spec read(lee:model(), [string()]) -> {ok, lee:patch()} | {error, [string()]}.
@@ -186,7 +190,7 @@ read(Model, Args) ->
         Error -> {error, ["cli: " ++ Error]}
     end.
 
-%% @doc Read CLI arguments and apply the changes to the storage
+%% @doc Read CLI arguments and apply the changes to the storage `Data'
 %% @throws {error, string()}
 -spec read_to(lee:model(), lee_storage:data(), [string()]) ->
                      lee:patch_result().
@@ -198,14 +202,17 @@ read_to(Model, Data, Args) ->
 %% Behavior callbacks
 %%====================================================================
 
+%% @private
 create(Attrs) ->
     [ {?cli_opts_key, maps:get(cli_opts, Attrs, [])}
     , {?prio_key, maps:get(priority, Attrs, 100)}
     ].
 
+%% @private
 names(_) ->
     [cli_param, cli_action, cli_positional].
 
+%% @private
 metaparams(cli_param) ->
     [{optional, cli_operand, string()}, {optional, cli_short, char()}];
 metaparams(cli_action) ->
@@ -213,16 +220,19 @@ metaparams(cli_action) ->
 metaparams(cli_positional) ->
     [{mandatory, cli_arg_position, position()}].
 
+%% @private
 meta_validate(cli_param, Model) -> %% Run once
     meta_validate_model(Model);
 meta_validate(_, _) ->
     {[], [], []}.
 
+%% @private
 meta_validate_node(cli_param, Model, Key, MNode) ->
     meta_validate_param(Model, Key, MNode);
 meta_validate_node(_, _Model, _Key, _MNode) ->
     {[], []}.
 
+%% @private
 read_patch(cli_action, Model) ->
     {ok, Args0} = lee_model:get_meta(?cli_opts_key, Model),
     {ok, Prio} = lee_model:get_meta(?prio_key, Model),
@@ -238,6 +248,7 @@ read_patch(cli_action, Model) ->
 read_patch(_, _) ->
     {ok, 0, []}.
 
+%% @private
 description(?chapter_id, Model, Options) ->
     {ok, Index} = lee_model:get_meta(?index_key, Model),
     lists:map(

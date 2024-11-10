@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2023 k32 All Rights Reserved.
+%% Copyright (c) 2022-2024 k32 All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,8 +32,7 @@
 
 -spec resolve(lee:model(), lee:data(), lee:model_key()) -> lee:model_key().
 resolve(Model, Data, Key) ->
-    #mnode{metaparams = #{target_node := Target}} =
-        lee_model:get(Key, Model),
+    #mnode{metaparams = #{target_node := Target}} = lee_model:get(Key, Model),
     Instance = lee:get(Model, Data, Key),
     Target ++ [{Instance}].
 
@@ -41,9 +40,11 @@ resolve(Model, Data, Key) ->
 %% behavior callbacks
 %%================================================================================
 
+%% @private
 names(_) ->
   [pointer].
 
+%% @private
 meta_validate_node(pointer, Model, _Key, #mnode{metaparams = Attrs}) ->
   try
       Pointer = ?m_attr(pointer, target_node, Attrs),
@@ -63,6 +64,7 @@ meta_validate_node(pointer, Model, _Key, #mnode{metaparams = Attrs}) ->
       {[Err], []}
   end.
 
+%% @private
 validate_node(pointer, Model, Data, Key, #mnode{metaparams = #{target_node := Target}}) ->
     Instance = lee:get(Model, Data, Key),
     try lee:get(Model, Data, Target ++ [{Instance}]) of

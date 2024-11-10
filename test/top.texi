@@ -50,12 +50,12 @@ The document was typeset with
 
 This is a description of the CLI interface.
 
-@include ../_build/lee_doc/cli_param.texi
+@include _build/lee_doc/cli_param.texi
 
 @node Configurable Values
 @chapter Configurable Values
 
-@include ../_build/lee_doc/value.texi
+@include _build/lee_doc/value.texi
 
 @node Copying This Manual
 @appendix Copying This Manual

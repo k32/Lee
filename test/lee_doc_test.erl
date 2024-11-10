@@ -1,7 +1,5 @@
 -module(lee_doc_test).
 
--behavior(lee_metatype).
-
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("typerefl/include/types.hrl").
 
@@ -75,49 +73,6 @@ It goes on and on.
                              }}
                      }}
              },
-%% model() ->
-%%     Model = #{ foo =>
-%%                    {[value, os_env],
-%%                     #{ oneliner => "This parameter controls fooing"
-%%                      , type     => typerefl:string()
-%%                      , default  => "foo"
-%%                      }}
-%%              , bar =>
-%%                    {[value, os_env],
-%%                     #{ oneliner => "This parameter controls baring"
-%%                      , type     => {typerefl:nonempty_list([]), typerefl:iolist()}
-%%                      , os_env   => "BAR"
-%%                      }}
-%%              , baz =>
-%%                    {[value],
-%%                     #{ type => {typerefl:nonempty_list([]), typerefl:iolist()}
-%%                      }}
-%%              , quux =>
-%%                    {[value, foo],
-%%                     #{ type     => integer()
-%%                      , oneliner => "This value controls quuxing"
-%%                      }}
-%%              , xizzy =>
-%%                    {[value, bar],
-%%                     #{ type     => float()
-%%                      , oneliner => "This value controls xizzying"
-%%                      }}
-%%              , more_stuff =>
-%%                    #{ default_ref =>
-%%                           {[value, os_env, cli_param],
-%%                            #{ type        => typerefl:string()
-%%                             , default_ref => [foo]
-%%                             , cli_param   => "default-ref"
-%%                             , cli_short   => $d
-%%                             }}
-%%                     , default_str =>
-%%                           {[value],
-%%                            #{ type => typerefl:ip_address()
-%%                             , default_str => "127.0.0.1"
-%%                             }}
-%%                     }
-%%              , cli => lee_cli_tests:test_model_raw()
-%%              },
     {ok, Mod} = lee_model:compile( [ lee_metatype:create(lee_os_env, #{prefix => "TEST_"})
                                    , lee_metatype:create(lee_cli)
                                    | lee:base_metamodel()

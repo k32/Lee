@@ -34,7 +34,7 @@
 %% an empty list if default value is not specified.
 -spec doc_default(lee:model(), lee:model_key()) -> [lee_doc:doclet()].
 doc_default(Model, Key) ->
-    #mnode{metatypes = MTs, metaparams = Attrs} = lee_model:get(Key, Model),
+    #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
     case Attrs of
         #{default_str := DefStr} ->
             [#doclet{mt = value, tag = default, data = DefStr}];
@@ -52,7 +52,7 @@ doc_default(Model, Key) ->
 %% @doc Create a doclet describing type of the value.
 -spec doc_type(lee:model(), lee:model_key()) -> [lee_doc:doclet()].
 doc_type(Model, Key) ->
-    #mnode{metatypes = MTs, metaparams = Attrs} = lee_model:get(Key, Model),
+    #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
     [#doclet{mt = value, tag = type, data = ?m_attr(value, type, Attrs)}].
 
 %%================================================================================
@@ -108,7 +108,7 @@ meta_validate_node(value, Model, _Key, #mnode{metaparams = Attrs}) ->
     check_type_and_default(Model, Attrs).
 
 %% @private
-description(value = MT, Model, _Options) ->
+description(value, Model, _Options) ->
     [{[], Global} | Rest] = lists:sort(maps:to_list(lee_model:fold(fun mk_doc_tree/4, #{}, {false, []}, Model))),
     mk_doc(Model, [], Global) ++
         [document_map(Model, Parent, Children)
@@ -166,7 +166,7 @@ mk_doc_tree(Key, #mnode{metatypes = MTs}, Acc, {ParentUndocumented, Parent}) ->
     end.
 
 document_value(Model, ParentKey, Key) ->
-    #mnode{metatypes = MTs, metaparams = Attrs} = lee_model:get(Key, Model),
+    #mnode{metatypes = MTs} = lee_model:get(Key, Model),
     SeeAlso = lists:flatmap(fun(value) -> [];
                                (MT)    -> [#doclet{mt = value, tag = see_also, data = #doc_xref{mt = MT, key = Key}}]
                             end,
