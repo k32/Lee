@@ -27,7 +27,7 @@
 
 %% behavior callbacks
 -export([ create/1, names/1, metaparams/1
-        , description/3, doc_refer_key/3
+        , description/3
         , meta_validate/2, meta_validate_node/4
         , read_patch/2
         ]).
@@ -239,17 +239,14 @@ read_patch(_, _) ->
     {ok, 0, []}.
 
 description(?chapter_id, Model, Options) ->
-    AppName = lee_doc_root:prog_name(Model),
     {ok, Index} = lee_model:get_meta(?index_key, Model),
-    RefSections = [make_scope_docs(AppName, Options, Model, Scope)
-                   || Scope <- lists:sort(maps:to_list(Index))],
-    %% Final result:
-    lee_doc:chapter("cli", "Command line interface", RefSections);
+    lists:map(
+      fun(Scope) ->
+              make_scope_docs(Options, Model, Scope)
+      end,
+      lists:sort(maps:to_list(Index)));
 description(_, _Model, _Options) ->
     [].
-
-doc_refer_key(_, _Model, Key) ->
-    [{xref, [{linkend, lee_doc:format_key(?chapter_id, Key)}], []}].
 
 %%====================================================================
 %% Internal functions
@@ -423,8 +420,7 @@ mk_index(Model) ->
                             , Model
                             ),
     maps:map( fun(_, S0 = #sc{positional = P0}) ->
-                      P1 = lists:sort(P0),
-                      S0#sc{positional = P1}
+                      S0#sc{positional = lists:sort(P0)}
               end
             , Scopes0
             ).
@@ -496,85 +492,51 @@ make_relative(Key0, Parent) ->
     [?children | Key] = Key0 -- Parent,
     Key.
 
-make_scope_docs(AppName, Options, Model, {ScopeName, Scope = #sc{parent = Parent}}) ->
+make_scope_docs(_Options, Model, {ScopeName, Scope}) ->
+    #sc{parent = Parent, short = Short, long = Long, positional = Pos} = Scope,
+    NamedArgs = lists:keysort(2, maps:to_list(Long) ++ maps:to_list(Short)),
+    Data = document_named_arguments(Model, NamedArgs) ++ document_positional_arguments(Model, Pos),
     case ScopeName of
         global ->
-            Key = lee_doc_root:doc_root(Model),
-            Additional = make_os_env_doc(Options, Model, lee_model:get_metatype_index(os_env, Model)),
-            {ok, Index} = lee_model:get_meta(?index_key, Model),
-            SeeAlso = [AppName ++ [$-|I] || I <- maps:keys(Index) -- [global]],
-            SectionId = AppName;
+            #doclet{tag = cli_global_scope, data = Data};
         _ ->
-            Key = Parent,
-            Additional = [],
-            SeeAlso = [AppName],
-            SectionId = AppName ++ [$-|ScopeName]
-    end,
-    {refentry, [{'xml:id', "cli." ++ SectionId}],
-     [ {refmeta,
-        [ {refentrytitle, [SectionId]}
-        , {manvolnum, ["1"]}
-        ]}
-     , {refnamediv,
-        [ {refname, [SectionId]}
-        , {refpurpose, lee_doc:get_oneliner(Model, Key)}
-        ]}
-     ] ++ lee_doc:refsection( "cli." ++ SectionId ++ ".description"
-                            , "Description"
-                            , lee_doc:get_description(Model, Key)
-                            )
-      ++ lee_doc:refsection( "cli." ++ SectionId ++ ".options"
-                           , "Options"
-                           , make_opts_doc(Model, Scope)
-                           )
-      ++ Additional
-      ++ see_also(SeeAlso)}.
+            Header = #doclet{mt = cli_action, tag = cli_action_name, data = ScopeName},
+            #doclet{mt = cli_action, tag = cli_action, key = Parent, data = [Header | Data]}
+    end.
 
-make_opts_doc(Model, #sc{ short = Short, long = Long, positional = Positional}) ->
-    NamedDocs = merge_operands(Model, lists:keysort(2, maps:to_list(Long) ++ maps:to_list(Short))),
-    PositionalDocs =
-        [lee_doc:refer_value(Model, ?chapter_id, Key, lee_lib:format("Position: ~p", [P]))
-         || {P, Key} <- Positional],
-    NamedDocs ++ PositionalDocs.
+document_positional_arguments(Model, Positionals) ->
+    {Pos, Rest} = lists:partition(fun({A, _}) -> is_integer(A) end, Positionals),
+    case Pos of
+        [] -> [];
+        _ -> [#doclet{tag = cli_positionals, data = [document_positional(Model, I) || I <- Pos]}]
+    end ++
+    [#doclet{mt = cli_positional, tag = rest, data = longdoc(Model, I), key = I} || {_, I} <- Rest].
+
+document_positional(Model, {_Pos, Key}) ->
+    #doclet{mt = cli_positional, tag = cli_positional, data = longdoc(Model, Key), key = Key}.
+
+document_named_arguments(_Model, []) ->
+    [];
+document_named_arguments(Model, Named) ->
+    [#doclet{tag = cli_named_arguments, data = merge_operands(Model, Named)}].
 
 merge_operands(_Model, []) ->
     [];
-merge_operands(Model, [{A, K}, {B, K} | Rest]) ->
-    Name = pretty_print_operand(A) ++ ", " ++ pretty_print_operand(B),
-    [lee_doc:refer_value(Model, ?chapter_id, K, Name) | merge_operands(Model, Rest)];
-merge_operands(Model, [{A, K} | Rest]) ->
-    Name = pretty_print_operand(A),
-    [lee_doc:refer_value(Model, ?chapter_id, K, Name) | merge_operands(Model, Rest)].
+merge_operands(Model, Merged) ->
+    Name = case Merged of
+               [{A, K}, {B, K} | Rest] ->
+                   [pretty_print_operand(A), pretty_print_operand(B)];
+               [{A, K} | Rest] ->
+                   [pretty_print_operand(A)]
+           end,
+    Data = [#doclet{tag = cli_param_name, data = Name} | longdoc(Model, K)],
+    [#doclet{mt = cli_param, tag = cli_param, key = K, data = Data} | merge_operands(Model, Rest)].
+
+longdoc(Model, Key) ->
+    lee_doc:get_oneliner(Model, Key) ++ lee_doc:get_description(Model, Key) ++
+    lee_value:doc_default(Model, Key) ++ lee_value:doc_type(Model, Key).
 
 pretty_print_operand(Short) when is_integer(Short) ->
     [$-,Short];
 pretty_print_operand(Long) ->
     "--"++Long.
-
-make_os_env_doc(_Options, _Model, []) ->
-    [];
-make_os_env_doc(_Options, Model, OsEnvInstances) ->
-    [{refsection,
-      [ {title, ["OS Environment Variables"]}
-      , {para,
-         ["OS environment variables are used to
-           set configuration values. Values of type ", {code, ["string()"]}, " are
-           taken from OS environment variables verbatim, other types
-           are parsed as Erlang terms."]}
-      | [do_make_os_env_doc(Model, Key) || Key <- OsEnvInstances]
-      ]}].
-
-do_make_os_env_doc(Model, Key) ->
-    EnvVar = lee_os_env:variable_name(Key, Model),
-    lee_doc:refer_value(Model, os_env, Key, EnvVar).
-
-see_also([]) ->
-    [];
-see_also(RefEntries) ->
-    [{refsection,
-      [ {title, ["See also"]}
-      , {para,
-         lists:join(" ",
-                    [{citerefentry,
-                      [{refentrytitle, [Title]}, {manvolnum, ["1"]}]} || Title <- RefEntries])}
-      ]}].

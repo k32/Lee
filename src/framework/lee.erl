@@ -86,7 +86,6 @@ namespace(Key, M) ->
 base_metamodel() ->
     [ lee_metatype:create(lee_value)
     , lee_metatype:create(lee_map)
-    , lee_metatype:create(lee_doc_root)
     , lee_metatype:create(lee_undocumented)
     , lee_metatype:create(lee_pointer)
     , lee_metatype:create(lee_app_env)

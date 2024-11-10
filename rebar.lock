@@ -1,12 +1,16 @@
 {"1.2.0",
-[{<<"snabbkaffe">>,{pkg,<<"snabbkaffe">>,<<"1.0.1">>},0},
+[{<<"erlang_qq">>,
+  {git,"https://github.com/k32/erlang_qq.git",
+       {ref,"beab75239f799240397aee0aec30685b9bbf33bb"}},
+  1},
+ {<<"snabbkaffe">>,{pkg,<<"snabbkaffe">>,<<"1.0.10">>},0},
  {<<"typerefl">>,
   {git,"https://github.com/ieQu1/typerefl.git",
-       {ref,"209c3dbfe157383f2e2306c5a9b642b48baaa326"}},
+       {ref,"90947e191ecc284ff12a193f9c6fe0265863c77e"}},
   0}]}.
 [
 {pkg_hash,[
- {<<"snabbkaffe">>, <<"8E95CCBC90E1445C6B504D7980A35FE87E140BD694CED35851965B87D42BD882">>}]},
+ {<<"snabbkaffe">>, <<"9BE2F54F61FC6862391B666B2B5B76C3FA53598E2989A17CEF1B48CF347A8A63">>}]},
 {pkg_hash_ext,[
- {<<"snabbkaffe">>, <<"035812759963897B71EE69A11E8DFF93BBBB0F475055479A557DD3C4FD72FE33">>}]}
+ {<<"snabbkaffe">>, <<"70A98DF36AE756908D55B5770891D443D63C903833E3E87D544036E13D4FAC26">>}]}
 ].
