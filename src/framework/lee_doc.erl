@@ -49,6 +49,10 @@ texinfo(Options, FD, Doclet) ->
             io:format(FD, "@cindex ~s\n~s\n\n", [Oneliner, Oneliner]);
         #doclet{mt = value, tag = doc, data = Doc} ->
             io:put_chars(FD, [Doc, "\n"]);
+        #doclet{mt = value, tag = default, data = #doc_xref{mt = MT, key = Key}} ->
+            P([ "@b{Default value}: "
+              , "@xref{", texi_key([MT| Key]), "}\n\n"
+              ]);
         #doclet{mt = value, tag = default, data = Default} ->
             P([ "@b{Default value}\n@example erlang\n@verbatim\n"
               , Default

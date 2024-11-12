@@ -385,17 +385,16 @@ parse_args( Model
                }
           , Positionals
           ) ->
-    case zip_positionals(Model, Parent, Specs, Positionals) of
-        {error, underflow} ->
+    try zip_positionals(Model, Parent, Specs, Positionals)
+    catch
+        underflow ->
             throw(lee_lib:format( "Not enough CLI arguments in context \"~s\""
                                 , [Name]
                                 ));
-        {error, overflow, Val} ->
+        {overflow, Val} ->
             throw(lee_lib:format( "Unexpected positional CLI argument ~p in context \"~s\""
                                 , [Val, Name]
-                                ));
-        Zipped ->
-            Zipped
+                                ))
     end.
 
 zip_positionals(Model, Parent, [{rest, Key}], Vals0) ->
@@ -416,9 +415,9 @@ zip_positionals(Model, Parent, [{_Position, Key}|T1], [{positional, Val}|T2]) ->
             throw(Err)
     end;
 zip_positionals(_, _, [], [{positional, Val}|_]) ->
-    {error, overflow, Val};
+    throw({overflow, Val});
 zip_positionals(_, _, [_|_], []) ->
-    {error, underflow};
+    throw(underflow);
 zip_positionals(_, _, [], []) ->
     #{}.
 
