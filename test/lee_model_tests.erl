@@ -23,12 +23,12 @@ names(_) ->
 
 -define(metamodels, lee:base_metamodel(), lee_metatype:create(?MODULE)).
 
--define(model(Attr), #{ foo => ?moc(Attr#{key => [foo]})
+-define(model(Attr), #{ foo => ?moc(begin Attr end#{key => [foo]})
                       , bar =>
-                            #{ bar => ?moc(Attr#{key => [bar, bar]}, #{})
+                            #{ bar => ?moc(begin Attr end#{key => [bar, bar]}, #{})
                              }
-                      , baz => ?moc( Attr#{key => [baz]}
-                                   , #{quux => ?moc(Attr#{key => [baz, ?children, quux]}, #{})}
+                      , baz => ?moc( begin Attr end#{key => [baz]}
+                                   , #{quux => ?moc(begin Attr end#{key => [baz, ?children, quux]}, #{})}
                                    )
                       }).
 
@@ -130,7 +130,7 @@ mk_metatype_index_test() ->
                 , t2 =>
                       ordsets:from_list([[quux]])
                 },
-    Model0 = ?model(#{}) #{quux => {[t2], #{}}},
+    Model0 = begin ?model(#{}) end #{quux => {[t2], #{}}},
     {ok, Model} = lee_model:compile([?metamodels], [Model0]),
     ?assertEqual( Expected
                 , Model#model.meta_class_idx
