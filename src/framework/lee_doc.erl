@@ -1,7 +1,7 @@
 %% @doc Utilities for extracting documentation from the model
 -module(lee_doc).
 
--export([make_docs/2, get_description/2, get_oneliner/2]).
+-export([make_docs/2, get_description/2, get_oneliner/3]).
 -export([texinfo/3]).
 
 -export([documented/0]).
@@ -21,6 +21,7 @@
         #{ output_dir  := file:filename()
          , extension   => string()
          , formatter   := formatter()
+         , metatypes   := [lee:metatype()] | all
          , _           => _
          }.
 
@@ -45,10 +46,10 @@ texinfo(Options, FD, Doclet) ->
             P(["@section ", texi_key(RelKey), $\n]);
         #doclet{mt = value, tag = see_also, data = #doc_xref{mt = MT, key = Key}} ->
             P(["\n@xref{", texi_key([MT | Key]), "}\n"]);
-        #doclet{mt = value, tag = oneliner, data = Oneliner} ->
-            io:format(FD, "@cindex ~s\n~s\n\n", [Oneliner, Oneliner]);
+        #doclet{mt = MT, tag = oneliner, data = Oneliner} ->
+            io:format(FD, "@cindex ~s (~p)\n~s\n\n", [Oneliner, MT, Oneliner]);
         #doclet{mt = value, tag = doc, data = Doc} ->
-            io:put_chars(FD, [Doc, "\n"]);
+            P([Doc, "\n"]);
         #doclet{mt = value, tag = default, data = #doc_xref{mt = MT, key = Key}} ->
             P([ "@b{Default value}: "
               , "@xref{", texi_key([MT| Key]), "}\n\n"
@@ -64,12 +65,8 @@ texinfo(Options, FD, Doclet) ->
               , "\n@end verbatim\n@end example\n"
               ]);
         %% Map:
-        #doclet{mt = map, tag = map, key = Key, data = Data} ->
-            KeyStr = texi_key([map | Key]),
-            P([ "@node ", KeyStr, $\n
-              , "@section ", KeyStr, $\n
-              , "@lowersections\n"
-              ]),
+        #doclet{mt = map, tag = map, data = Data} ->
+            P(["@heading Children\n@lowersections\n"]),
             texinfo(Options, FD, Data),
             P("@raisesections\n");
         #doclet{mt = map, tag = key_elements, data = KeyElems} ->
@@ -84,9 +81,9 @@ texinfo(Options, FD, Doclet) ->
         #doclet{mt = cli_action, tag = cli_action, key = Key, data = [Header | CliScope]} ->
             #doclet{mt = cli_action, tag = cli_action_name, data = Action} = Header,
             P([ "@node CLI Action @@", Action, $\n
+              , "@anchor{", texi_key([cli_action | Key]), "}\n"
               , "@section @command{@@", Action, "}, CLI Action\n"
               , "@findex @@", Action, $\n
-              , "@anchor{", texi_key([cli_action | Key]), "}"
               ]),
             texinfo(Options, FD, CliScope);
         %% CLI named parameters:
@@ -96,9 +93,10 @@ texinfo(Options, FD, Doclet) ->
             P("@end ftable\n");
         #doclet{mt = cli_param, tag = cli_param, key = Key, data = Data} ->
             [#doclet{tag = cli_param_name, data = Names} | Rest] = Data,
+            P(["\n@anchor{", texi_key([cli_param | Key]), "}"]),
             P("@item "),
-            [io:put_chars(FD, ["@option{", I, "} "]) || I <- Names],
-            io:put_chars(FD, ["\n@anchor{", texi_key([cli_param | Key]), "}"]),
+            [P(["@option{", I, "} "]) || I <- Names],
+            P("\n"),
             texinfo(Options, FD, Rest);
         %% CLI positional arguments:
         #doclet{tag = cli_positionals, data = Data} ->
@@ -109,17 +107,28 @@ texinfo(Options, FD, Doclet) ->
             P(["@item\n@anchor{", texi_key([cli_positional | Key]), "}"]),
             texinfo(Options, FD, Data);
         #doclet{mt = cli_positional, tag = rest, data = Data, key = Key} ->
-            P([ "@heading The rest of positional arguments\n"
-              , "@anchor{", texi_key([cli_positional | Key]), "}"
+            P([ "@anchor{", texi_key([cli_positional | Key]), "}\n"
+              , "@heading The rest of positional arguments\n"
               ]),
-            texinfo(Options, FD, Data)
+            texinfo(Options, FD, Data);
+        %% OS Environment variables
+        #doclet{mt = os_env, tag = container, data = Data} ->
+            P(["@vtable @var\n"]),
+            texinfo(Options, FD, Data),
+            P(["@end vtable\n"]);
+        #doclet{mt = os_env, tag = os_env, data = Data} ->
+            texinfo(Options, FD, Data);
+        #doclet{mt = os_env, tag = var_name, key = Key, data = Name} ->
+            P([ "@anchor{", texi_key([os_env | Key]), "}\n"
+              , "@item @env{", Name, "}\n"
+              ])
     end.
 
 -spec make_docs(lee:model(), options()) -> [file:filename_all()].
-make_docs(Model, Options = #{formatter := F}) ->
+make_docs(Model, Options = #{formatter := F, metatypes := Metatypes}) ->
     Dir = maps:get(output_dir, Options, "lee_doc"),
     Extension = maps:get(extension, Options, ""),
-    MTs = case maps:get(metatypes, Options, all) of
+    MTs = case Metatypes of
               all ->
                   lee_model:all_metatypes(Model);
               L when is_list(L) ->
@@ -148,11 +157,11 @@ get_description(Model, Key) ->
 
 %% @doc Return a list with single element containing the oneliner, or
 %% empty list
--spec get_oneliner(lee:model(), lee:model_key()) -> [doclet()].
-get_oneliner(Model, Key) ->
+-spec get_oneliner(atom(), lee:model(), lee:model_key()) -> [doclet()].
+get_oneliner(MT, Model, Key) ->
     #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
     case Attrs of
-        #{oneliner := Doc} -> [#doclet{mt = value, tag = oneliner, data = Doc}];
+        #{oneliner := Doc} -> [#doclet{mt = MT, tag = oneliner, data = Doc}];
         #{} -> []
     end.
 

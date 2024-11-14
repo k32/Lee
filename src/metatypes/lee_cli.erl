@@ -116,7 +116,7 @@
 
 %% behavior callbacks
 -export([ create/1, names/1, metaparams/1
-        , description/3
+        , description/3, doc_refer/4
         , meta_validate/2, meta_validate_node/4
         , read_patch/2
         ]).
@@ -247,6 +247,12 @@ read_patch(cli_action, Model) ->
     end;
 read_patch(_, _) ->
     {ok, 0, []}.
+
+%% @private
+doc_refer(?chapter_id, _Model, _Options, Key) ->
+    [#doclet{mt = value, tag = see_also, data = #doc_xref{mt = ?chapter_id, key = Key}}];
+doc_refer(_, _, _, _) ->
+    [].
 
 %% @private
 description(?chapter_id, Model, Options) ->
@@ -511,7 +517,8 @@ make_scope_docs(_Options, Model, {ScopeName, Scope}) ->
             #doclet{tag = cli_global_scope, data = Data};
         _ ->
             Header = #doclet{mt = cli_action, tag = cli_action_name, data = ScopeName},
-            #doclet{mt = cli_action, tag = cli_action, key = Parent, data = [Header | Data]}
+            Oneliner = lee_doc:get_oneliner(cli, Model, Parent),
+            #doclet{mt = cli_action, tag = cli_action, key = Parent, data = [Header, Oneliner | Data]}
     end.
 
 document_positional_arguments(Model, Positionals) ->
@@ -543,7 +550,7 @@ merge_operands(Model, Merged) ->
     [#doclet{mt = cli_param, tag = cli_param, key = K, data = Data} | merge_operands(Model, Rest)].
 
 longdoc(Model, Key) ->
-    lee_doc:get_oneliner(Model, Key) ++ lee_doc:get_description(Model, Key) ++
+    lee_doc:get_oneliner(cli, Model, Key) ++ lee_doc:get_description(Model, Key) ++
     lee_value:doc_default(Model, Key) ++ lee_value:doc_type(Model, Key).
 
 pretty_print_operand(Short) when is_integer(Short) ->

@@ -108,10 +108,10 @@ meta_validate_node(value, Model, _Key, #mnode{metaparams = Attrs}) ->
     check_type_and_default(Model, Attrs).
 
 %% @private
-description(value, Model, _Options) ->
+description(value, Model, Options) ->
     [{[], Global} | Rest] = lists:sort(maps:to_list(lee_model:fold(fun mk_doc_tree/4, #{}, {false, []}, Model))),
-    mk_doc(Model, [], Global) ++
-        [document_map(Model, Parent, Children)
+    mk_doc(Options, Model, [], Global) ++
+        [document_map(Options, Model, Parent, Children)
          || {Parent, Children} <- Rest].
 
 %%================================================================================
@@ -165,31 +165,31 @@ mk_doc_tree(Key, #mnode{metatypes = MTs}, Acc, {ParentUndocumented, Parent}) ->
             {Acc, {ParentUndocumented, Parent}}
     end.
 
-document_value(Model, ParentKey, Key) ->
+document_value(Options, Model, ParentKey, Key) ->
     #mnode{metatypes = MTs} = lee_model:get(Key, Model),
     SeeAlso = lists:flatmap(fun(value) -> [];
-                               (MT)    -> [#doclet{mt = value, tag = see_also, data = #doc_xref{mt = MT, key = Key}}]
+                               (MT)    -> lee_metatype:doc_refer(MT, Model, Options, Key)
                             end,
                             MTs),
     Data = [#doclet{mt = value, tag = value_key, data = Key -- ParentKey}] ++
-           lee_doc:get_oneliner(Model, Key) ++
+           lee_doc:get_oneliner(value, Model, Key) ++
            lee_doc:get_description(Model, Key) ++
            doc_type(Model, Key) ++
            doc_default(Model, Key) ++
            SeeAlso,
     #doclet{mt = value, tag = value, key = Key, data = Data}.
 
-mk_doc(Model, Parent, Keys) ->
-    [document_value(Model, Parent ++ [{}], Key) || Key <- Keys].
+mk_doc(Options, Model, Parent, Keys) ->
+    [document_value(Options, Model, Parent ++ [{}], Key) || Key <- Keys].
 
-document_map(Model, Key, Children) ->
+document_map(Options, Model, Key, Children) ->
     #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
     Data = [#doclet{mt = value, tag = value_key, data = Key}] ++
-           lee_doc:get_oneliner(Model, Key) ++
+           lee_doc:get_oneliner(value, Model, Key) ++
            lee_doc:get_description(Model, Key) ++
            document_map_key_elems(Key, Attrs) ++
-           mk_doc(Model, Key, Children),
-    #doclet{mt = map, tag = map, key = Key, data = Data}.
+           [#doclet{mt = map, tag = map, data = mk_doc(Options, Model, Key, Children)}],
+    #doclet{mt = value, tag = value, key = Key, data = Data}.
 
 document_map_key_elems(Key, Attrs) ->
     case ?m_attr(map, key_elements, Attrs, []) of

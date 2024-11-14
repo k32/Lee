@@ -11,7 +11,10 @@
 -behavior(lee_metatype).
 
 -export([variable_name/2]).
--export([names/1, metaparams/1, create/1, read_patch/2, read_to/2]).
+-export([ create/1, names/1, metaparams/1
+        , description/3, doc_refer/4
+        , read_patch/2, read_to/2
+        ]).
 
 -include("lee.hrl").
 
@@ -42,6 +45,26 @@ names(_) ->
 %% @private
 metaparams(?metatype) ->
     [{optional, os_env, typerefl:printable_latin1_list()}].
+
+doc_refer(os_env, _Model, _Options, Key) ->
+    [#doclet{mt = value, tag = see_also, data = #doc_xref{mt = os_env, key = Key}}].
+
+%% @private
+description(os_env, Model, Options) ->
+    case lee_model:get_metatype_index(os_env, Model) of
+        [] ->
+            [];
+        Keys ->
+            L = [begin
+                     Name = variable_name(Key, Model),
+                     Data = [ #doclet{mt = os_env, tag = var_name, key = Key, data = Name}
+                            , lee_doc:get_oneliner(os_env, Model, Key)
+                            | lee_metatype:doc_refer(value, Model, Options, Key)
+                            ],
+                     #doclet{mt = os_env, tag = os_env, data = Data}
+                 end || Key <- Keys],
+            [#doclet{mt = os_env, tag = container, data = L}]
+    end.
 
 %% @doc Make a patch from OS environment variables
 %% @throws {error, string()}
