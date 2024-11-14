@@ -191,8 +191,8 @@ meta_validate_map_test() ->
                        #{key_elements => [[bar]]},
                        #{foo => {[value], #{}}}
                       }},
-    ?assertMatch( {error, [ "[foo]: missing key element [bar]"
-                          , "[foo,{},foo]: Metaparameters of value are invalid." ++ _
+    ?assertMatch( {error, [ "[foo,{},foo]: Metaparameters of value are invalid." ++ _
+                          , "[foo]: missing key element [bar]"
                           ]}
                 , compile(Model4)
                 ),
@@ -299,6 +299,9 @@ overlay_test() ->
     ok.
 
 compile(Model) ->
-    lee_model:compile( [lee:base_metamodel()]
-                     , [Model]
-                     ).
+    case lee_model:compile([lee:base_metamodel()], [Model]) of
+        Ok = {ok, _} ->
+            Ok;
+        {error, Errs} ->
+            {error, lists:sort(Errs)}
+    end.
