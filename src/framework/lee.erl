@@ -13,7 +13,7 @@
         , get_model/1
         ]).
 
--export_type([node_id/0, metatype/0, type/0, mnode/0, model/0,
+-export_type([namespace/0, node_id/0, metatype/0, type/0, mnode/0, model/0,
               lee_module/0, cooked_module/0, properties/0, data/0, patch/0, patch_result/0,
               validate_result/0
              ]).

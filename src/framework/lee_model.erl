@@ -279,7 +279,7 @@ do_map_vals(Fun, Model, Parent) ->
 compile_module(MLookup, Module) when is_map(Module) ->
     Fun = fun(Key, MNode = #mnode{metaparams = MPs0, metatypes = MTs}, Acc) ->
                   MPs = lists:foldl( fun(MT, Params) ->
-                                             #{MT := MTMod} = MLookup,
+                                             MTMod = maps:get(MT, MLookup),
                                              lee_metatype:pre_compile(MT, MTMod, Params)
                                      end
                                    , MPs0

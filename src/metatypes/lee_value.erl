@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2024 k32 All Rights Reserved.
+%% Copyright (c) 2022-2025 k32 All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 
 %% behavior callbacks:
 -export([names/1, metaparams/1, pre_compile/2, meta_validate_node/4, validate_node/5,
-         description/3]).
+         description/3, doc_refer/4]).
 
 -include("lee.hrl").
 
@@ -113,6 +113,11 @@ description(value, Model, Options) ->
     mk_doc(Options, Model, [], Global) ++
         [document_map(Options, Model, Parent, Children)
          || {Parent, Children} <- Rest].
+
+doc_refer(MT, _Model, _Options, Key) when MT =:= value; MT =:= map ->
+  [#doclet{mt = value, tag = see_also, data = #doc_xref{mt = value, key = Key}}];
+doc_refer(_, _Model, _Options, _Key) ->
+  [].
 
 %%================================================================================
 %% Internal functions
