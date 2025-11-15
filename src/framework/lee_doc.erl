@@ -44,12 +44,12 @@ texinfo(Options, FD, Doclet) ->
             texinfo(Options, FD, Data);
         #doclet{mt = value, tag = value_key, data = RelKey} ->
             P(["@section ", texi_key(RelKey), $\n]);
-        #doclet{tag = see_also, data = #doc_xref{mt = MT, key = Key}} ->
+        #doclet{mt = value, tag = see_also, data = #doc_xref{mt = MT, key = Key}} ->
             P(["\n@xref{", texi_key([MT | Key]), "}\n"]);
         #doclet{mt = MT, tag = oneliner, data = Oneliner} ->
             io:format(FD, "@cindex ~s (~p)\n~s\n\n", [Oneliner, MT, Oneliner]);
         #doclet{mt = value, tag = doc, data = Doc} ->
-            P([Doc, "\n"]);
+            P([Doc, "\n\n"]);
         #doclet{mt = value, tag = default, data = #doc_xref{mt = MT, key = Key}} ->
             P([ "@b{Default value}: "
               , "@xref{", texi_key([MT| Key]), "}\n\n"
@@ -80,7 +80,7 @@ texinfo(Options, FD, Doclet) ->
             texinfo(Options, FD, CliScope);
         #doclet{mt = cli_action, tag = cli_action, key = Key, data = [Header | CliScope]} ->
             #doclet{mt = cli_action, tag = cli_action_name, data = Action} = Header,
-            P([ "@node CLI Action @@", Action, $\n
+            P([ "@node @@", Action, " CLI Action\n"
               , "@anchor{", texi_key([cli_action | Key]), "}\n"
               , "@section @command{@@", Action, "}, CLI Action\n"
               , "@findex @@", Action, $\n
