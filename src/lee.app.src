@@ -3,7 +3,7 @@
  [{description, "Simple data modelling DSL"},
   {vsn, "0.1.0"},
   {registered, []},
-  {applications, [kernel, stdlib, mnesia, typerefl, xmerl]},
+  {applications, [kernel, stdlib, mnesia, typerefl]},
   {env,[]},
   {modules, []},
 
