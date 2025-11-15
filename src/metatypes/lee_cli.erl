@@ -132,6 +132,7 @@
 -define(cli_opts_key, [?MODULE, cli_opts]).
 -define(prio_key, [?MODULE, priority]).
 -define(index_key, [?MODULE, index]).
+-define(allow_unknown, [?MODULE, allow_unknown]).
 -define(chapter_id, cli_param).
 
 %%====================================================================
@@ -206,6 +207,7 @@ read_to(Model, Data, Args) ->
 create(Attrs) ->
     [ {?cli_opts_key, maps:get(cli_opts, Attrs, [])}
     , {?prio_key, maps:get(priority, Attrs, 100)}
+    , {?allow_unknown, maps:get(allow_unknown, Attrs, false)}
     ].
 
 %% @private
@@ -347,8 +349,13 @@ parse_command(Model, Scopes, [{command, Cmd} | Rest]) ->
             Patch = parse_args(Model, SC, Rest),
             lee_lib:make_nested_patch(Model, Parent, Patch);
         undefined ->
-            ErrorMsg = lee_lib:format("Unknown CLI command ~s", [Cmd]),
-            throw(ErrorMsg)
+            case allow_unknown(Model) of
+                true ->
+                    [];
+                false ->
+                    ErrorMsg = lee_lib:format("Unknown CLI command ~s", [Cmd]),
+                    throw(ErrorMsg)
+            end
     end.
 
 parse_args( Model
@@ -366,10 +373,15 @@ parse_args( Model
         end,
     case maps:get(Arg, ArgMap, undefined) of
         undefined ->
-            ErrorMsg = lee_lib:format( "Unexpected CLI argument -~s~s in context ~s"
-                                     , [Dash, Readable, Name]
-                                     ),
-            throw(ErrorMsg);
+            case allow_unknown(Model) of
+                false ->
+                    ErrorMsg = lee_lib:format( "Unexpected CLI argument -~s~s in context ~s"
+                                         , [Dash, Readable, Name]
+                                         ),
+                    throw(ErrorMsg);
+                true ->
+                    parse_args(Model, Scope, Rest)
+            end;
         Key ->
             RelKey = make_relative(Key, Parent),
             case lee:from_string(Model, Key, Val) of
@@ -557,3 +569,7 @@ pretty_print_operand(Short) when is_integer(Short) ->
     [$-,Short];
 pretty_print_operand(Long) ->
     "--"++Long.
+
+allow_unknown(Model) ->
+    {ok, Val} = lee_model:get_meta(?allow_unknown, Model),
+    Val.
