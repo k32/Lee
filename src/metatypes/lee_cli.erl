@@ -316,8 +316,13 @@ tokenize_(Sigil, [[Sigil|Command] | Rest]) ->
     [{command, Command} | tokenize_(Sigil, Rest)];
 tokenize_(Sigil, ["--no-" ++ Long|Rest]) ->
     [{long, Long, "false"} | tokenize_(Sigil, Rest)];
-tokenize_(Sigil, ["--" ++ Long|Rest]) ->
-    [{long, Long, "true"} | tokenize_(Sigil, Rest)];
+tokenize_(Sigil, ["--" ++ Param|Rest]) ->
+    case string:split(Param, "=", leading) of
+        [Long] ->
+            [{long, Long, "true"} | tokenize_(Sigil, Rest)];
+        [Long, Val] ->
+            [{long, Long, "true"}, {positional, Val} | tokenize_(Sigil, Rest)]
+    end;
 tokenize_(Sigil, ["+" ++ Shorts | Rest]) ->
     [{short, I, "false"} || I <- Shorts] ++ tokenize_(Sigil, Rest);
 tokenize_(Sigil, ["-" ++ [S1|Shorts] | Rest]) ->

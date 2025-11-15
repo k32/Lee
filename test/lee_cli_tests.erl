@@ -181,12 +181,19 @@ tokenize_test() ->
                     , {short, $f, "false"}
                     , {positional, "foo"}
                     ]),
-    ?tok("--no-foo +9f8 foo", [ {long, "foo", "false"}
-                              , {short, $9, "false"}
-                              , {short, $f, "false"}
-                              , {short, $8, "false"}
-                              , {positional, "foo"}
-                              ]).
+    %% Using =:
+    ?tok("--foo=bar", [{long, "foo", "bar"}]),
+    ?tok("--foo-bar=-1", [{long, "foo-bar", "-1"}]),
+    %% All together:
+    ?tok("--no-foo +9f8 foo --foo-bar=-1 -- --foo=bar",
+         [ {long, "foo", "false"}
+         , {short, $9, "false"}
+         , {short, $f, "false"}
+         , {short, $8, "false"}
+         , {positional, "foo"}
+         , {long, "foo-bar", "-1"}
+         , {positional, "--foo=bar"}
+         ]).
 
 read_cli(String) ->
     Args = string:tokens(String, " "),
