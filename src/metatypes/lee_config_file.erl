@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2024 k32 All Rights Reserved.
+%% Copyright (c) 2022-2025 k32 All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,7 +34,8 @@
 read(Model, Filename) ->
     case file:consult(Filename) of
         {ok, [Term]} ->
-            {ok, make_patch([], Model, Term, [])};
+            Keys = lee_model:get_metatype_index(value, Model),
+            lee_lib:tree_to_patch(Model, Term, Keys);
         {error, enoent} ->
             {ok, []};
         {error, Err} ->
@@ -77,11 +78,3 @@ read_patch(Tag, Model) ->
 %%================================================================================
 %% Internal functions
 %%================================================================================
-
-make_patch(Path, Model, Term, Acc0) when is_map(Term) ->
-    Fun = fun(K, V, Acc) ->
-                  make_patch(Path ++ [K], Model, V, Acc)
-          end,
-    maps:fold(Fun, Acc0, Term);
-make_patch(Path, _Model, Term, Acc) ->
-    [{set, Path, Term}|Acc].

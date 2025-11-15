@@ -2,27 +2,15 @@
 -module(lee_model).
 
 %% API exports
--export([ compile/2
+-export([ compile/2, merge/1, merge/2, clone/4
         , map_vals/2
 
-        , fold/3
-        , fold/4
-        , fold_metatypes/3
-        , fold_mt_instances/3
+        , fold/3, fold/4, fold_metatypes/3, fold_mt_instances/3
 
-        , get/2
-        , get_meta/3
-        , get_meta/2
-        , patch_meta/2
-        , all_metatypes/1
-        , get_metatype_index/2
+        , get/2, get_meta/3, get_meta/2, patch_meta/2
+        , all_metatypes/1, get_metatype_index/2
         , match/2
-        , get_model_key/1
-        , merge/1
-        , merge/2
-        , split_key/1
-        , full_split_key/1
-        , clone/4
+        , get_model_key/1, split_key/1, key_parts/1, full_split_key/1
         ]).
 
 -export_type([ metatype_index/0
@@ -175,6 +163,8 @@ fold(Fun, Acc, Scope, Model) -> %% Fold over cooked module
     lee_storage:fold(Fun, Acc, Scope, Model).
 
 %% @doc Transform instance key to model key
+%%
+%% WARNING: trailing ?children element is dropped.
 -spec get_model_key(lee:key()) -> lee:model_key().
 get_model_key([]) ->
     [];
@@ -205,6 +195,14 @@ split_key(K) ->
                                    , lists:reverse(K)
                                    ),
     {lists:reverse(Base0), lists:reverse(Req0)}.
+
+%% @doc
+%% ```
+%% [foo, ?children, bar, ?children, baz] -> [[foo], [bar], [baz]]
+%% '''
+key_parts(L) ->
+  key_parts(L, []).
+
 
 %% @doc Split a key into a list of child keys. Example:
 %% ```full_split_key([foo, ?children, bar, baz, {[1]}, quux]) -->
@@ -320,3 +318,10 @@ mk_metatype_index_(Key, #mnode{metatypes = MetaTypes}, Acc0) ->
                  end
                , Acc0
                , MetaTypes).
+
+key_parts([], Acc) ->
+  [lists:reverse(Acc)];
+key_parts([?children | Rest], Acc) ->
+  [lists:reverse(Acc) | key_parts(Rest)];
+key_parts([A|Rest], Acc) ->
+  key_parts(Rest, [A | Acc]).

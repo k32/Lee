@@ -1,7 +1,11 @@
 %% -*- mode:erlang -*-
 #{ foo => "I am foo"
  , bar => {"I am bar"}
- , baz =>
-     #{ quux => 42
-      }
+ , [baz, quux] => 42
+ , map =>
+     [ #{ foo => 2
+        , bar => bar
+        , baz => [#{foo => 22}]
+        }
+     ]
  }.
