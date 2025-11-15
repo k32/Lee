@@ -22,7 +22,7 @@
 
 %% behavior callbacks:
 -export([names/1, metaparams/1, pre_compile/2, meta_validate_node/4, validate_node/5,
-         description/3, doc_refer/4]).
+         description/3]).
 
 -include("lee.hrl").
 
@@ -96,8 +96,18 @@ validate_node(value, _Model, Data, Key, #mnode{metaparams = Attrs}) ->
 
 %% @private
 pre_compile(value, MPs = #{default_str := Str, type := Type}) ->
-    {ok, Default} = typerefl:from_string(Type, Str),
-    MPs#{default => Default};
+    {ok, DefaultFromStr} = typerefl:from_string(Type, Str),
+    case maps:is_key(default, MPs) of
+        false ->
+            MPs#{default => DefaultFromStr};
+        true ->
+            %% `default' takes precedence over `default_str'. This is
+            %% used in situations when `default' is computed
+            %% dynamically (e.g. it's a local path, local
+            %% machine-dependent variable, etc.). In this case
+            %% `default_str' is used only for documentation purposes.
+            MPs
+    end;
 pre_compile(_, MPs) ->
     MPs.
 
@@ -109,15 +119,19 @@ meta_validate_node(value, Model, _Key, #mnode{metaparams = Attrs}) ->
 
 %% @private
 description(value, Model, Options) ->
-    [{[], Global} | Rest] = lists:sort(maps:to_list(lee_model:fold(fun mk_doc_tree/4, #{}, {false, []}, Model))),
-    mk_doc(Options, Model, [], Global) ++
-        [document_map(Options, Model, Parent, Children)
-         || {Parent, Children} <- Rest].
-
-doc_refer(MT, _Model, _Options, Key) when MT =:= value; MT =:= map ->
-  [#doclet{mt = value, tag = see_also, data = #doc_xref{mt = value, key = Key}}];
-doc_refer(_, _Model, _Options, _Key) ->
-  [].
+    Scopes = lee_model:fold(
+               fun mk_doc_tree/4,
+               #{},
+               {false, []},
+               Model),
+    case lists:sort(maps:to_list(Scopes)) of
+        [{[], Global} | Maps] ->
+            Values = mk_doc(Options, Model, [], Global);
+        Maps ->
+            Values = []
+    end,
+    Values ++ [document_map(Options, Model, Parent, Children)
+               || {Parent, Children} <- Maps].
 
 %%================================================================================
 %% Internal functions
