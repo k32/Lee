@@ -3,28 +3,21 @@
 
 -include("lee.hrl").
 
--export([ term_to_string/1
-        , format/2
-        , patch_key/1
-        , make_nested_patch/3
-        , splitl/2
-        , splitr/2
+-export([ term_to_string/1, format/2
+        , patch_key/1, make_nested_patch/3
+        , tree_to_patch/3, tree_get/2
+        , splitl/2, splitr/2
         , inject_error_location/2
-        , compose_checks/1
-        , perform_checks/3
-        , run_cmd/2
-        , validate_optional_meta_attr/4
-        , validate_optional_meta_attr/3
-        , validate_meta_attr/3
-        , format_typerefl_error/1
-        , report_error/2
-        , report_warning/2
-        , collect_errors/1
+        , compose_checks/1, perform_checks/3
+        , validate_optional_meta_attr/4, validate_optional_meta_attr/3, validate_meta_attr/3
+        , format_typerefl_error/1, report_error/2, report_warning/2, collect_errors/1
         ]).
 
--export_type([check_result/0]).
+-export_type([check_result/0, conf_tree/0]).
 
 -type check_result() :: {[string()], [string()]}.
+
+-type conf_tree() :: #{atom() | [atom()] => term()}.
 
 -spec format(string(), [term()]) -> string().
 format(Fmt, Attrs) ->
@@ -62,6 +55,71 @@ make_nested_patch(Model, Parent, Children) ->
     ChildKey = list_to_tuple(lists:map(MakeChildKey, KeyElems)),
     [{set, Parent ++ [ChildKey], ?lee_map_placeholder}
     |[{set, Parent ++ [ChildKey|K], V} || {K, V} <- maps:to_list(Children)]].
+
+-spec tree_to_patch(lee:model(), conf_tree(), [lee:model_key()]) -> {ok, lee:patch()}.
+tree_to_patch(Model, Tree, MKeys) ->
+    try
+        {ok, tree_to_patch(Model, [], Tree, [lee_model:key_parts(K) || K <- MKeys])}
+    catch
+        %% TODO: better error handling
+        EC:Err:Stack ->
+            {error, {EC, Err, Stack}}
+    end.
+
+tree_to_patch(Model, Parent, Tree, MKeys) ->
+    lists:foldl(
+      fun([Key | Rest], Acc) ->
+              case tree_get(Key, Tree) of
+                  undefined ->
+                      Acc;
+                  {ok, Value} when Rest =:= [] ->
+                      [{set, Parent ++ Key, Value} | Acc];
+                  {ok, SubTrees} when is_list(SubTrees) ->
+                      lists:foldl(
+                        fun(SubTree, Acc1) ->
+                                InstKey = make_inst_key(Model, Parent, Key, SubTree),
+                                NewParent = Parent ++ Key ++ [InstKey],
+                                tree_to_patch(Model, NewParent, SubTree, [Rest]) ++ Acc1
+                        end,
+                        Acc,
+                        SubTrees)
+              end
+      end,
+      [],
+      MKeys).
+
+make_inst_key(Model, Parent, MapKey, Conf) ->
+    ModelKey = lee_model:get_model_key(Parent ++ MapKey),
+    #mnode{metaparams = MAttrs} = lee_model:get(ModelKey, Model),
+    KeyElems = [case tree_get(I, Conf) of
+                    {ok, Val} ->
+                        Val;
+                    undefined ->
+                        %% TODO: handle defaults
+                        error({ModelKey, MapKey, I})
+                end
+                || I <- ?m_attr(map, ?key_elements, MAttrs, [])],
+    list_to_tuple(KeyElems).
+
+-spec tree_get(lee:key(), conf_tree()) -> {ok, term()} | undefined.
+tree_get(Key, Conf) when is_list(Key), is_map(Conf) ->
+    case Conf of
+        #{Key := Val} ->
+            {ok, Val};
+        _ ->
+            case Key of
+                [Tail] ->
+                    case Conf of
+                        #{Tail := Val} -> {ok, Val};
+                        _              -> undefined
+                    end;
+                [Head | Tail] ->
+                    case Conf of
+                        #{Head := Children} -> tree_get(Tail, Children);
+                        _                   -> undefined
+                    end
+            end
+    end.
 
 -spec splitl(fun((A) -> boolean()), [A]) -> [[A]].
 splitl(_, []) ->
@@ -113,28 +171,6 @@ inject_error_location(Location, {Err, Warn}) ->
                   format( "~p: ~s", [Location, term_to_string(Msg)])
           end,
     {[Fun(I) || I <- Err], [Fun(I) || I <- Warn]}.
-
--spec run_cmd(string(), [string()]) -> {integer(), binary()} | {error, term()}.
-run_cmd(Cmd, Args) ->
-    case os:find_executable(Cmd) of
-        false ->
-            {error, enoent};
-        Executable ->
-            Port = erlang:open_port( {spawn_executable, Executable}
-                                   , [ exit_status
-                                     , stderr_to_stdout
-                                     , {args, Args}
-                                     ]),
-            collect_port_output(Port, [])
-    end.
-
-collect_port_output(Port, Acc) ->
-    receive
-        {Port, {exit_status, Status}} ->
-            {Status, iolist_to_binary(Acc)};
-        {Port, {data, Data}} ->
-            [Acc|Data]
-    end.
 
 -spec compose_checks([check_result()]) -> check_result().
 compose_checks(L) ->

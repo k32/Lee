@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 k32 All Rights Reserved.
+%% Copyright (c) 2022, 2025 k32 All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,18 +22,26 @@
 
 
 model() ->
-    Model0 = #{ foo => {[value],
-                         #{ type => string()
-                          }}
-              , bar => {[value],
-                         #{ type => {string()}
-                          }}
-              , baz =>
-                    #{ quux =>
-                           {[value],
-                            #{ type => integer()
-                             }}
-                     }
+    Model0 = #{ foo => {[value], #{type => string()}}
+              , bar => {[value], #{type => {string()}}}
+              , baz => #{quux => {[value], #{type => integer()}}}
+              , map =>
+                    {[map],
+                     #{ key_elements => [[foo], [bar]]
+                      },
+                     #{ foo =>
+                            {[value],
+                             #{ type => integer()
+                              , default => 1
+                              }}
+                      , bar =>
+                            {[value], #{type => atom()}}
+                      , baz =>
+                            {[map],
+                             #{},
+                             #{ foo => {[value], #{type => integer()}}
+                              }}
+                      }}
               },
     File = "test/data/conf-file-correct.eterm",
     Meta = [ lee:base_metamodel()
@@ -54,4 +62,10 @@ read_test() ->
                 ),
     ?assertMatch( 42
                 , lee:get(Model, Data, [baz, quux])
+                ),
+    ?assertMatch( 2
+                , lee:get(Model, Data, [map, {2, bar}, foo])
+                ),
+    ?assertMatch( 22
+                , lee:get(Model, Data, [map, {2, bar}, baz, {}, foo])
                 ).

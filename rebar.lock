@@ -1,12 +1,12 @@
 {"1.2.0",
 [{<<"erlang_qq">>,
   {git,"https://github.com/k32/erlang_qq.git",
-       {ref,"beab75239f799240397aee0aec30685b9bbf33bb"}},
+       {ref,"21fe46d8c03ce2f65733aadf3ad97b7bb7edea28"}},
   1},
  {<<"snabbkaffe">>,{pkg,<<"snabbkaffe">>,<<"1.0.10">>},0},
  {<<"typerefl">>,
   {git,"https://github.com/ieQu1/typerefl.git",
-       {ref,"90947e191ecc284ff12a193f9c6fe0265863c77e"}},
+       {ref,"a202b2a483745373057cc28e04f259a28c4a5c27"}},
   0}]}.
 [
 {pkg_hash,[
